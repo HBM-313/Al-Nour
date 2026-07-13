@@ -1,12 +1,14 @@
 # Migrationer
 
-**Vigtigt om drift:** Den live-database (projekt `ifwlbfuzkuidfzqsvnjz`, eu-central-1) blev
-oprindeligt oprettet med migrationen `fase0_schema` — en slankere variant end 0001–0003 i
-denne mappe (bl.a. uden title_da/sacred_representation-kolonner, og med accounts.id = auth.uid()).
+- `0001–0003`: reference-design fra planlægningen.
+- `20260713193405_fase0_aqidah_mur_haerdet.sql`: deployeret hærdning af muren.
+- `20260713_content_udvid_mod_0001.sql`: deployeret 2026-07-13 — lukkede
+  skema-driften ved at udvide live `content` mod 0001-designet (title_da/ar,
+  sacred_representation, tre aldersvarianter, declarative aqidah-constraints,
+  indexes). Verificeret med testserie (se filens header).
 
-- `0001–0003`: reference-design fra planlægningen (matcher IKKE live 1:1)
-- `20260713193405_fase0_aqidah_mur_haerdet.sql`: deployeret hærdning, matcher live
-
-Ved næste skemaændring: beslut om live skal udvides mod 0001-designet (titler,
-aldersvarianter, sacred_representation) eller om 0001–0003 skal omskrives til
-at matche live. Se handoff.md → åbne beslutninger.
+**Status:** live `content` matcher nu 0001-designet. Bevidste, blivende
+afvigelser fra 0001 andre steder: accounts.id = auth.uid() (ingen separat
+auth_user_id), profiles.avatar er text (ikke FK), characters har egen
+sacred_representation-kolonne med check <> 'light', media.type inkluderer
+'illustration'. Disse betragtes som forbedringer og skal IKKE "rettes" mod 0001.

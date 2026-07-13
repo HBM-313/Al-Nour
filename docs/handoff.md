@@ -42,7 +42,7 @@ Admin (mig) · Indholds-redaktør (kan ikke udgive aqidah) · Godkender (eneste 
 **Næste skridt:** Fase 1 — Bogstavernes Dal: alfabet-data (28 bogstaver med lyd/former), første ~50 ord, Lyt & Find-spillet.
 
 **Åbne beslutninger / noter:**
-- SKEMA-DRIFT: live-DB bruger slankere content-tabel end repo-0001 (mangler title_da, sacred_representation, aldersvarianter). Beslut: udvid live mod 0001-designet, eller tilpas repo. Se supabase/migrations/README.md.
+- ~~SKEMA-DRIFT~~ LUKKET 2026-07-13: live `content` udvidet mod 0001-designet via `20260713_content_udvid_mod_0001.sql` (title_da/ar, sacred_representation, tre aldersvarianter, aqidah-constraints, indexes). Verificeret med testserie inkl. mur-regression. Bevidste blivende afvigelser dokumenteret i supabase/migrations/README.md.
 - Valg af lyd-leverandør og illustrationsstil udestår.
 
 
