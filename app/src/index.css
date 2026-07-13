@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+/* ============================================================================
+   Nour design tokens
+   ============================================================================
+   Metafor: lys (nour) der vokser i et land. Paletten spænder fra "før lyset"
+   (dyb, rolig nattehimmel-blå) til "lyset" (varm gylden glød). Hver af de tre
+   verdener har sin egen accent. Aldersskind justerer radius/typografi-skala,
+   ikke farverne.
+   ========================================================================== */
+
+@theme {
+  /* Kernefarver */
+  --color-night: #1d2b50; /* dyb himmel før daggry — primær mørk */
+  --color-night-soft: #2e3f6e; /* lettere nat, kort/flader på mørk baggrund */
+  --color-dawn: #fdf8ee; /* varm dag-baggrund (ikke koldt hvid) */
+  --color-dawn-deep: #f4ead6; /* sektioner/kort på lys baggrund */
+  --color-nour: #f0b429; /* lyset selv: guld-amber, glød/fremskridt */
+  --color-nour-soft: #ffd98a; /* blød glød, hover/fyld */
+  --color-ink: #26314f; /* brødtekst på lys baggrund */
+  --color-ink-soft: #5a6485; /* sekundær tekst */
+
+  /* Verdens-accenter */
+  --color-valley: #4f9d69; /* Bogstavernes Dal — frodig grøn */
+  --color-mountain: #7a6fb0; /* Historiernes Bjerge — rolig, ærbødig viol */
+  --color-garden: #e0716b; /* Hverdagshaven — varm blomsterkoral */
+
+  /* Semantik */
+  --color-verified: #2e7d5b; /* kilde-verificeret-mærke (aqidah) */
+  --color-danger: #c25450;
+
+  /* Typografi */
+  --font-display: "Baloo 2", "Fredoka", system-ui, sans-serif;
+  --font-body: "Nunito", system-ui, sans-serif;
+  --font-arabic: "Noto Naskh Arabic", "Amiri", serif;
+
+  /* Radius pr. aldersskind styres via data-attribut nedenfor */
+  --radius-skin: 1.5rem;
+}
+
+/* ============================================================================
+   Aldersskind: 3-6 (soft) / 7-10 (mid) / 11-14 (teen)
+   Sættes som data-age-skin på <html> eller layout-rod. Ændrer form og skala,
+   aldrig indholdet.
+   ========================================================================== */
+
+[data-age-skin="soft"] {
+  --radius-skin: 2rem;
+  --text-scale: 1.15;
+}
+[data-age-skin="mid"] {
+  --radius-skin: 1.25rem;
+  --text-scale: 1;
+}
+[data-age-skin="teen"] {
+  --radius-skin: 0.75rem;
+  --text-scale: 0.95;
+}
+
+/* ============================================================================
+   RTL/LTR-fundament
+   ============================================================================
+   Regel fra SKILL.md: dir håndteres pr. tekstblok, ikke globalt. Dansk (LTR)
+   er dokumentets grundretning; arabisk indhold får dir="rtl" + .arabic på
+   selve blokken. Brug logiske egenskaber (ms-, me-, ps-, pe-) i alt layout
+   så komponenter virker i begge retninger uden specialtilfælde.
+   ========================================================================== */
+
+.arabic {
+  font-family: var(--font-arabic);
+  /* Arabisk skrift har brug for mere luft i linjehøjden end latinsk */
+  line-height: 1.9;
+  letter-spacing: 0;
+}
+
+/* Transskription vises altid under det arabiske, LTR, diskret */
+.transliteration {
+  font-family: var(--font-body);
+  font-style: italic;
+  color: var(--color-ink-soft);
+  direction: ltr;
+}
+
+/* Fusha vs. hverdagsarabisk — farvekode fra planen */
+.arabic-fusha {
+  color: var(--color-mountain);
+}
+.arabic-everyday {
+  color: var(--color-valley);
+}
+
+@layer base {
+  html {
+    font-family: var(--font-body);
+    background: var(--color-dawn);
+    color: var(--color-ink);
+  }
+
+  /* Børne-tilstand: fokus skal altid være tydeligt (motorik + tilgængelighed) */
+  :focus-visible {
+    outline: 3px solid var(--color-nour);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
