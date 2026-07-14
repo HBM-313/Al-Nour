@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { VocabUnit, ArabicInline } from "@/components/bilingual/BilingualText"
 import { SourceVerifiedBadge } from "@/components/SourceVerifiedBadge"
+import { ListenFindGame } from "@/features/lyt-og-find/ListenFindGame"
 import type { AgeSkin } from "@/lib/types"
 
 /**
@@ -11,6 +12,7 @@ import type { AgeSkin } from "@/lib/types"
 export default function App() {
   const [skin, setSkin] = useState<AgeSkin>("mid")
   const [showTranslit, setShowTranslit] = useState(true)
+  const [playing, setPlaying] = useState(false)
 
   return (
     <div data-age-skin={skin} className="min-h-screen px-6 py-10">
@@ -66,6 +68,25 @@ export default function App() {
               {showTranslit ? "Skjul transskription" : "Vis transskription"}
             </button>
           </div>
+        </section>
+
+        {/* Lyt & Find — første kernespil (Bogstavernes Dal, AI-tilladt) */}
+        <section className="flex flex-col items-center gap-4">
+          {playing ? (
+            <ListenFindGame
+              skin={skin}
+              level={1}
+              showTransliteration={showTranslit}
+              onExit={() => setPlaying(false)}
+            />
+          ) : (
+            <button
+              onClick={() => setPlaying(true)}
+              className="rounded-(--radius-skin) bg-valley px-8 py-4 text-lg font-bold text-white transition-transform active:scale-95"
+            >
+              Prøv Lyt &amp; Find 🔊
+            </button>
+          )}
         </section>
 
         {/* World colors */}
