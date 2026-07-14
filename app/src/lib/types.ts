@@ -140,3 +140,55 @@ export function bodyForSkin(content: Content, skin: AgeSkin): string {
       return content.body_da_deep ?? content.body_da;
   }
 }
+
+// ----------------------------------------------------------------------------
+// Fase 1: Bogstavernes Dal — letters & vocabulary (matches live schema)
+// ----------------------------------------------------------------------------
+
+export type LetterForm = "isolated" | "initial" | "medial" | "final";
+
+export interface Letter {
+  id: string;
+  position: number; // 1-28, hija'i order
+  letter: string; // base character (isolated form)
+  name_ar: string; // e.g. ألف
+  name_da: string; // e.g. Alif
+  sound_hint_da: string;
+  is_connector: boolean;
+  form_isolated: string;
+  form_initial: string;
+  form_medial: string;
+  form_final: string;
+  audio_media_id: string | null; // MUST reference human-recorded media (DB-enforced)
+  level: number;
+  created_at: string;
+}
+
+export type VocabularyRegister = "fusha" | "everyday";
+
+export type VocabularyCategory =
+  | "familie"
+  | "tal"
+  | "farver"
+  | "dyr"
+  | "mad"
+  | "krop"
+  | "hjem"
+  | "natur"
+  | "hilsner";
+
+export interface VocabularyWord {
+  id: string;
+  word_ar: string; // vocalized (with harakat)
+  transliteration: string;
+  word_da: string;
+  category: VocabularyCategory;
+  register: VocabularyRegister;
+  first_letter_id: string | null;
+  level: number;
+  image_media_id: string | null;
+  audio_media_id: string | null; // AI audio allowed (everyday vocabulary)
+  is_published: boolean;
+  created_at: string;
+  updated_at: string;
+}
