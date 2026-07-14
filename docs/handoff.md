@@ -45,7 +45,9 @@ Admin (mig) · Indholds-redaktør (kan ikke udgive aqidah) · Godkender (eneste 
 
 **LYD-REGLEN ÆNDRET (ejer-beslutning 2026-07-14) — vigtigt for alle fremtidige sessioner:** AL lyd i projektet må være TTS/AI-genereret (fx ElevenLabs, Google) eller uploadet fil, og kan frit udskiftes. DEN ENESTE UNDTAGELSE: Quran-recitation skal være menneskelig (media_ai_never_recitation består urørt). Migration `20260714_fase1_lydregel_lempet.sql` er deployeret og testet: trg_letters_audio_human er ERSTATTET af trg_letters_audio_valid (AI-lyd accepteres nu ✓, recitation-markeret lyd på bogstaver afvises ✓, ukendt medie afvises fail-closed ✓). Spillet har fået TTS-pladsholder-kæde: medie-fil → browser-TTS → tekst-fallback. Dette er en BEVIDST lempelse — skal IKKE "rettes" tilbage. NB: SKILL.md/instruktion.md i Claude-projektmappen skal opdateres tilsvarende (gammel human-only-formulering står der stadig).
 
-**Næste skridt:** AI-lydgenerering af de 28 bogstavnavne + ordforrådet (vælg leverandør: ElevenLabs eller Google TTS) og kobling via media-tabellen — så erstattes browser-TTS'en af rigtige filer.
+**Lyd-status (ejer-beslutning 2026-07-14):** Vi kører på browser-TTS forløbigt. AI-lyd (ElevenLabs/Google) og menneskelige optagelser tages i fremtiden — planlæg IKKE lyd-generering endnu. Arkitekturen er klar til skiftet: medie-fil vinder automatisk over TTS når den kobles på.
+
+**Næste skridt:** Tegn Bogstavet (tracing på canvas) — andet kernespil: følg bogstavets form med fingeren, med retning og lyd; ældre børn øver de fire former (isoleret/start/midt/slut).
 
 **Åbne beslutninger / noter:**
 - ~~SKEMA-DRIFT~~ LUKKET 2026-07-13: live `content` udvidet mod 0001-designet via `20260713_content_udvid_mod_0001.sql` (title_da/ar, sacred_representation, tre aldersvarianter, aqidah-constraints, indexes). Verificeret med testserie inkl. mur-regression. Bevidste blivende afvigelser dokumenteret i supabase/migrations/README.md.
