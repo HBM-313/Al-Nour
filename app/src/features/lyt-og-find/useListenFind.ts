@@ -18,7 +18,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { AgeSkin, Letter, VocabularyWord } from "@/lib/types";
 import { buildRound, type Question } from "./engine";
-import { canSpeak, createAudioPlayer, speak, stopSpeaking } from "./audio";
+import { canSpeak, createAudioPlayer, speak, stopSpeaking } from "@/lib/audio";
+import { saveRoundProgress } from "@/lib/progress";
 
 export type LoadState =
   | { status: "loading" }
@@ -44,16 +45,6 @@ export interface UseListenFindOptions {
 /** XP-regler (mid/teen): fuldt point ved første forsøg, halvt ellers. */
 const XP_FIRST_TRY = 10;
 const XP_RETRY = 5;
-
-function dayKey(d: Date): string {
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-}
-
-function isYesterday(prev: Date, now: Date): boolean {
-  const y = new Date(now);
-  y.setDate(now.getDate() - 1);
-  return dayKey(prev) === dayKey(y);
-}
 
 export function useListenFind(options: UseListenFindOptions) {
   const { skin, level, profileId, lessonId } = options;
@@ -253,52 +244,10 @@ export function useListenFind(options: UseListenFindOptions) {
 
     let cancelled = false;
 
-    async function save() {
-      setSaveState("saving");
-
-      const existing = await supabase
-        .from("progress")
-        .select("xp, streak_count, last_completed_at")
-        .eq("profile_id", profileId)
-        .eq("lesson_id", lessonId)
-        .maybeSingle();
-
-      if (cancelled) return;
-      if (existing.error) {
-        setSaveState("error");
-        return;
-      }
-
-      const now = new Date();
-      const prev = existing.data;
-      const prevDate = prev?.last_completed_at
-        ? new Date(prev.last_completed_at)
-        : null;
-
-      // Dags-streak: samme dag → uændret; i går → +1; ellers → 1.
-      let streak = 1;
-      if (prevDate && prev) {
-        if (dayKey(prevDate) === dayKey(now)) streak = prev.streak_count;
-        else if (isYesterday(prevDate, now)) streak = prev.streak_count + 1;
-      }
-
-      const { error } = await supabase.from("progress").upsert(
-        {
-          profile_id: profileId,
-          lesson_id: lessonId,
-          status: "completed",
-          xp: (prev?.xp ?? 0) + xp,
-          streak_count: streak,
-          last_completed_at: now.toISOString(),
-        },
-        { onConflict: "profile_id,lesson_id" },
-      );
-
-      if (cancelled) return;
-      setSaveState(error ? "error" : "saved");
-    }
-
-    void save();
+    setSaveState("saving");
+    void saveRoundProgress(profileId, lessonId, xp).then(({ ok }) => {
+      if (!cancelled) setSaveState(ok ? "saved" : "error");
+    });
     return () => {
       cancelled = true;
     };

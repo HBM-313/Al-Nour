@@ -2,6 +2,7 @@ import { useState } from "react"
 import { VocabUnit, ArabicInline } from "@/components/bilingual/BilingualText"
 import { SourceVerifiedBadge } from "@/components/SourceVerifiedBadge"
 import { ListenFindGame } from "@/features/lyt-og-find/ListenFindGame"
+import { TegnBogstavetGame } from "@/features/tegn-bogstavet/TegnBogstavetGame"
 import type { AgeSkin } from "@/lib/types"
 
 /**
@@ -12,7 +13,7 @@ import type { AgeSkin } from "@/lib/types"
 export default function App() {
   const [skin, setSkin] = useState<AgeSkin>("mid")
   const [showTranslit, setShowTranslit] = useState(true)
-  const [playing, setPlaying] = useState(false)
+  const [playing, setPlaying] = useState<"none" | "lyt" | "tegn">("none")
 
   return (
     <div data-age-skin={skin} className="min-h-screen px-6 py-10">
@@ -70,22 +71,32 @@ export default function App() {
           </div>
         </section>
 
-        {/* Lyt & Find — første kernespil (Bogstavernes Dal, AI-tilladt) */}
+        {/* Kernespil (Bogstavernes Dal, AI-tilladt) */}
         <section className="flex flex-col items-center gap-4">
-          {playing ? (
+          {playing === "lyt" ? (
             <ListenFindGame
               skin={skin}
               level={1}
               showTransliteration={showTranslit}
-              onExit={() => setPlaying(false)}
+              onExit={() => setPlaying("none")}
             />
+          ) : playing === "tegn" ? (
+            <TegnBogstavetGame skin={skin} onExit={() => setPlaying("none")} />
           ) : (
-            <button
-              onClick={() => setPlaying(true)}
-              className="rounded-(--radius-skin) bg-valley px-8 py-4 text-lg font-bold text-white transition-transform active:scale-95"
-            >
-              Prøv Lyt &amp; Find 🔊
-            </button>
+            <div className="flex flex-wrap justify-center gap-3">
+              <button
+                onClick={() => setPlaying("lyt")}
+                className="rounded-(--radius-skin) bg-valley px-8 py-4 text-lg font-bold text-white transition-transform active:scale-95"
+              >
+                Prøv Lyt &amp; Find 🔊
+              </button>
+              <button
+                onClick={() => setPlaying("tegn")}
+                className="rounded-(--radius-skin) bg-night px-8 py-4 text-lg font-bold text-white transition-transform active:scale-95"
+              >
+                Prøv Tegn Bogstavet ✍️
+              </button>
+            </div>
           )}
         </section>
 
