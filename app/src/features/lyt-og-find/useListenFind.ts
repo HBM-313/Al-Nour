@@ -18,7 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { AgeSkin, Letter, VocabularyWord } from "@/lib/types";
 import { buildRound, type Question } from "./engine";
-import { createAudioPlayer } from "./audio";
+import { canSpeak, createAudioPlayer, speak, stopSpeaking } from "./audio";
 
 export type LoadState =
   | { status: "loading" }
@@ -68,6 +68,11 @@ export function useListenFind(options: UseListenFindOptions) {
   const [answered, setAnswered] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [audioAvailable, setAudioAvailable] = useState(true);
+  // TTS-pladsholder: sættes til true hvis browseren beviseligt ikke kan
+  // afspille arabisk tale (fx ingen arabisk stemme) — så viser UI'et
+  // tekst-fallback i stedet for stilhed. Kun sat ved BRUGER-udløst forsøg,
+  // da autoplay-blokering ellers ville give falsk negativ.
+  const [ttsUnavailable, setTtsUnavailable] = useState(!canSpeak());
 
   const player = useMemo(() => createAudioPlayer(), []);
   const dataRef = useRef<{
@@ -164,17 +169,35 @@ export function useListenFind(options: UseListenFindOptions) {
 
   const current: Question | null = questions[index] ?? null;
 
-  const playPrompt = useCallback(() => {
-    if (current?.audioUrl) void player.play(current.audioUrl);
-  }, [current, player]);
+  /**
+   * Afspil prompten. Prioritering (lyd-reglen 2026-07-14):
+   *   1. medie-fil fra media-tabellen (human eller AI — frit udskiftelig)
+   *   2. browser-TTS som pladsholder
+   *   3. (UI'et viser tekst-fallback hvis begge mangler/fejler)
+   * fromUser=true når barnet selv trykkede — kun dér må en TTS-fejl
+   * konkludere "TTS virker ikke her" (autoplay-blokering er ikke en fejl).
+   */
+  const playPrompt = useCallback(
+    async (fromUser = false) => {
+      if (!current) return;
+      if (current.audioUrl) {
+        void player.play(current.audioUrl);
+        return;
+      }
+      if (current.ttsText && !ttsUnavailable) {
+        const ok = await speak(current.ttsText);
+        if (!ok && fromUser) setTtsUnavailable(true);
+      }
+    },
+    [current, player, ttsUnavailable],
+  );
 
   // Afspil prompten automatisk ved nyt spørgsmål (best effort; autoplay kan
   // være blokeret indtil første tryk — lyd-knappen findes altid).
   useEffect(() => {
-    if (phase === "playing" && current?.audioUrl) {
-      void player.play(current.audioUrl);
-    }
-  }, [phase, current, player]);
+    if (phase === "playing") void playPrompt(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, current]);
 
   /**
    * Svar på et valg.
@@ -210,6 +233,7 @@ export function useListenFind(options: UseListenFindOptions) {
 
   const next = useCallback(() => {
     player.stop();
+    stopSpeaking();
     if (index + 1 >= questions.length) {
       setPhase("done");
     } else {
@@ -292,6 +316,7 @@ export function useListenFind(options: UseListenFindOptions) {
     correctCount,
     saveState,
     audioAvailable,
+    ttsUnavailable,
     playPrompt,
     answer,
     next,

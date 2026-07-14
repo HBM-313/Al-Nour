@@ -31,12 +31,19 @@ export interface Question {
   /** Dansk instruktion, læses op af UI-tekst (dansk bærer instruktionen) */
   instructionDa: string;
   /**
-   * Lyd-URL fra media-tabellen. For bogstaver garanterer DB-triggeren
-   * trg_letters_audio_human at denne er menneskeligt optaget.
-   * null = lyd ikke optaget endnu → UI viser tekst-fallback.
+   * Lyd-URL fra media-tabellen (menneskelig ELLER AI-genereret fil —
+   * begge er tilladt; kun recitation er human-only, og recitation kan
+   * pr. DB-trigger aldrig kobles på bogstaver).
+   * null = ingen fil endnu → UI bruger ttsText, ellers tekst-fallback.
    */
   audioUrl: string | null;
-  /** Tekst-fallback når lyd mangler (midlertidig indtil optagelser findes) */
+  /**
+   * Arabisk tekst til browser-TTS når ingen medie-fil findes endnu
+   * (lyd-reglen 2026-07-14: TTS/AI tilladt overalt undtagen recitation).
+   * Medie-fil vinder altid over TTS.
+   */
+  ttsText: string | null;
+  /** Tekst-fallback når hverken lyd eller TTS virker */
   fallback: { titleDa: string; hintDa: string | null };
   register: "fusha" | "everyday";
   /** Kun sat for kind='letter_form' */
@@ -161,9 +168,9 @@ function letterAudio(
   l: Letter,
   audioUrlById: ReadonlyMap<string, string>,
 ): string | null {
-  // DB-garanti: hvis audio_media_id findes, er mediet menneskeligt optaget
-  // (trg_letters_audio_human, fail-closed). Vi tilføjer ALDRIG syntetisk
-  // fallback-lyd for bogstaver her — kerne-fusha er human-only (lyd-reglen).
+  // audio_media_id må pege på human- eller AI-genereret fil (lyd-reglen
+  // 2026-07-14). DB-triggeren trg_letters_audio_valid garanterer at mediet
+  // findes og aldrig er recitation-markeret (Quran-muren).
   return l.audio_media_id
     ? (audioUrlById.get(l.audio_media_id) ?? null)
     : null;
@@ -186,6 +193,7 @@ function buildLetterQuestion(
     kind: "letter",
     instructionDa: "Lyt … og find bogstavet!",
     audioUrl: letterAudio(target, audioUrlById),
+    ttsText: target.name_ar,
     fallback: { titleDa: target.name_da, hintDa: target.sound_hint_da },
     register: "fusha",
     formPosition: null,
@@ -226,6 +234,7 @@ function buildWordQuestion(
     audioUrl: target.audio_media_id
       ? (audioUrlById.get(target.audio_media_id) ?? null)
       : null,
+    ttsText: target.word_ar,
     fallback: { titleDa: `“${target.word_da}” på arabisk`, hintDa: null },
     register: target.register,
     formPosition: null,
@@ -247,6 +256,7 @@ function buildLetterFormQuestion(
     kind: "letter_form",
     instructionDa: `Find ${target.name_da}, som det ser ud ${FORM_LABEL_DA[form]}`,
     audioUrl: letterAudio(target, audioUrlById),
+    ttsText: target.name_ar,
     fallback: { titleDa: target.name_da, hintDa: target.sound_hint_da },
     register: "fusha",
     formPosition: form,

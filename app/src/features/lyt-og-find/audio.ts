@@ -1,11 +1,15 @@
 /**
  * Lydafspilning for Lyt & Find.
  *
- * LYD-REGLEN (SKILL.md + trg_letters_audio_human i DB):
- * Bogstavlyd er kerne-fusha og SKAL være menneskeligt optaget. Derfor findes
- * der bevidst INGEN syntetisk fallback (speechSynthesis/TTS) i dette modul —
- * mangler lyden, viser UI'et et tekst-fallback i stedet. AI-lyd kommer kun
- * ind via admin-medie-biblioteket for hverdagsordforråd, aldrig herfra.
+ * LYD-REGLEN (ejer-beslutning 2026-07-14):
+ * Al lyd må være TTS/AI-genereret eller uploadet fil og kan frit udskiftes
+ * (fx ElevenLabs, Google, egen optagelse). DEN ENESTE UNDTAGELSE er
+ * Quran-recitation, som skal være menneskelig — håndhævet i DB af
+ * media_ai_never_recitation og trg_letters_audio_valid.
+ *
+ * Prioritering her: medie-fil fra media-tabellen vinder ALTID over browser-
+ * TTS. TTS er kun pladsholder indtil en fil kobles på — så bliver lyden
+ * automatisk fil-drevet uden kodeændring.
  */
 
 export interface AudioPlayer {
@@ -45,4 +49,59 @@ export function createAudioPlayer(): AudioPlayer {
       }
     },
   };
+}
+
+// ----------------------------------------------------------------------------
+// Browser-TTS (pladsholder-stemme — aldrig for recitation)
+// ----------------------------------------------------------------------------
+
+export function canSpeak(): boolean {
+  return typeof window !== "undefined" && "speechSynthesis" in window;
+}
+
+/**
+ * Udtal arabisk tekst med browserens talesyntese.
+ * Løser til true hvis afspilningen faktisk startede — false ved manglende
+ * arabisk stemme, autoplay-blokering eller anden fejl, så UI'et kan falde
+ * tilbage til tekst-prompt i stedet for at efterlade barnet i stilhed.
+ */
+export function speak(text: string, lang = "ar-SA"): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (!canSpeak()) {
+      resolve(false);
+      return;
+    }
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = lang;
+      // Foretræk en installeret arabisk stemme hvis der findes en
+      const voice = window.speechSynthesis
+        .getVoices()
+        .find((v) => v.lang.toLowerCase().startsWith("ar"));
+      if (voice) u.voice = voice;
+      u.rate = 0.85; // en anelse langsommere — det er børn der lytter
+
+      let settled = false;
+      const done = (ok: boolean) => {
+        if (!settled) {
+          settled = true;
+          resolve(ok);
+        }
+      };
+      u.onstart = () => done(true);
+      u.onerror = () => done(false);
+      // Nogle browsere fyrer hverken onstart eller onerror når stemmen
+      // mangler — betragt det som fejl efter 2 sek.
+      setTimeout(() => done(false), 2000);
+
+      window.speechSynthesis.speak(u);
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
+export function stopSpeaking(): void {
+  if (canSpeak()) window.speechSynthesis.cancel();
 }

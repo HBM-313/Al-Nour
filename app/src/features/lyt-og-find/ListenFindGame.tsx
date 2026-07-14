@@ -93,7 +93,8 @@ export function ListenFindGame({
         <Prompt
           skin={skin}
           question={game.current}
-          onPlay={game.playPrompt}
+          ttsUnavailable={game.ttsUnavailable}
+          onPlay={() => void game.playPrompt(true)}
         />
         <ChoiceGrid
           skin={skin}
@@ -183,21 +184,28 @@ function ProgressDots({
 }
 
 // ----------------------------------------------------------------------------
-// Prompt: den store lyd-knap — eller ærligt tekst-fallback når lyd mangler.
-// Fallbacket bruger ALDRIG syntetisk tale for bogstaver (lyd-reglen:
-// kerne-fusha er human-only; håndhævet af trg_letters_audio_human i DB).
+// Prompt: den store lyd-knap. Lyd-kilde-prioritering (lyd-reglen 2026-07-14):
+//   medie-fil (human/AI, frit udskiftelig) → browser-TTS-pladsholder →
+//   tekst-fallback. Kun Quran-recitation er human-only (håndhævet i DB);
+//   den kan pr. trigger aldrig ende på bogstaver.
 // ----------------------------------------------------------------------------
 
 function Prompt({
   skin,
   question,
+  ttsUnavailable,
   onPlay,
 }: {
   skin: AgeSkin;
   question: Question;
+  ttsUnavailable: boolean;
   onPlay: () => void;
 }) {
-  const hasAudio = question.audioUrl !== null;
+  const usesTts =
+    question.audioUrl === null &&
+    question.ttsText !== null &&
+    !ttsUnavailable;
+  const hasAudio = question.audioUrl !== null || usesTts;
 
   return (
     <div className="flex flex-col items-center gap-3 text-center">
@@ -222,7 +230,15 @@ function Prompt({
         >
           <Volume2 className={skin === "soft" ? "size-14" : "size-9"} />
         </button>
-      ) : (
+      ) : null}
+
+      {usesTts && skin !== "soft" ? (
+        <p className="text-xs text-ink-soft">
+          Syntetisk stemme — udskiftes med rigtig lyd senere
+        </p>
+      ) : null}
+
+      {!hasAudio ? (
         <div
           className="rounded-(--radius-skin) px-5 py-4"
           style={{ background: "var(--color-dawn-deep)" }}
@@ -239,7 +255,7 @@ function Prompt({
             </p>
           ) : null}
         </div>
-      )}
+      ) : null}
 
       {question.kind === "letter_form" && question.formPosition ? (
         <p className="text-sm text-ink-soft">
