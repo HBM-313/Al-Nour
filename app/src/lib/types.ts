@@ -116,9 +116,51 @@ export interface Progress {
   status: ProgressStatus;
   xp: number;
   streak_count: number;
+  /** Næste trin (0-baseret index i lektionens lesson_steps) — "fortsæt hvor du slap" */
+  current_step: number;
   last_completed_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// ----------------------------------------------------------------------------
+// Lektions-struktur: 7 lektioner à 4 bogstaver (hija'i), trin-sekvens pr.
+// lektion med stigende sværhedsgrad. Kortets lanterner er lektioner —
+// spillene er mekanikker, ikke destinationer.
+// ----------------------------------------------------------------------------
+
+export type StepGameType = "lyt_og_find" | "tegn_bogstavet" | "match_par";
+
+export type StepDifficulty = "easy" | "mixed" | "hard";
+
+export interface LessonStep {
+  id: string;
+  lesson_id: string;
+  order_index: number;
+  game_type: StepGameType;
+  /** Vises i pusterummet mellem trin ("Mød de nye bogstaver") */
+  title_da: string;
+  /** Lektionens NYE bogstaver (letters.position, 1-28) */
+  letter_positions: number[];
+  /** true = medtag også bogstaver/ord fra tidligere lektioner (repetition) */
+  include_review: boolean;
+  difficulty: StepDifficulty;
+  /** Antal spørgsmål/bogstaver/par — fortolkes af spiltypen */
+  question_count: number;
+  /** Hvilke aldersskind trinnet gælder for */
+  skins: AgeSkin[];
+  created_at: string;
+  updated_at: string;
+}
+
+/** Trinene et givet aldersskind faktisk skal spille, i rækkefølge. */
+export function stepsForSkin(
+  steps: readonly LessonStep[],
+  skin: AgeSkin,
+): LessonStep[] {
+  return steps
+    .filter((s) => s.skins.includes(skin))
+    .sort((a, b) => a.order_index - b.order_index);
 }
 
 /** Derive the age skin from a birth year. One world, three skins. */
