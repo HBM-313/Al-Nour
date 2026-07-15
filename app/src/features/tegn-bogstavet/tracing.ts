@@ -203,12 +203,13 @@ export class TraceProgress {
 
 /** Dæknings-tærskel og pensel-tykkelse pr. aldersskind */
 export const SKIN_TUNING = {
-  soft: { threshold: 0.6, brushRadius: 26, maxOffRatio: 1 }, // kan ikke fejle
-  mid: { threshold: 0.75, brushRadius: 18, maxOffRatio: 0.5 },
-  teen: { threshold: 0.82, brushRadius: 14, maxOffRatio: 0.35 },
+  soft: { threshold: 0.62, brushRadius: 16, maxOffRatio: 1 }, // kan ikke fejle
+  mid: { threshold: 0.72, brushRadius: 11, maxOffRatio: 0.35 },
+  teen: { threshold: 0.8, brushRadius: 8, maxOffRatio: 0.22 },
 } as const;
 
-/** "Ren" streg (til XP-bonus): høj dækning og lav uden-for-andel */
+/** "Ren" streg (til XP-bonus): høj dækning og lav uden-for-andel. Påvirker
+ * KUN rosen/XP-bonussen — fuldføring af selve bogstavet kræver aldrig dette. */
 export function isCleanTrace(
   coverage: number,
   offRatio: number,

@@ -62,6 +62,7 @@ export function TraceCanvas({
     map: GlyphMap | null;
     progress: TraceProgress | null;
     paint: HTMLCanvasElement | null; // offscreen: barnets rå streger
+    layer: HTMLCanvasElement | null; // offscreen: glyf + klippet lys, sammensat her FØR den lægges på hovedcanvas
     particles: Particle[];
     drawing: boolean;
     last: { x: number; y: number } | null;
@@ -74,6 +75,7 @@ export function TraceCanvas({
     map: null,
     progress: null,
     paint: null,
+    layer: null,
     particles: [],
     drawing: false,
     last: null,
@@ -121,6 +123,11 @@ export function TraceCanvas({
     paint.height = h;
     st.paint = paint;
 
+    const layer = document.createElement("canvas");
+    layer.width = w;
+    layer.height = h;
+    st.layer = layer;
+
     // Vent på at den arabiske font faktisk er indlæst — ellers rasteriserer
     // vi en fallback-serif og dæknings-kortet passer ikke til det viste.
     void document.fonts.load(`600 80px ${ARABIC_FONT}`, glyph).then(() => {
@@ -155,42 +162,47 @@ export function TraceCanvas({
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, w, h);
 
-      if (map) {
-        // 1) Dæmpet silhuet: bogstavet "sover"
-        ctx.save();
-        ctx.font = glyphFont(ctx, glyph, w, h);
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillStyle = "rgba(120, 136, 190, 0.28)";
-        ctx.fillText(glyph, w / 2, h / 2);
+      if (map && st.layer) {
+        const lctx = st.layer.getContext("2d");
+        if (lctx) {
+          lctx.setTransform(1, 0, 0, 1, 0, 0);
+          lctx.clearRect(0, 0, w, h);
 
-        // 2) Barnets lys — klippet til glyffen: mal stregerne i en maske
-        if (st.paint) {
-          ctx.globalCompositeOperation = "source-atop";
-          // Guld-glød: paint-laget tegnes to gange, først blødt (glow)…
-          ctx.globalAlpha = 0.55;
-          ctx.filter = "blur(6px)";
-          ctx.drawImage(st.paint, 0, 0);
-          // …så skarpt ovenpå
-          ctx.filter = "none";
-          ctx.globalAlpha = 1;
-          ctx.drawImage(st.paint, 0, 0);
-        }
-        ctx.restore();
+          // 1) Dæmpet silhuet: bogstavet "sover" — tegnet på det TOMME lag,
+          // så source-atop herunder klipper mod glyffen alene, ikke mod
+          // hele canvas'et (som var buggen: klip skete tidligere direkte på
+          // hoved-canvas'et efter baggrunden allerede var fyldt).
+          lctx.font = glyphFont(lctx, glyph, w, h);
+          lctx.textAlign = "center";
+          lctx.textBaseline = "middle";
+          lctx.fillStyle = "rgba(120, 136, 190, 0.32)";
+          lctx.fillText(glyph, w / 2, h / 2);
 
-        // Færdig-tænding: hele bogstavet blusser op
-        if (st.burst > 0) {
-          ctx.save();
-          ctx.font = glyphFont(ctx, glyph, w, h);
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.shadowColor = "#ffd98a";
-          ctx.shadowBlur = 40 * st.burst;
-          ctx.fillStyle = `rgba(255, 217, 138, ${0.35 * st.burst})`;
-          ctx.fillText(glyph, w / 2, h / 2);
-          ctx.restore();
-          st.burst = Math.max(0, st.burst - 0.02);
+          // 2) Barnets lys — klippet til glyffen på DETTE lag
+          if (st.paint) {
+            lctx.globalCompositeOperation = "source-atop";
+            lctx.globalAlpha = 0.55;
+            lctx.filter = "blur(6px)";
+            lctx.drawImage(st.paint, 0, 0);
+            lctx.filter = "none";
+            lctx.globalAlpha = 1;
+            lctx.drawImage(st.paint, 0, 0);
+          }
+
+          // Færdig-tænding: hele bogstavet blusser op
+          if (st.burst > 0) {
+            lctx.globalCompositeOperation = "source-over";
+            lctx.shadowColor = "#ffd98a";
+            lctx.shadowBlur = 40 * st.burst;
+            lctx.fillStyle = `rgba(255, 217, 138, ${0.35 * st.burst})`;
+            lctx.fillText(glyph, w / 2, h / 2);
+            lctx.shadowBlur = 0;
+            st.burst = Math.max(0, st.burst - 0.02);
+          }
+          lctx.globalCompositeOperation = "source-over";
         }
+
+        ctx.drawImage(st.layer, 0, 0, w, h);
 
         // 3) Start-hint: pulserende lysprik hvor barnet bør begynde (RTL)
         if (
