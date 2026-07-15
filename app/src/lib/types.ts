@@ -186,6 +186,12 @@ export interface VocabularyWord {
   register: VocabularyRegister;
   first_letter_id: string | null;
   level: number;
+  /**
+   * Emoji der bærer ordets betydning for 3–6-skindet (ingen læsekrav).
+   * Bruges som visuel fallback indtil et rigtigt billede (image_media_id)
+   * kobles på — billedet vinder altid over emojien.
+   */
+  emoji: string | null;
   image_media_id: string | null;
   audio_media_id: string | null; // AI audio allowed (everyday vocabulary)
   is_published: boolean;

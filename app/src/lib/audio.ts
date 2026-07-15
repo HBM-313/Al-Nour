@@ -75,10 +75,12 @@ export function speak(text: string, lang = "ar-SA"): Promise<boolean> {
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
       u.lang = lang;
-      // Foretræk en installeret arabisk stemme hvis der findes en
+      // Foretræk en installeret stemme der matcher det ønskede sprog
+      // (tidligere altid arabisk — forkert når spillene siger dansk)
+      const langPrefix = lang.slice(0, 2).toLowerCase();
       const voice = window.speechSynthesis
         .getVoices()
-        .find((v) => v.lang.toLowerCase().startsWith("ar"));
+        .find((v) => v.lang.toLowerCase().startsWith(langPrefix));
       if (voice) u.voice = voice;
       u.rate = 0.85; // en anelse langsommere — det er børn der lytter
 

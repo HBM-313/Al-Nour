@@ -1,0 +1,184 @@
+/*
+ * Match-par — spil-scene-styling.
+ *
+ * Nattedal-scenen har sin egen mørke palet (bevidst: mørket ER udgangs-
+ * punktet, lyset er belønningen), men bruger Nour-tokens for guldet.
+ * Global prefers-reduced-motion-regel i index.css nulstiller alle
+ * animationer; canvas-effekterne slås fra i JS.
+ */
+
+.mp-card {
+  perspective: 700px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mp-card-inner {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transition: transform 0.45s cubic-bezier(0.2, 0.7, 0.3, 1.1);
+}
+
+/* Vend-og-find: bagsiden vises som udgangspunkt */
+.mp-flip .mp-card-inner {
+  transform: rotateY(180deg);
+}
+.mp-flip .mp-card.mp-open .mp-card-inner,
+.mp-flip .mp-card.mp-lit .mp-card-inner {
+  transform: rotateY(0deg);
+}
+
+.mp-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 14px;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.mp-front {
+  background: #16243c;
+  border: 1px solid rgba(154, 178, 214, 0.28);
+  color: #e9eef7;
+}
+
+.mp-back {
+  background: #101c31;
+  border: 1px solid rgba(154, 178, 214, 0.2);
+  color: #5f759c;
+  transform: rotateY(180deg);
+  font-size: 24px;
+}
+
+/* Valgt (soft-skind): gylden kant + glød */
+.mp-card.mp-sel .mp-front {
+  border-color: var(--color-nour);
+  box-shadow:
+    0 0 0 2px rgba(240, 180, 41, 0.55),
+    0 0 18px 2px rgba(240, 180, 41, 0.35);
+}
+
+/* Tændt lanterne: varm baggrund, glød, blid svæven */
+.mp-card.mp-lit .mp-front {
+  background: #2c2410;
+  border-color: var(--color-nour);
+  box-shadow: 0 0 16px 3px rgba(240, 180, 41, 0.5);
+  color: #ffe9b8;
+}
+.mp-card.mp-lit {
+  animation: mp-float 3.2s ease-in-out infinite;
+}
+@keyframes mp-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* Forkert par: mid/teen ryster kort, soft vipper kun blidt */
+.mp-card.mp-shake .mp-card-inner {
+  animation: mp-shake 0.3s ease;
+}
+@keyframes mp-shake {
+  0%,
+  100% {
+    transform: rotateY(0) translateX(0);
+  }
+  25% {
+    transform: rotateY(0) translateX(-5px);
+  }
+  75% {
+    transform: rotateY(0) translateX(5px);
+  }
+}
+
+.mp-card.mp-wob .mp-card-inner {
+  animation: mp-wob 0.35s ease;
+}
+@keyframes mp-wob {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  30% {
+    transform: rotate(-2.5deg);
+  }
+  70% {
+    transform: rotate(2.5deg);
+  }
+}
+
+/* Stjerner på nattehimlen */
+.mp-star {
+  position: absolute;
+  border-radius: 9999px;
+  background: #cfe3ff;
+  animation: mp-twinkle 4s ease-in-out infinite;
+}
+@keyframes mp-twinkle {
+  0%,
+  100% {
+    opacity: var(--mp-star-opacity, 0.5);
+  }
+  50% {
+    opacity: calc(var(--mp-star-opacity, 0.5) * 0.35);
+  }
+}
+
+/* Lysgnisten (lille følgesvend af rent lys — aldrig en skikkelse) */
+.mp-orb {
+  width: 26px;
+  height: 26px;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle at 40% 35%,
+    #fff6d8,
+    var(--color-nour) 55%,
+    rgba(240, 180, 41, 0.15) 75%,
+    transparent
+  );
+  animation: mp-bob 3.5s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes mp-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+.mp-orb.mp-cheer {
+  animation: mp-cheer 0.55s ease;
+}
+@keyframes mp-cheer {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.7);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Lys-måler: gyldent fyld med glød */
+.mp-meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--color-nour);
+  box-shadow: 0 0 10px 2px rgba(240, 180, 41, 0.7);
+  transition: width 0.6s ease;
+}
