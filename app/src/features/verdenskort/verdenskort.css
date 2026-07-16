@@ -1,0 +1,150 @@
+/*
+ * Verdenskortet "Landet der vågner" — scene-styling.
+ * Globale prefers-reduced-motion-regler i index.css nulstiller animationer.
+ */
+
+.vk-star {
+  animation: vk-twinkle 4s ease-in-out infinite;
+}
+@keyframes vk-twinkle {
+  0%,
+  100% {
+    opacity: var(--vk-o, 0.5);
+  }
+  50% {
+    opacity: calc(var(--vk-o, 0.5) * 0.3);
+  }
+}
+
+.vk-cloud {
+  animation: vk-drift 30s linear infinite;
+}
+.vk-cloud.vk-c2 {
+  animation-duration: 44s;
+  animation-delay: -18s;
+}
+@keyframes vk-drift {
+  0% {
+    transform: translateX(-70px);
+  }
+  100% {
+    transform: translateX(760px);
+  }
+}
+
+.vk-fly {
+  animation: vk-fly 5.5s ease-in-out infinite;
+  transition: opacity 1s ease;
+}
+@keyframes vk-fly {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(6px, -8px);
+  }
+  60% {
+    transform: translate(-5px, -14px);
+  }
+  80% {
+    transform: translate(4px, -6px);
+  }
+}
+
+.vk-node {
+  cursor: pointer;
+}
+.vk-node:focus-visible {
+  outline: 2px solid #ffd98a;
+  outline-offset: 3px;
+  border-radius: 9999px;
+}
+.vk-node .vk-disc {
+  transition:
+    fill 0.5s ease,
+    stroke 0.5s ease;
+}
+.vk-node.vk-done {
+  animation: vk-float 3.4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes vk-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+.vk-halo {
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+.vk-node.vk-done .vk-halo,
+.vk-node.vk-started .vk-halo {
+  opacity: 1;
+}
+.vk-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: vk-pulse 2s ease-out infinite;
+  opacity: 0;
+}
+.vk-node.vk-rec .vk-pulse {
+  opacity: 1;
+}
+@keyframes vk-pulse {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.8;
+  }
+  70% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.vk-orb {
+  transition: transform 1.4s cubic-bezier(0.4, 0.1, 0.2, 1);
+}
+.vk-orbcore {
+  animation: vk-bob 3.2s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes vk-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.vk-peak {
+  animation: vk-peak 5s ease-in-out infinite;
+}
+@keyframes vk-peak {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.vk-lit-path {
+  transition: stroke-dashoffset 1.3s ease;
+}
+
+.vk-toast {
+  transition: all 0.35s ease;
+}

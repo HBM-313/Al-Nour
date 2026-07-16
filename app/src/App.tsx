@@ -4,7 +4,7 @@ import { SourceVerifiedBadge } from "@/components/SourceVerifiedBadge"
 import { ListenFindGame } from "@/features/lyt-og-find/ListenFindGame"
 import { TegnBogstavetGame } from "@/features/tegn-bogstavet/TegnBogstavetGame"
 import { MatchPairsGame } from "@/features/match-par/MatchPairsGame"
-import { LessonPicker } from "@/features/lektion/LessonPicker"
+import { WorldMap } from "@/features/verdenskort/WorldMap"
 import { LessonScreen } from "@/features/lektion/LessonScreen"
 import type { AgeSkin } from "@/lib/types"
 
@@ -18,6 +18,7 @@ export default function App() {
   const [showTranslit, setShowTranslit] = useState(true)
   const [playing, setPlaying] = useState<"none" | "lyt" | "tegn" | "match">("none")
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null)
+  const [mapRefresh, setMapRefresh] = useState(0)
 
   return (
     <div data-age-skin={skin} className="min-h-screen px-6 py-10">
@@ -83,15 +84,17 @@ export default function App() {
               skin={skin}
               level={1}
               showTransliteration={showTranslit}
-              onExit={() => setActiveLessonId(null)}
+              onExit={() => {
+                setActiveLessonId(null)
+                setMapRefresh((n) => n + 1)
+              }}
             />
           ) : playing === "none" ? (
-            <>
-              <h2 className="text-lg font-bold text-night">
-                Lektioner · Bogstavernes Dal
-              </h2>
-              <LessonPicker onPick={setActiveLessonId} />
-            </>
+            <WorldMap
+              key={mapRefresh}
+              skin={skin}
+              onOpenLesson={setActiveLessonId}
+            />
           ) : null}
         </section>
 

@@ -20,6 +20,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { saveStepProgress } from "@/lib/progress";
 import {
+  getLocalProgress,
+  saveLocalStepProgress,
+} from "@/lib/localProgress";
+import {
   stepsForSkin,
   stepParamsFrom,
   type AgeSkin,
@@ -99,7 +103,8 @@ export function useLesson(options: UseLessonOptions) {
       allStepsRef.current = stepsRes.data as LessonStep[];
       setLesson(lessonRes.data as Lesson);
 
-      // Genoptag fra databasen — current_step er index i SKIND-filtreret liste
+      // Genoptag — current_step er index i SKIND-filtreret liste.
+      // Med profil: databasen. Uden: anonymt lokal-gem (gæste-tilstand).
       let resume = 0;
       if (profileId) {
         const prog = await supabase
@@ -112,6 +117,9 @@ export function useLesson(options: UseLessonOptions) {
         if (prog.data && prog.data.status === "in_progress") {
           resume = prog.data.current_step ?? 0;
         }
+      } else {
+        const local = getLocalProgress(lessonId, skin);
+        if (local && !local.completed) resume = local.current_step;
       }
 
       const skinSteps = stepsForSkin(allStepsRef.current, skin);
@@ -160,9 +168,9 @@ export function useLesson(options: UseLessonOptions) {
       setPhase(finished ? "done" : "breather");
       setResumeStep(finished ? 0 : nextIndex);
 
-      // Gem pr. trin — fire-and-forget med synlig status
+      // Gem pr. trin — database med profil, ellers anonymt lokal-gem
+      setSaveState("saving");
       if (profileId) {
-        setSaveState("saving");
         void saveStepProgress(
           profileId,
           lessonId,
@@ -170,9 +178,18 @@ export function useLesson(options: UseLessonOptions) {
           earnedXp,
           finished,
         ).then(({ ok }) => setSaveState(ok ? "saved" : "error"));
+      } else {
+        const { ok } = saveLocalStepProgress(
+          lessonId,
+          skin,
+          nextIndex,
+          earnedXp,
+          finished,
+        );
+        setSaveState(ok ? "saved" : "error");
       }
     },
-    [stepIndex, steps.length, profileId, lessonId],
+    [stepIndex, steps.length, profileId, lessonId, skin],
   );
 
   /** "Videre"-knappen i pusterummet. */
