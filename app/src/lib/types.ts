@@ -163,6 +163,33 @@ export function stepsForSkin(
     .sort((a, b) => a.order_index - b.order_index);
 }
 
+/**
+ * Trin-parametre som spillene modtager når de kører INDE i en lektion.
+ * Spillene beholder deres frit-spil-tilstand når `step` ikke gives —
+ * lektions-rammen ejer progress-gem, så spillets eget gem slås fra.
+ */
+export interface LessonStepParams {
+  /** Lektionens NYE bogstaver (letters.position, 1-28) */
+  letterPositions: number[];
+  /** true = medtag også alt lært før denne lektion (repetition) */
+  includeReview: boolean;
+  difficulty: StepDifficulty;
+  questionCount: number;
+  /** Bogstav-former som fokus (trin 5/6) */
+  formsMode: boolean;
+}
+
+export function stepParamsFrom(step: LessonStep): LessonStepParams {
+  return {
+    letterPositions: step.letter_positions,
+    includeReview: step.include_review,
+    difficulty: step.difficulty,
+    questionCount: step.question_count,
+    // De 'hard'-markerede trin i pensum er netop form-trinnene (5 & 6)
+    formsMode: step.difficulty === "hard",
+  };
+}
+
 /** Derive the age skin from a birth year. One world, three skins. */
 export function ageSkinForBirthYear(birthYear: number, now = new Date()): AgeSkin {
   const age = now.getFullYear() - birthYear;

@@ -117,9 +117,11 @@ export function pickRoundWords(
   skin: AgeSkin,
   vocabulary: readonly VocabularyWord[],
   category?: VocabularyWord["category"],
+  /** Trin-tilstand: par-antal fra lesson_steps i stedet for skind-standard */
+  pairsOverride?: number,
 ): VocabularyWord[] {
   const cfg = SKIN_CONFIG[skin];
-  const wanted = cfg.pairs;
+  const wanted = pairsOverride ?? cfg.pairs;
 
   let pool: readonly VocabularyWord[] = vocabulary;
   if (category) {

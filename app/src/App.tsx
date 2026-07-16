@@ -4,6 +4,8 @@ import { SourceVerifiedBadge } from "@/components/SourceVerifiedBadge"
 import { ListenFindGame } from "@/features/lyt-og-find/ListenFindGame"
 import { TegnBogstavetGame } from "@/features/tegn-bogstavet/TegnBogstavetGame"
 import { MatchPairsGame } from "@/features/match-par/MatchPairsGame"
+import { LessonPicker } from "@/features/lektion/LessonPicker"
+import { LessonScreen } from "@/features/lektion/LessonScreen"
 import type { AgeSkin } from "@/lib/types"
 
 /**
@@ -15,6 +17,7 @@ export default function App() {
   const [skin, setSkin] = useState<AgeSkin>("mid")
   const [showTranslit, setShowTranslit] = useState(true)
   const [playing, setPlaying] = useState<"none" | "lyt" | "tegn" | "match">("none")
+  const [activeLessonId, setActiveLessonId] = useState<string | null>(null)
 
   return (
     <div data-age-skin={skin} className="min-h-screen px-6 py-10">
@@ -72,9 +75,29 @@ export default function App() {
           </div>
         </section>
 
-        {/* Kernespil (Bogstavernes Dal, AI-tilladt) */}
+        {/* Lektioner (Bogstavernes Dal) — spillene er mekanikker, ikke destinationer */}
         <section className="flex flex-col items-center gap-4">
-          {playing === "lyt" ? (
+          {activeLessonId ? (
+            <LessonScreen
+              lessonId={activeLessonId}
+              skin={skin}
+              level={1}
+              showTransliteration={showTranslit}
+              onExit={() => setActiveLessonId(null)}
+            />
+          ) : playing === "none" ? (
+            <>
+              <h2 className="text-lg font-bold text-night">
+                Lektioner · Bogstavernes Dal
+              </h2>
+              <LessonPicker onPick={setActiveLessonId} />
+            </>
+          ) : null}
+        </section>
+
+        {/* Frit spil (uden lektions-ramme) */}
+        <section className="flex flex-col items-center gap-4">
+          {activeLessonId ? null : playing === "lyt" ? (
             <ListenFindGame
               skin={skin}
               level={1}
@@ -91,7 +114,9 @@ export default function App() {
               onExit={() => setPlaying("none")}
             />
           ) : (
-            <div className="flex flex-wrap justify-center gap-3">
+            <div className="flex flex-col items-center gap-3">
+              <h2 className="text-sm font-semibold text-ink-soft">Frit spil</h2>
+              <div className="flex flex-wrap justify-center gap-3">
               <button
                 onClick={() => setPlaying("lyt")}
                 className="rounded-(--radius-skin) bg-valley px-8 py-4 text-lg font-bold text-white transition-transform active:scale-95"
@@ -110,6 +135,7 @@ export default function App() {
               >
                 Prøv Match-par 🏮
               </button>
+              </div>
             </div>
           )}
         </section>

@@ -1,0 +1,74 @@
+/*
+ * Lektions-rammen — nat-æstetik i familie med spillene.
+ * Globale prefers-reduced-motion-regler i index.css nulstiller animationer.
+ */
+
+.lk-dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 9999px;
+  background: #101c31;
+  border: 2px solid rgba(154, 178, 214, 0.3);
+  transition: all 0.5s ease;
+}
+.lk-dot.lk-on {
+  background: var(--color-nour);
+  border-color: #ffd98a;
+  box-shadow: 0 0 12px 3px rgba(240, 180, 41, 0.55);
+}
+.lk-dot.lk-cur {
+  border-color: #ffd98a;
+  animation: lk-pulse 1.8s ease-out infinite;
+}
+@keyframes lk-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 217, 138, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(255, 217, 138, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 217, 138, 0);
+  }
+}
+
+.lk-link {
+  width: 20px;
+  height: 2.5px;
+  border-radius: 2px;
+  background: rgba(154, 178, 214, 0.2);
+  transition: background 0.6s ease;
+}
+.lk-link.lk-on {
+  background: var(--color-nour);
+  box-shadow: 0 0 8px 1px rgba(240, 180, 41, 0.5);
+}
+
+.lk-lantern {
+  display: inline-block;
+  filter: drop-shadow(0 0 18px rgba(240, 180, 41, 0.7));
+  animation: lk-float 3s ease-in-out infinite;
+}
+@keyframes lk-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.lk-fade {
+  animation: lk-fadein 0.45s ease;
+}
+@keyframes lk-fadein {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

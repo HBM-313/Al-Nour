@@ -16,9 +16,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import type { AgeSkin, Letter, VocabularyWord } from "@/lib/types";
-import { buildRound, type Question } from "./engine";
-import { canSpeak, createAudioPlayer, speak, stopSpeaking } from "@/lib/audio";
+import type { AgeSkin, LessonStepParams, Letter, VocabularyWord } from "@/lib/types";
+import { buildRound, buildStepRound, type Question } from "./engine";
+import { canSpeak, createAudioPlayer, speakArabic, stopSpeaking } from "@/lib/audio";
 import { saveRoundProgress } from "@/lib/progress";
 
 export type LoadState =
@@ -40,6 +40,13 @@ export interface UseListenFindOptions {
   /** Uden disse to kører spillet fint, men gemmer ikke fremskridt */
   profileId?: string;
   lessonId?: string;
+  /**
+   * Trin-tilstand: runden bygges af lektions-parametre, spillets eget
+   * progress-gem slås fra (lektions-rammen ejer gem), og onRoundComplete
+   * kaldes når runden er færdig.
+   */
+  step?: LessonStepParams;
+  onRoundComplete?: (earnedXp: number) => void;
 }
 
 /** XP-regler (mid/teen): fuldt point ved første forsøg, halvt ellers. */
@@ -47,7 +54,7 @@ const XP_FIRST_TRY = 10;
 const XP_RETRY = 5;
 
 export function useListenFind(options: UseListenFindOptions) {
-  const { skin, level, profileId, lessonId } = options;
+  const { skin, level, profileId, lessonId, step, onRoundComplete } = options;
 
   const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -79,7 +86,10 @@ export function useListenFind(options: UseListenFindOptions) {
   const startRound = useCallback(() => {
     const data = dataRef.current;
     if (!data) return;
-    const round = buildRound({ skin, ...data });
+    const round = step
+      ? buildStepRound({ skin, ...data }, step)
+      : buildRound({ skin, ...data });
+    completeReportedRef.current = false;
     setQuestions(round);
     setIndex(0);
     setPhase("playing");
@@ -88,7 +98,7 @@ export function useListenFind(options: UseListenFindOptions) {
     setTriedChoiceIds(new Set());
     setAnswered(false);
     setSaveState("idle");
-  }, [skin]);
+  }, [skin, step]);
 
   useEffect(() => {
     let cancelled = false;
@@ -176,8 +186,10 @@ export function useListenFind(options: UseListenFindOptions) {
         return;
       }
       if (current.ttsText && !ttsUnavailable) {
-        const ok = await speak(current.ttsText);
-        if (!ok && fromUser) setTtsUnavailable(true);
+        // Arabisk stemme → arabisk; ellers dansk navn ("Alif") med
+        // enhedens egen stemme; ellers tekst-fallback i UI'et.
+        const via = await speakArabic(current.ttsText, current.fallback.titleDa);
+        if (via === "none" && fromUser) setTtsUnavailable(true);
       }
     },
     [current, player, ttsUnavailable],
@@ -238,8 +250,17 @@ export function useListenFind(options: UseListenFindOptions) {
   // Progress-gem (kører én gang når runden er færdig)
   // --------------------------------------------------------------------------
 
+  // Trin-tilstand: rammen ejer progress — meld færdig i stedet for at gemme
+  const completeReportedRef = useRef(false);
   useEffect(() => {
-    if (phase !== "done" || !profileId || !lessonId) return;
+    if (phase !== "done" || !onRoundComplete) return;
+    if (completeReportedRef.current) return;
+    completeReportedRef.current = true;
+    onRoundComplete(xp);
+  }, [phase, onRoundComplete, xp]);
+
+  useEffect(() => {
+    if (phase !== "done" || !profileId || !lessonId || step) return;
     if (saveState !== "idle") return;
 
     let cancelled = false;
@@ -251,7 +272,7 @@ export function useListenFind(options: UseListenFindOptions) {
     return () => {
       cancelled = true;
     };
-  }, [phase, profileId, lessonId, xp, saveState]);
+  }, [phase, profileId, lessonId, xp, saveState, step]);
 
   return {
     loadState,

@@ -17,12 +17,12 @@
  * 2026-07-14: TTS overalt, kun Quran-recitation er human — DB-håndhævet).
  */
 
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, RotateCcw, Volume2, Flame } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { createAudioPlayer, speak } from "@/lib/audio";
 import { saveRoundProgress } from "@/lib/progress";
-import type { AgeSkin, Letter, LetterForm } from "@/lib/types";
+import type { AgeSkin, LessonStepParams, Letter, LetterForm } from "@/lib/types";
 import { FORM_LABEL_DA } from "@/features/lyt-og-find/engine";
 import { TraceCanvas } from "./TraceCanvas";
 import { SKIN_TUNING, isCleanTrace } from "./tracing";
@@ -60,6 +60,38 @@ function shuffle<T>(arr: readonly T[]): T[] {
     [out[i], out[j]] = [out[j], out[i]];
   }
   return out;
+}
+
+/**
+ * Trin-tilstand: spor lektionens NYE bogstaver.
+ * formsMode (pensum-trin 6, kun teen): ét forbinder-bogstav fra lektionen
+ * i alle fire former; ellers isolerede former af de nye bogstaver,
+ * begrænset til questionCount.
+ */
+function buildLessonSteps(
+  step: LessonStepParams,
+  letters: Letter[],
+): TraceStep[] {
+  const newLetters = letters
+    .filter((l) => step.letterPositions.includes(l.position))
+    .sort((a, b) => a.position - b.position);
+  if (newLetters.length === 0) return [];
+
+  if (step.formsMode) {
+    const target =
+      newLetters.find((l) => l.is_connector) ?? newLetters[0];
+    return (["isolated", "initial", "medial", "final"] as const).map(
+      (form) => ({ letter: target, form, glyph: glyphFor(target, form) }),
+    );
+  }
+
+  return newLetters
+    .slice(0, Math.max(2, step.questionCount))
+    .map((l) => ({
+      letter: l,
+      form: "isolated" as const,
+      glyph: l.form_isolated,
+    }));
 }
 
 function buildSteps(skin: AgeSkin, letters: Letter[]): TraceStep[] {
@@ -100,6 +132,9 @@ export interface TegnBogstavetGameProps {
   profileId?: string;
   lessonId?: string;
   onExit?: () => void;
+  /** Trin-tilstand (lektions-rammen ejer progress og navigation) */
+  step?: LessonStepParams;
+  onRoundComplete?: (earnedXp: number) => void;
 }
 
 export function TegnBogstavetGame({
@@ -107,6 +142,8 @@ export function TegnBogstavetGame({
   profileId,
   lessonId,
   onExit,
+  step: lessonStep,
+  onRoundComplete,
 }: TegnBogstavetGameProps) {
   const tuning = SKIN_TUNING[skin];
 
@@ -172,7 +209,11 @@ export function TegnBogstavetGame({
 
   const startRound = useCallback(() => {
     if (!letters) return;
-    setSteps(buildSteps(skin, letters));
+    setSteps(
+      lessonStep
+        ? buildLessonSteps(lessonStep, letters)
+        : buildSteps(skin, letters),
+    );
     setStepIndex(0);
     setPhase("tracing");
     setCoverage(0);
@@ -183,7 +224,7 @@ export function TegnBogstavetGame({
     setCleanCount(0);
     setSaveState("idle");
     setMilestone(0);
-  }, [letters, skin]);
+  }, [letters, skin, lessonStep]);
 
   useEffect(() => {
     if (letters) startRound();
@@ -255,8 +296,20 @@ export function TegnBogstavetGame({
   // --------------------------------------------------------------------------
   // Progress-gem ved rundens afslutning
   // --------------------------------------------------------------------------
+  // Trin-tilstand: rammen ejer progress — meld færdig i stedet for at gemme
+  const completeReportedRef = useRef(false);
   useEffect(() => {
-    if (phase !== "round_done" || !profileId || !lessonId) return;
+    if (phase === "tracing") completeReportedRef.current = false;
+  }, [phase]);
+  useEffect(() => {
+    if (phase !== "round_done" || !onRoundComplete) return;
+    if (completeReportedRef.current) return;
+    completeReportedRef.current = true;
+    onRoundComplete(xp);
+  }, [phase, onRoundComplete, xp]);
+
+  useEffect(() => {
+    if (phase !== "round_done" || !profileId || !lessonId || lessonStep) return;
     if (saveState !== "idle") return;
     let cancelled = false;
     setSaveState("saving");
@@ -266,7 +319,7 @@ export function TegnBogstavetGame({
     return () => {
       cancelled = true;
     };
-  }, [phase, profileId, lessonId, xp, saveState]);
+  }, [phase, profileId, lessonId, xp, saveState, lessonStep]);
 
   // --------------------------------------------------------------------------
   // Render

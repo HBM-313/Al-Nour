@@ -11,7 +11,13 @@
  * Det læser aldrig fra `content` og kan pr. konstruktion ikke røre aqidah.
  */
 
-import type { AgeSkin, Letter, LetterForm, VocabularyWord } from "@/lib/types";
+import type {
+  AgeSkin,
+  LessonStepParams,
+  Letter,
+  LetterForm,
+  VocabularyWord,
+} from "@/lib/types";
 
 export type QuestionKind = "letter" | "word" | "letter_form";
 
@@ -321,4 +327,84 @@ export function buildRound(input: BuildInput): Question[] {
       });
     }
   }
+}
+
+// ----------------------------------------------------------------------------
+// Trin-runde: bygget af lektions-parametre (lesson_steps) i stedet for
+// skind-skabelonen. Frit spil (buildRound) er urørt.
+// ----------------------------------------------------------------------------
+
+
+/**
+ * Byg en runde ud fra et lektions-trin.
+ * - Mål-bogstaver: trinnets NYE bogstaver (letterPositions).
+ * - Distraktor-pulje: nye + alt lært før (includeReview) — aldrig bogstaver
+ *   barnet slet ikke har mødt, så "forkert" aldrig skyldes uset stof.
+ * - formsMode: bogstav-form-spørgsmål (kun meningsfuldt for mid/teen —
+ *   pensum-skins garanterer at soft aldrig får det trin).
+ * - Ord-spørgsmål blandes ind for mid/teen når includeReview og ordforråd
+ *   med lærte startbogstaver findes.
+ */
+export function buildStepRound(
+  input: BuildInput,
+  step: LessonStepParams,
+): Question[] {
+  const { skin, letters, vocabulary, audioUrlById } = input;
+
+  const newLetters = letters.filter((l) =>
+    step.letterPositions.includes(l.position),
+  );
+  if (newLetters.length === 0) return [];
+
+  const maxLearnedPos = Math.max(...step.letterPositions);
+  const learnedPool = step.includeReview
+    ? letters.filter((l) => l.position <= maxLearnedPos)
+    : newLetters;
+  // Distraktorer kræver mindst 2 valg — udvid nødtvunget med naboer hvis
+  // puljen er for lille (kan kun ske ved defekt pensum-data).
+  const pool = learnedPool.length >= 2 ? learnedPool : letters.slice(0, 8);
+
+  const choiceCount = skin === "soft" ? 2 : 4;
+  const count = Math.max(2, step.questionCount);
+
+  if (step.formsMode) {
+    const forms: LetterForm[] = ["initial", "medial", "final"];
+    const targets = Array.from(
+      { length: count },
+      (_, i) => newLetters[i % newLetters.length],
+    );
+    return targets.map((t, i) => {
+      const form = t.is_connector ? forms[i % forms.length] : "final";
+      return buildLetterFormQuestion(t, pool, form, audioUrlById);
+    });
+  }
+
+  // Ord med lærte startbogstaver (kun mid/teen, kun ved repetitionstrin)
+  const learnedIds = new Set(learnedPool.map((l) => l.id));
+  const learnedWords =
+    skin !== "soft" && step.includeReview
+      ? vocabulary.filter(
+          (w) => w.first_letter_id !== null && learnedIds.has(w.first_letter_id),
+        )
+      : [];
+
+  const wordCount =
+    learnedWords.length >= 4 ? Math.min(Math.floor(count / 3), 3) : 0;
+  const letterCount = count - wordCount;
+
+  // Mål-bogstaver: rundgang gennem de nye, så alle øves ligeligt
+  const letterTargets = shuffle(
+    Array.from(
+      { length: letterCount },
+      (_, i) => newLetters[i % newLetters.length],
+    ),
+  );
+  const letterQs = letterTargets.map((t) =>
+    buildLetterQuestion(t, pool, choiceCount, step.difficulty, audioUrlById),
+  );
+  const wordQs = sample(learnedWords, wordCount).map((t) =>
+    buildWordQuestion(t, learnedWords, choiceCount, audioUrlById),
+  );
+
+  return shuffle([...letterQs, ...wordQs]);
 }

@@ -22,7 +22,7 @@
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { ArrowRight, Flame, RotateCcw, Star } from "lucide-react";
-import type { AgeSkin, VocabularyWord } from "@/lib/types";
+import type { AgeSkin, LessonStepParams, VocabularyWord } from "@/lib/types";
 import { type PairCard } from "./engine";
 import { useMatchPairs } from "./useMatchPairs";
 import "./match-par.css";
@@ -40,6 +40,9 @@ export interface MatchPairsGameProps {
   lessonId?: string;
   /** Tilbage til verdenskortet */
   onExit?: () => void;
+  /** Trin-tilstand (lektions-rammen ejer progress og navigation) */
+  step?: LessonStepParams;
+  onRoundComplete?: (earnedXp: number) => void;
 }
 
 // ----------------------------------------------------------------------------
@@ -76,8 +79,18 @@ export function MatchPairsGame({
   profileId,
   lessonId,
   onExit,
+  step,
+  onRoundComplete,
 }: MatchPairsGameProps) {
-  const game = useMatchPairs({ skin, level, category, profileId, lessonId });
+  const game = useMatchPairs({
+    skin,
+    level,
+    category,
+    profileId,
+    lessonId,
+    step,
+    onRoundComplete,
+  });
   const reducedMotion = useMemo(prefersReducedMotion, []);
 
   const boardRef = useRef<HTMLDivElement | null>(null);

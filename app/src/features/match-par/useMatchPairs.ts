@@ -17,7 +17,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import type { AgeSkin, VocabularyWord } from "@/lib/types";
+import type { AgeSkin, LessonStepParams, Letter, VocabularyWord } from "@/lib/types";
 import { canSpeak, createAudioPlayer, speak, stopSpeaking } from "@/lib/audio";
 import { saveRoundProgress } from "@/lib/progress";
 import {
@@ -54,10 +54,16 @@ export interface UseMatchPairsOptions {
   /** Uden disse to kører spillet fint, men gemmer ikke fremskridt */
   profileId?: string;
   lessonId?: string;
+  /**
+   * Trin-tilstand: par bygges kun af ord hvis startbogstav er lært
+   * (lektions-rammen ejer progress-gem og navigation).
+   */
+  step?: LessonStepParams;
+  onRoundComplete?: (earnedXp: number) => void;
 }
 
 export function useMatchPairs(options: UseMatchPairsOptions) {
-  const { skin, level, category, profileId, lessonId } = options;
+  const { skin, level, category, profileId, lessonId, step, onRoundComplete } = options;
   const cfg = SKIN_CONFIG[skin];
 
   const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
@@ -86,6 +92,7 @@ export function useMatchPairs(options: UseMatchPairsOptions) {
   const seqRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dataRef = useRef<{
+    letters: Letter[];
     vocabulary: VocabularyWord[];
     audioUrlById: Map<string, string>;
     imageUrlById: Map<string, string>;
@@ -103,7 +110,30 @@ export function useMatchPairs(options: UseMatchPairsOptions) {
     const data = dataRef.current;
     if (!data) return;
     if (timerRef.current) clearTimeout(timerRef.current);
-    const words = pickRoundWords(skin, data.vocabulary, category);
+    let pool = data.vocabulary;
+    let pairsWanted: number | undefined;
+    if (step) {
+      // Kun ord hvis startbogstav er lært: trinnets nye bogstaver +
+      // (ved repetition) alt før dem. Barnet møder aldrig uset stof.
+      const maxPos = Math.max(...step.letterPositions);
+      const allowedIds = new Set(
+        data.letters
+          .filter((l) =>
+            step.includeReview
+              ? l.position <= maxPos
+              : step.letterPositions.includes(l.position),
+          )
+          .map((l) => l.id),
+      );
+      const filtered = data.vocabulary.filter(
+        (w) => w.first_letter_id !== null && allowedIds.has(w.first_letter_id),
+      );
+      // Færre end 2 lærte ord kan ikke danne par — fald tilbage til alt
+      // (kan kun ske ved defekt pensum-data; hellere spil end blank skærm).
+      if (filtered.length >= 2) pool = filtered;
+      pairsWanted = step.questionCount;
+    }
+    const words = pickRoundWords(skin, pool, category, pairsWanted);
     setDeck(buildDeck(words));
     setPhase("playing");
     setLitKeys(new Set());
@@ -118,7 +148,7 @@ export function useMatchPairs(options: UseMatchPairsOptions) {
     setAttempts(0);
     setEvent(null);
     setSaveState("idle");
-  }, [skin, category]);
+  }, [skin, category, step]);
 
   useEffect(() => {
     let cancelled = false;
@@ -144,6 +174,14 @@ export function useMatchPairs(options: UseMatchPairsOptions) {
       }
 
       const vocabulary = vocabRes.data as VocabularyWord[];
+
+      // Bogstavpositioner til trin-filtrering (lille, stabil tabel)
+      const lettersRes = await supabase
+        .from("letters")
+        .select("*")
+        .order("position");
+      if (cancelled) return;
+      const letters = (lettersRes.data ?? []) as Letter[];
 
       // Lyd- og billed-URL'er i ét kald. Filer er frit udskiftelige
       // (human eller AI — lyd-reglen); findes de, vinder de over TTS/emoji.
@@ -171,7 +209,7 @@ export function useMatchPairs(options: UseMatchPairsOptions) {
         }
       }
 
-      dataRef.current = { vocabulary, audioUrlById, imageUrlById };
+      dataRef.current = { letters, vocabulary, audioUrlById, imageUrlById };
       setLoadState({ status: "ready" });
     }
 
@@ -338,8 +376,20 @@ export function useMatchPairs(options: UseMatchPairsOptions) {
   // Progress-gem (kører én gang når runden er færdig)
   // --------------------------------------------------------------------------
 
+  // Trin-tilstand: rammen ejer progress — meld færdig i stedet for at gemme
+  const completeReportedRef = useRef(false);
   useEffect(() => {
-    if (phase !== "done" || !profileId || !lessonId) return;
+    if (phase === "playing") completeReportedRef.current = false;
+  }, [phase]);
+  useEffect(() => {
+    if (phase !== "done" || !onRoundComplete) return;
+    if (completeReportedRef.current) return;
+    completeReportedRef.current = true;
+    onRoundComplete(xp);
+  }, [phase, onRoundComplete, xp]);
+
+  useEffect(() => {
+    if (phase !== "done" || !profileId || !lessonId || step) return;
     if (saveState !== "idle") return;
 
     let cancelled = false;
@@ -350,7 +400,7 @@ export function useMatchPairs(options: UseMatchPairsOptions) {
     return () => {
       cancelled = true;
     };
-  }, [phase, profileId, lessonId, xp, saveState]);
+  }, [phase, profileId, lessonId, xp, saveState, step]);
 
   const stopAllAudio = useCallback(() => {
     player.stop();

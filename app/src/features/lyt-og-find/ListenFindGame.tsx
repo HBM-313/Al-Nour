@@ -14,7 +14,7 @@
  */
 
 import { Volume2, Flame, Star, RotateCcw, ArrowRight } from "lucide-react";
-import type { AgeSkin } from "@/lib/types";
+import type { AgeSkin, LessonStepParams } from "@/lib/types";
 import { ArabicBlock } from "@/components/bilingual/BilingualText";
 import { FORM_LABEL_DA, type Choice, type Question } from "./engine";
 import { useListenFind } from "./useListenFind";
@@ -30,17 +30,22 @@ export interface ListenFindGameProps {
   lessonId?: string;
   /** Tilbage til verdenskortet */
   onExit?: () => void;
+  /** Trin-tilstand (lektions-rammen ejer progress og navigation) */
+  step?: LessonStepParams;
+  onRoundComplete?: (earnedXp: number) => void;
 }
 
 export function ListenFindGame({
   skin,
+  step,
+  onRoundComplete,
   level = 1,
   showTransliteration = true,
   profileId,
   lessonId,
   onExit,
 }: ListenFindGameProps) {
-  const game = useListenFind({ skin, level, profileId, lessonId });
+  const game = useListenFind({ skin, level, profileId, lessonId , step, onRoundComplete });
 
   if (game.loadState.status === "loading") {
     return (
