@@ -55,7 +55,29 @@ Admin (mig) · Indholds-redaktør (kan ikke udgive aqidah) · Godkender (eneste 
 Bekræftet IKKE en bug (allerede korrekt i koden): completion styres udelukkende af `coverage >= threshold` i TraceCanvas — `isCleanTrace` bruges kun til rosen-teksten/XP-bonus, aldrig som betingelse for at komme videre.
 Metode-note: Demoen i Visualizer var en isoleret HTML/JS-kopi (ikke importeret fra repoet) brugt til hurtig mobilvenlig test uden lokal opsætning — når ejer ikke kan bruge terminal/localhost. Nyttigt mønster til fremtidig UI-iteration før porting til rigtig kode.
 
-**Næste skridt:** Match-par (dansk↔arabisk ordforråds-motor) — tredje kernespil — eller verdenskortet/lektions-navigationen der binder spillene sammen i Bogstavernes Dal.
+**Næste skridt (2026-07-17):** Se nedenstående "TTS-status" — lyd er nu genereret og verificeret. Næste milepæl: profiler/auth (billede-pinkode til børn, forældresamtykke-flow).
+
+---
+
+## TTS-status (opdateret 2026-07-17)
+
+**Leverandørskift: ElevenLabs → Google Cloud Text-to-Speech.** ElevenLabs' to udvalgte arabiske stemmer (Habibah ♀ / Ahmed ♂, samt en tredje fundet undervejs, Ashraf) viste sig alle at være Voice Library-stemmer, som ElevenLabs' egen dokumentation bekræfter ikke kan bruges via API på gratis plan (`402 paid_plan_required`) — bekræftet ved flere uafhængige testkørsler, inkl. efter at stemmerne blev tilføjet til workspacet. Fremfor at opgradere til en betalt ElevenLabs-plan blev Google Cloud Text-to-Speech valgt: permanent gratis niveau (1M tegn/md for Chirp3-HD-stemmer, langt over projektets behov på nogle få tusind tegn), Modern Standard Arabic understøttet (`ar-XA`).
+
+**Stemmer (verificeret via `voices:list`-endpointet at gender stemmer):**
+- Kvinde: `ar-XA-Chirp3-HD-Aoede`
+- Mand: `ar-XA-Chirp3-HD-Charon`
+
+**`generate-audio`-Edge Function omskrevet** (samme fil/struktur, kun TTS-kaldet og hemmeligheds-navnene ændret — se udførlig kommentar øverst i `supabase/functions/generate-audio/index.ts`). Datamodellen (`audio_media_id` / `audio_media_id_male`, `media`-tabellen, lyd-reglens `generated_by='ai'`/`is_recitation=false`) er **uændret** — den var allerede korrekt designet til et to-spors setup.
+
+**Hemmeligheder (Supabase → Edge Functions → Secrets):**
+- `GOOGLE_TTS_API_KEY` — Google Cloud API-nøgle, begrænset til Cloud Text-to-Speech API (mindste privilegie-princip fulgt, ligesom ElevenLabs-nøglen)
+- `GOOGLE_TTS_VOICE_FEMALE` / `GOOGLE_TTS_VOICE_MALE` — valgfrie overstyringer, standardværdier er Aoede/Charon
+
+**Alle 164 klip genereret og verificeret** (28 bogstaver + 54 ord × 2 stemmer). Ejeren har bekræftet fil-lyd afspiller korrekt i appen og stemmeskift (kvinde/mand) virker som forventet ved spilstart.
+
+**Efterladt, ikke oprydet:** en midlertidig test-funktion `check-google-voices` (kaldte kun `voices:list`, ingen skrivninger, kræver stadig service-nøgle) ligger stadig i Supabase — kan slettes manuelt via dashboardet, ligger ikke i git.
+
+**ElevenLabs-sporet er ikke fjernet fra databasen** — `TTS_API_KEY`-secreten og eventuelle tidligere ElevenLabs-genererede filer/media-rækker (hvis nogen nåede at blive oprettet før skiftet) er ikke ryddet op. Bør gennemgås hvis ElevenLabs helt skal udfases fra projektet.
 
 **Åbne beslutninger / noter:**
 - ~~SKEMA-DRIFT~~ LUKKET 2026-07-13: live `content` udvidet mod 0001-designet via `20260713_content_udvid_mod_0001.sql` (title_da/ar, sacred_representation, tre aldersvarianter, aqidah-constraints, indexes). Verificeret med testserie inkl. mur-regression. Bevidste blivende afvigelser dokumenteret i supabase/migrations/README.md.

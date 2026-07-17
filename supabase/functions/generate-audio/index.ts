@@ -1,11 +1,23 @@
 /**
- * generate-audio — server-side TTS-generator (ElevenLabs).
+ * generate-audio — server-side TTS-generator (Google Cloud Text-to-Speech).
  *
  * Genererer lydklip for alle bogstaver (name_ar) og ordforrådsord (word_ar)
  * der endnu ikke har en lydfil, uploader til Storage-bucket 'audio' og
  * kobler dem på via media-tabellen. Herefter hører ALLE enheder samme
  * arabiske udtale — browser-TTS bliver ren nødløsning (lyd-kæden i appen
  * foretrækker automatisk filen).
+ *
+ * SKIFT 2026-07-17: ElevenLabs → Google Cloud TTS (Chirp3-HD, ar-XA).
+ * Årsag: ElevenLabs' arabiske stemmer (Habibah/Ahmed/Majed) er Voice
+ * Library-stemmer og kan ikke bruges via API på gratis plan (402
+ * paid_plan_required, bekræftet ved to testkørsler). Google Cloud TTS'
+ * gratis niveau (1M tegn/md for Chirp3-HD) dækker projektets behov
+ * (nogle få tusind tegn i alt) uden betaling. Datamodel og resten af
+ * pipelinen er UÆNDRET — kun selve TTS-kaldet er skiftet leverandør.
+ *
+ * Stemmer (ejer-beslutning, verificeret via voices:list at gender stemmer):
+ *   Kvinde: ar-XA-Chirp3-HD-Aoede
+ *   Mand:   ar-XA-Chirp3-HD-Charon
  *
  * LYD-REGLEN (2026-07-14): AI-lyd er tilladt for bogstaver/ord.
  * Alt markeres generated_by='ai', is_recitation=false. Quran-muren
@@ -16,8 +28,10 @@
  * afvises — ellers kunne enhver bruger brænde TTS-kvoten af.
  *
  * Hemmeligheder (Supabase → Edge Functions → Secrets):
- *   TTS_API_KEY   — ElevenLabs-nøgle (kun Text to Speech-adgang)
- *   TTS_VOICE_ID  — valgfri; standard er en varm flersproget stemme
+ *   GOOGLE_TTS_API_KEY      — Google Cloud API-nøgle, begrænset til
+ *                              Cloud Text-to-Speech API (mindste privilegie)
+ *   GOOGLE_TTS_VOICE_FEMALE — valgfri; standard ar-XA-Chirp3-HD-Aoede
+ *   GOOGLE_TTS_VOICE_MALE   — valgfri; standard ar-XA-Chirp3-HD-Charon
  *
  * Kald: POST med valgfri JSON-body { "limit": 20 } (standard 20 pr. kald,
  * så funktionen holder sig langt under tidsgrænsen). Gentag kaldet til
@@ -26,21 +40,20 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const ELEVENLABS_URL = "https://api.elevenlabs.io/v1/text-to-speech";
-const MODEL_ID = "eleven_multilingual_v2"; // understøtter arabisk
+const GOOGLE_TTS_URL = "https://texttospeech.googleapis.com/v1/text:synthesize";
 
-// To stemmer (ejer-beslutning): pige-bruger hører Habibah, dreng Ahmed.
-// Kan overstyres via Secrets uden ny deploy (fx hvis en stemme viser sig
-// at kræve betalt plan): TTS_VOICE_ID_FEMALE / TTS_VOICE_ID_MALE.
-const DEFAULT_VOICE_FEMALE = "w4LX7bK479eHGM1k15Em"; // "Habibah"
-const DEFAULT_VOICE_MALE = "etJo0VNXVmjmd5XDR7lJ"; // "Ahmed"
+// To stemmer (ejer-beslutning): pige-bruger hører kvindestemmen, dreng
+// mandsstemmen. Kan overstyres via Secrets uden ny deploy.
+const DEFAULT_VOICE_FEMALE = "ar-XA-Chirp3-HD-Aoede";
+const DEFAULT_VOICE_MALE = "ar-XA-Chirp3-HD-Charon";
+const LANGUAGE_CODE = "ar-XA"; // Modern Standard Arabic
 
 interface WorkItem {
   table: "letters" | "vocabulary";
   id: string;
   text: string;
   column: "audio_media_id" | "audio_media_id_male";
-  voiceId: string;
+  voiceName: string;
   filename: string;
   tags: string[];
 }
@@ -83,19 +96,19 @@ Deno.serve(async (req) => {
   // så adgangen fungerer uanset om SUPABASE_SERVICE_ROLE_KEY er sat i miljøet.
   const effectiveServiceKey = serviceKey || bearer;
 
-  const ttsKey = Deno.env.get("TTS_API_KEY");
+  const ttsKey = Deno.env.get("GOOGLE_TTS_API_KEY");
   if (!ttsKey) {
     return json(
       {
         error:
-          "TTS_API_KEY mangler. Tilføj den i Supabase → Edge Functions → Secrets.",
+          "GOOGLE_TTS_API_KEY mangler. Tilføj den i Supabase → Edge Functions → Secrets.",
       },
       500,
     );
   }
   const voiceFemale =
-    Deno.env.get("TTS_VOICE_ID_FEMALE") || DEFAULT_VOICE_FEMALE;
-  const voiceMale = Deno.env.get("TTS_VOICE_ID_MALE") || DEFAULT_VOICE_MALE;
+    Deno.env.get("GOOGLE_TTS_VOICE_FEMALE") || DEFAULT_VOICE_FEMALE;
+  const voiceMale = Deno.env.get("GOOGLE_TTS_VOICE_MALE") || DEFAULT_VOICE_MALE;
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const db = createClient(supabaseUrl, effectiveServiceKey);
@@ -136,15 +149,15 @@ Deno.serve(async (req) => {
     if (l.audio_media_id === null) {
       work.push({
         table: "letters", id: l.id as string, text: l.name_ar as string,
-        column: "audio_media_id", voiceId: voiceFemale,
-        filename: `${base}-f.mp3`, tags: ["tts", "elevenlabs", "letters", "voice:female"],
+        column: "audio_media_id", voiceName: voiceFemale,
+        filename: `${base}-f.mp3`, tags: ["tts", "google-tts", "letters", "voice:female"],
       });
     }
     if (l.audio_media_id_male === null) {
       work.push({
         table: "letters", id: l.id as string, text: l.name_ar as string,
-        column: "audio_media_id_male", voiceId: voiceMale,
-        filename: `${base}-m.mp3`, tags: ["tts", "elevenlabs", "letters", "voice:male"],
+        column: "audio_media_id_male", voiceName: voiceMale,
+        filename: `${base}-m.mp3`, tags: ["tts", "google-tts", "letters", "voice:male"],
       });
     }
   }
@@ -152,15 +165,15 @@ Deno.serve(async (req) => {
     if (w.audio_media_id === null) {
       work.push({
         table: "vocabulary", id: w.id as string, text: w.word_ar as string,
-        column: "audio_media_id", voiceId: voiceFemale,
-        filename: `vocab/${w.id}-f.mp3`, tags: ["tts", "elevenlabs", "vocabulary", "voice:female"],
+        column: "audio_media_id", voiceName: voiceFemale,
+        filename: `vocab/${w.id}-f.mp3`, tags: ["tts", "google-tts", "vocabulary", "voice:female"],
       });
     }
     if (w.audio_media_id_male === null) {
       work.push({
         table: "vocabulary", id: w.id as string, text: w.word_ar as string,
-        column: "audio_media_id_male", voiceId: voiceMale,
-        filename: `vocab/${w.id}-m.mp3`, tags: ["tts", "elevenlabs", "vocabulary", "voice:male"],
+        column: "audio_media_id_male", voiceName: voiceMale,
+        filename: `vocab/${w.id}-m.mp3`, tags: ["tts", "google-tts", "vocabulary", "voice:male"],
       });
     }
   }
@@ -170,28 +183,31 @@ Deno.serve(async (req) => {
 
   for (const item of batch) {
     try {
-      // 1. Generér lyd hos ElevenLabs
-      const ttsRes = await fetch(
-        `${ELEVENLABS_URL}/${item.voiceId}?output_format=mp3_44100_128`,
-        {
-          method: "POST",
-          headers: {
-            "xi-api-key": ttsKey,
-            "content-type": "application/json",
-          },
-          body: JSON.stringify({
-            text: item.text,
-            model_id: MODEL_ID,
-            voice_settings: { stability: 0.6, similarity_boost: 0.8 },
-          }),
-        },
-      );
+      // 1. Generér lyd hos Google Cloud TTS
+      const ttsRes = await fetch(`${GOOGLE_TTS_URL}?key=${ttsKey}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          input: { text: item.text },
+          voice: { languageCode: LANGUAGE_CODE, name: item.voiceName },
+          audioConfig: { audioEncoding: "MP3" },
+        }),
+      });
       if (!ttsRes.ok) {
         const msg = await ttsRes.text();
         results.push({ id: item.id, ok: false, error: `TTS ${ttsRes.status}: ${msg.slice(0, 160)}` });
         continue;
       }
-      const audio = new Uint8Array(await ttsRes.arrayBuffer());
+      const ttsJson = await ttsRes.json();
+      const audioContentB64 = ttsJson.audioContent as string | undefined;
+      if (!audioContentB64) {
+        results.push({ id: item.id, ok: false, error: "TTS: intet audioContent i svaret" });
+        continue;
+      }
+      // Google returnerer base64-kodet MP3 i JSON — decode til bytes.
+      const binary = atob(audioContentB64);
+      const audio = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) audio[i] = binary.charCodeAt(i);
 
       // 2. Upload til Storage (offentlig kurrikulum-lyd, ingen persondata)
       const up = await db.storage
