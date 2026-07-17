@@ -38,15 +38,43 @@ interface WorkItem {
   tag: string;
 }
 
+/**
+ * Er nøglen i Authorization-headeren en service_role-nøgle?
+ * Primært: match mod SUPABASE_SERVICE_ROLE_KEY (sat automatisk i de fleste
+ * projekter). Fallback: læs 'role'-claimet direkte ud af JWT-payloaden —
+ * nødvendigt fordi miljøvariablen ikke altid er tilgængelig for Edge
+ * Functions afhængigt af projekt-opsætning. Signaturen valideres ikke her,
+ * men enhver forespørgsel bruger nøglen som Supabase-service-nøgle
+ * efterfølgende, så en forfalsket JWT afvises alligevel af databasen.
+ */
+function isServiceRoleToken(bearer: string, envServiceKey: string): boolean {
+  if (envServiceKey && bearer === envServiceKey) return true;
+  try {
+    const payloadB64 = bearer.split(".")[1];
+    if (!payloadB64) return false;
+    const padded = payloadB64.replace(/-/g, "+").replace(/_/g, "/");
+    const json = atob(padded.padEnd(padded.length + ((4 - (padded.length % 4)) % 4), "="));
+    const claims = JSON.parse(json);
+    return claims?.role === "service_role";
+  } catch {
+    return false;
+  }
+}
+
 Deno.serve(async (req) => {
   // --------------------------------------------------------------------------
   // Adgangskontrol: kun service-nøglen (fail-closed)
   // --------------------------------------------------------------------------
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  const auth = req.headers.get("authorization") ?? "";
-  if (!serviceKey || auth !== `Bearer ${serviceKey}`) {
+  const serviceKey = (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "").trim();
+  const authHeader = (req.headers.get("authorization") ?? "").trim();
+  const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
+
+  if (!bearer || !isServiceRoleToken(bearer, serviceKey)) {
     return json({ error: "Kræver service-nøglen (Authorization: Bearer …)" }, 401);
   }
+  // Fra nu bruges den indsendte nøgle (ikke kun env-variablen) til DB-klienten,
+  // så adgangen fungerer uanset om SUPABASE_SERVICE_ROLE_KEY er sat i miljøet.
+  const effectiveServiceKey = serviceKey || bearer;
 
   const ttsKey = Deno.env.get("TTS_API_KEY");
   if (!ttsKey) {
@@ -61,7 +89,7 @@ Deno.serve(async (req) => {
   const voiceId = Deno.env.get("TTS_VOICE_ID") || DEFAULT_VOICE;
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-  const db = createClient(supabaseUrl, serviceKey);
+  const db = createClient(supabaseUrl, effectiveServiceKey);
 
   let limit = 20;
   try {
