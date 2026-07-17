@@ -27,15 +27,22 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const ELEVENLABS_URL = "https://api.elevenlabs.io/v1/text-to-speech";
-const DEFAULT_VOICE = "21m00Tcm4TlvDq8ikWAM"; // "Rachel" — flersproget premade
 const MODEL_ID = "eleven_multilingual_v2"; // understøtter arabisk
+
+// To stemmer (ejer-beslutning): pige-bruger hører Habibah, dreng Ahmed.
+// Kan overstyres via Secrets uden ny deploy (fx hvis en stemme viser sig
+// at kræve betalt plan): TTS_VOICE_ID_FEMALE / TTS_VOICE_ID_MALE.
+const DEFAULT_VOICE_FEMALE = "w4LX7bK479eHGM1k15Em"; // "Habibah"
+const DEFAULT_VOICE_MALE = "etJo0VNXVmjmd5XDR7lJ"; // "Ahmed"
 
 interface WorkItem {
   table: "letters" | "vocabulary";
   id: string;
   text: string;
+  column: "audio_media_id" | "audio_media_id_male";
+  voiceId: string;
   filename: string;
-  tag: string;
+  tags: string[];
 }
 
 /**
@@ -86,7 +93,9 @@ Deno.serve(async (req) => {
       500,
     );
   }
-  const voiceId = Deno.env.get("TTS_VOICE_ID") || DEFAULT_VOICE;
+  const voiceFemale =
+    Deno.env.get("TTS_VOICE_ID_FEMALE") || DEFAULT_VOICE_FEMALE;
+  const voiceMale = Deno.env.get("TTS_VOICE_ID_MALE") || DEFAULT_VOICE_MALE;
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const db = createClient(supabaseUrl, effectiveServiceKey);
@@ -104,37 +113,57 @@ Deno.serve(async (req) => {
   // --------------------------------------------------------------------------
   // Find arbejde: alt uden lydfil (idempotent — kørte klip springes over)
   // --------------------------------------------------------------------------
+  // Begge stemmespor pr. element: kvinde (audio_media_id, standard) og
+  // mand (audio_media_id_male). Kun manglende spor genereres (idempotent).
   const [lettersRes, vocabRes] = await Promise.all([
     db
       .from("letters")
-      .select("id, position, name_ar, name_da")
-      .is("audio_media_id", null)
+      .select("id, position, name_ar, audio_media_id, audio_media_id_male")
+      .or("audio_media_id.is.null,audio_media_id_male.is.null")
       .order("position"),
     db
       .from("vocabulary")
-      .select("id, word_ar, transliteration")
-      .is("audio_media_id", null)
+      .select("id, word_ar, audio_media_id, audio_media_id_male")
+      .or("audio_media_id.is.null,audio_media_id_male.is.null")
       .order("category"),
   ]);
   if (lettersRes.error) return json({ error: lettersRes.error.message }, 500);
   if (vocabRes.error) return json({ error: vocabRes.error.message }, 500);
 
-  const work: WorkItem[] = [
-    ...(lettersRes.data ?? []).map((l) => ({
-      table: "letters" as const,
-      id: l.id as string,
-      text: l.name_ar as string,
-      filename: `letters/${String(l.position).padStart(2, "0")}-${l.id}.mp3`,
-      tag: "letters",
-    })),
-    ...(vocabRes.data ?? []).map((w) => ({
-      table: "vocabulary" as const,
-      id: w.id as string,
-      text: w.word_ar as string,
-      filename: `vocab/${w.id}.mp3`,
-      tag: "vocabulary",
-    })),
-  ];
+  const work: WorkItem[] = [];
+  for (const l of lettersRes.data ?? []) {
+    const base = `letters/${String(l.position).padStart(2, "0")}-${l.id}`;
+    if (l.audio_media_id === null) {
+      work.push({
+        table: "letters", id: l.id as string, text: l.name_ar as string,
+        column: "audio_media_id", voiceId: voiceFemale,
+        filename: `${base}-f.mp3`, tags: ["tts", "elevenlabs", "letters", "voice:female"],
+      });
+    }
+    if (l.audio_media_id_male === null) {
+      work.push({
+        table: "letters", id: l.id as string, text: l.name_ar as string,
+        column: "audio_media_id_male", voiceId: voiceMale,
+        filename: `${base}-m.mp3`, tags: ["tts", "elevenlabs", "letters", "voice:male"],
+      });
+    }
+  }
+  for (const w of vocabRes.data ?? []) {
+    if (w.audio_media_id === null) {
+      work.push({
+        table: "vocabulary", id: w.id as string, text: w.word_ar as string,
+        column: "audio_media_id", voiceId: voiceFemale,
+        filename: `vocab/${w.id}-f.mp3`, tags: ["tts", "elevenlabs", "vocabulary", "voice:female"],
+      });
+    }
+    if (w.audio_media_id_male === null) {
+      work.push({
+        table: "vocabulary", id: w.id as string, text: w.word_ar as string,
+        column: "audio_media_id_male", voiceId: voiceMale,
+        filename: `vocab/${w.id}-m.mp3`, tags: ["tts", "elevenlabs", "vocabulary", "voice:male"],
+      });
+    }
+  }
 
   const batch = work.slice(0, limit);
   const results: Array<{ id: string; ok: boolean; error?: string }> = [];
@@ -143,7 +172,7 @@ Deno.serve(async (req) => {
     try {
       // 1. Generér lyd hos ElevenLabs
       const ttsRes = await fetch(
-        `${ELEVENLABS_URL}/${voiceId}?output_format=mp3_44100_128`,
+        `${ELEVENLABS_URL}/${item.voiceId}?output_format=mp3_44100_128`,
         {
           method: "POST",
           headers: {
@@ -185,7 +214,7 @@ Deno.serve(async (req) => {
         .insert({
           type: "audio",
           url: publicUrl,
-          tags: ["tts", "elevenlabs", item.tag],
+          tags: item.tags,
           generated_by: "ai",
           is_recitation: false,
           reusable: true,
@@ -197,10 +226,11 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // 4. Kobl på bogstav/ord (letters-triggeren validerer mediet)
+      // 4. Kobl på bogstav/ord i det rigtige stemmespor
+      //    (letters-triggeren validerer mediet for begge spor)
       const upd = await db
         .from(item.table)
-        .update({ audio_media_id: media.data.id })
+        .update({ [item.column]: media.data.id })
         .eq("id", item.id);
       if (upd.error) {
         results.push({ id: item.id, ok: false, error: `${item.table}: ${upd.error.message}` });

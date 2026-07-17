@@ -228,7 +228,10 @@ export interface Letter {
   form_initial: string;
   form_medial: string;
   form_final: string;
-  audio_media_id: string | null; // MUST reference human-recorded media (DB-enforced)
+  /** Kvindestemme (standard/fallback). Lyd-reglen: TTS/AI tilladt, aldrig recitation (DB-enforced). */
+  audio_media_id: string | null;
+  /** Mandsstemme — valgt når barnets stemmepræference er 'male' */
+  audio_media_id_male: string | null;
   level: number;
   created_at: string;
 }
@@ -262,7 +265,10 @@ export interface VocabularyWord {
    */
   emoji: string | null;
   image_media_id: string | null;
-  audio_media_id: string | null; // AI audio allowed (everyday vocabulary)
+  /** Kvindestemme (standard/fallback) — AI-lyd tilladt */
+  audio_media_id: string | null;
+  /** Mandsstemme — valgt når barnets stemmepræference er 'male' */
+  audio_media_id_male: string | null;
   is_published: boolean;
   created_at: string;
   updated_at: string;

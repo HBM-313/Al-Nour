@@ -5,6 +5,7 @@ import { ListenFindGame } from "@/features/lyt-og-find/ListenFindGame"
 import { TegnBogstavetGame } from "@/features/tegn-bogstavet/TegnBogstavetGame"
 import { MatchPairsGame } from "@/features/match-par/MatchPairsGame"
 import { WorldMap } from "@/features/verdenskort/WorldMap"
+import { getVoicePref, setVoicePref, type VoicePref } from "@/lib/voicePref"
 import { LessonScreen } from "@/features/lektion/LessonScreen"
 import type { AgeSkin } from "@/lib/types"
 
@@ -16,6 +17,9 @@ import type { AgeSkin } from "@/lib/types"
 export default function App() {
   const [skin, setSkin] = useState<AgeSkin>("mid")
   const [showTranslit, setShowTranslit] = useState(true)
+  // Stemmevalg (Habibah/Ahmed) — afløses af barnets profil når auth bygges.
+  // Gælder fra næste spil/lektion der startes (lyd hentes ved spilstart).
+  const [voice, setVoice] = useState<VoicePref>(() => getVoicePref())
   const [playing, setPlaying] = useState<"none" | "lyt" | "tegn" | "match">("none")
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null)
   const [mapRefresh, setMapRefresh] = useState(0)
@@ -52,6 +56,25 @@ export default function App() {
                 }`}
               >
                 {s === "soft" ? "3–6" : s === "mid" ? "7–10" : "11–14"}
+              </button>
+            ))}
+          </div>
+          <span className="mt-2 text-sm font-semibold text-ink-soft">
+            Oplæser-stemme
+          </span>
+          <div className="flex gap-2">
+            {(["female", "male"] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => {
+                  setVoicePref(v)
+                  setVoice(v)
+                }}
+                className={`rounded-(--radius-skin) px-5 py-2.5 font-semibold transition-colors ${
+                  voice === v ? "bg-night text-dawn" : "bg-dawn-deep text-ink"
+                }`}
+              >
+                {v === "female" ? "Habibah ♀" : "Ahmed ♂"}
               </button>
             ))}
           </div>

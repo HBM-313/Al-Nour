@@ -17,6 +17,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { preferredAudioId } from "@/lib/voicePref";
 import type { AgeSkin, LessonStepParams, Letter, VocabularyWord } from "@/lib/types";
 import { canSpeak, createAudioPlayer, speak, stopSpeaking } from "@/lib/audio";
 import { saveRoundProgress } from "@/lib/progress";
@@ -173,7 +174,11 @@ export function useMatchPairs(options: UseMatchPairsOptions) {
         return;
       }
 
-      const vocabulary = vocabRes.data as VocabularyWord[];
+      // Stemmevalg (Habibah/Ahmed): foretrukket spor vælges ved hentning
+      const vocabulary = (vocabRes.data as VocabularyWord[]).map((w) => ({
+        ...w,
+        audio_media_id: preferredAudioId(w),
+      }));
 
       // Bogstavpositioner til trin-filtrering (lille, stabil tabel)
       const lettersRes = await supabase

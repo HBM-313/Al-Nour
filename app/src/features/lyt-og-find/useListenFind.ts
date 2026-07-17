@@ -16,6 +16,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { preferredAudioId } from "@/lib/voicePref";
 import type { AgeSkin, LessonStepParams, Letter, VocabularyWord } from "@/lib/types";
 import { buildRound, buildStepRound, type Question } from "./engine";
 import { canSpeak, createAudioPlayer, speakArabic, stopSpeaking } from "@/lib/audio";
@@ -125,11 +126,18 @@ export function useListenFind(options: UseListenFindOptions) {
         return;
       }
 
-      const letters = lettersRes.data as Letter[];
-      const vocabulary = (vocabRes.data ?? []) as VocabularyWord[];
+      // Stemmevalg (Habibah/Ahmed): audio_media_id omskrives ved hentning
+      // til det foretrukne spor — resten af spillet er stemme-agnostisk.
+      const letters = (lettersRes.data as Letter[]).map((l) => ({
+        ...l,
+        audio_media_id: preferredAudioId(l),
+      }));
+      const vocabulary = ((vocabRes.data ?? []) as VocabularyWord[]).map(
+        (w) => ({ ...w, audio_media_id: preferredAudioId(w) }),
+      );
 
-      // Slå lyd-URL'er op i ét kald. For letters garanterer DB-triggeren at
-      // mediet er menneskeligt optaget — klienten behøver ikke gen-checke.
+      // Slå lyd-URL'er op i ét kald. Lyd-reglen: filer er frit udskiftelige
+      // (TTS/AI eller human) — triggeren garanterer aldrig-recitation.
       const mediaIds = [
         ...letters.map((l) => l.audio_media_id),
         ...vocabulary.map((w) => w.audio_media_id),

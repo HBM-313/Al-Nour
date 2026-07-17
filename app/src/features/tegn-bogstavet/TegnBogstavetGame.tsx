@@ -20,6 +20,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, RotateCcw, Volume2, Flame } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { preferredAudioId } from "@/lib/voicePref";
 import { createAudioPlayer, speak } from "@/lib/audio";
 import { saveRoundProgress } from "@/lib/progress";
 import type { AgeSkin, LessonStepParams, Letter, LetterForm } from "@/lib/types";
@@ -182,7 +183,11 @@ export function TegnBogstavetGame({
         setLoadError(res.error?.message ?? "Ingen bogstaver fundet.");
         return;
       }
-      const ls = res.data as Letter[];
+      // Stemmevalg: foretrukket spor vælges ved hentning
+      const ls = (res.data as Letter[]).map((l) => ({
+        ...l,
+        audio_media_id: preferredAudioId(l),
+      }));
 
       const mediaIds = ls
         .map((l) => l.audio_media_id)
