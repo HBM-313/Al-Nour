@@ -1,0 +1,174 @@
+/*
+ * ParentAuth — scene-styling. Samme nattehimmel/guld-tokens som pin-login.css
+ * (#0b1330 nat, #f5eddd cremet tekst, #f5b942 guld, #c9a46b dæmpet guld) —
+ * portet 1:1 fra ejer-godkendt demo (nour-foraelder-auth-demo.html).
+ * Global prefers-reduced-motion i index.css nulstiller animationer automatisk.
+ */
+
+.auth-scene {
+  background: linear-gradient(180deg, #0b1330 0%, #141d3f 70%, #1d2b50 100%);
+  color: #f5eddd;
+  box-shadow: 0 20px 50px -20px rgba(11, 19, 48, 0.6);
+}
+
+.auth-stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.auth-star {
+  position: absolute;
+  border-radius: 9999px;
+  background: #f5eddd;
+  opacity: 0.7;
+  animation: auth-twinkle 4s ease-in-out infinite;
+}
+@keyframes auth-twinkle {
+  0%,
+  100% {
+    opacity: 0.75;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+
+.auth-title {
+  color: #f5eddd;
+  font-family: var(--font-display);
+}
+.auth-sub {
+  color: #c9a46b;
+}
+
+.auth-tabs {
+  background: rgba(245, 237, 221, 0.06);
+}
+.auth-tab {
+  color: #c9a46b;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+.auth-tab-active {
+  background: #f5b942;
+  color: #1a1305;
+}
+.auth-tab:focus-visible {
+  outline: 2px solid #f5b942;
+  outline-offset: 2px;
+}
+
+.auth-field-label {
+  color: #c9a46b;
+}
+.auth-input {
+  background: rgba(245, 237, 221, 0.06);
+  box-shadow: inset 0 0 0 1.5px rgba(245, 237, 221, 0.18);
+  color: #f5eddd;
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.auth-input::placeholder {
+  color: rgba(201, 164, 107, 0.6);
+}
+.auth-input:focus {
+  outline: none;
+  background: rgba(245, 237, 221, 0.1);
+  box-shadow: inset 0 0 0 1.5px rgba(245, 185, 66, 0.55);
+}
+.auth-input-invalid {
+  box-shadow: inset 0 0 0 1.5px rgba(226, 111, 91, 0.85);
+}
+.auth-hint {
+  color: #c9a46b;
+}
+
+.auth-submit {
+  background: #f5b942;
+  color: #1a1305;
+  transition:
+    filter 0.15s ease,
+    transform 0.1s ease;
+}
+.auth-submit:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.auth-submit:active:not(:disabled) {
+  transform: scale(0.99);
+}
+.auth-submit:disabled {
+  opacity: 0.6;
+}
+.auth-submit:focus-visible {
+  outline: 2px solid #f5eddd;
+  outline-offset: 2px;
+}
+
+.auth-spinner {
+  border: 2px solid rgba(26, 19, 5, 0.3);
+  border-top-color: #1a1305;
+  border-radius: 9999px;
+  animation: auth-spin 0.7s linear infinite;
+}
+@keyframes auth-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.auth-msg-error {
+  background: rgba(226, 111, 91, 0.14);
+  color: #ffb9a3;
+  box-shadow: inset 0 0 0 1px rgba(226, 111, 91, 0.35);
+}
+.auth-msg-info {
+  background: rgba(245, 185, 66, 0.1);
+  color: #ffd98a;
+  box-shadow: inset 0 0 0 1px rgba(245, 185, 66, 0.35);
+}
+
+.auth-welcome-glow {
+  background: radial-gradient(circle at 50% 40%, #fff7e0, #f5b942 55%, rgba(245, 185, 66, 0) 75%);
+  box-shadow: 0 0 30px 6px rgba(245, 185, 66, 0.45);
+}
+
+.auth-statebox {
+  background: rgba(245, 237, 221, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(245, 237, 221, 0.1);
+}
+.auth-statebox-row {
+  border-bottom: 1px dashed rgba(245, 237, 221, 0.1);
+}
+.auth-statebox-row:last-child {
+  border-bottom: none;
+}
+.auth-statebox-k {
+  color: #c9a46b;
+}
+.auth-pill {
+  background: #f5b942;
+  color: #1a1305;
+}
+
+.auth-next-note {
+  background: rgba(245, 185, 66, 0.07);
+  box-shadow: inset 0 0 0 1px rgba(245, 185, 66, 0.35);
+  color: #c9a46b;
+}
+.auth-next-note strong {
+  color: #f5b942;
+}
+
+.auth-ghost {
+  box-shadow: inset 0 0 0 1px rgba(245, 237, 221, 0.18);
+  color: #c9a46b;
+  transition:
+    box-shadow 0.15s ease,
+    color 0.15s ease;
+}
+.auth-ghost:hover {
+  box-shadow: inset 0 0 0 1px rgba(245, 185, 66, 0.5);
+  color: #f5eddd;
+}

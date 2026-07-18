@@ -6,6 +6,7 @@ import { TegnBogstavetGame } from "@/features/tegn-bogstavet/TegnBogstavetGame"
 import { MatchPairsGame } from "@/features/match-par/MatchPairsGame"
 import { WorldMap } from "@/features/verdenskort/WorldMap"
 import { PinLogin } from "@/features/pin-login"
+import { ParentAuth } from "@/features/parent-auth"
 import { getVoicePref, setVoicePref, type VoicePref } from "@/lib/voicePref"
 import { LessonScreen } from "@/features/lektion/LessonScreen"
 import { supabase } from "@/lib/supabase"
@@ -123,6 +124,12 @@ export default function App() {
               {showTranslit ? "Skjul transskription" : "Vis transskription"}
             </button>
           </div>
+        </section>
+
+        {/* Forælder-login (leverance A — plan-samtykke-flow.md) */}
+        <section className="flex flex-col items-center gap-3">
+          <h2 className="text-sm font-semibold text-ink-soft">Forælder-login-demo</h2>
+          <ParentAuth />
         </section>
 
         {/* Pin-login (leverance 1 — plan-pin-login-port.md) */}

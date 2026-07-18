@@ -34,8 +34,8 @@ export type ProgressStatus = "not_started" | "in_progress" | "completed";
 export type AgeSkin = "soft" | "mid" | "teen";
 
 export interface Account {
+  /** ER auth.uid() — ingen separat auth_user_id-kolonne (dokumenteret afvigelse fra 0001, se supabase/migrations/README.md) */
   id: string;
-  auth_user_id: string;
   email: string;
   role: AccountRole;
   display_name: string | null;
