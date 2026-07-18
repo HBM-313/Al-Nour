@@ -16,6 +16,7 @@
 import { useMemo, useState } from "react";
 import type { Account } from "@/lib/types";
 import { Consent } from "@/features/consent";
+import { OpretProfil } from "@/features/opret-profil";
 import { useParentAuth, type AuthMode } from "./useParentAuth";
 import "./parent-auth.css";
 
@@ -311,9 +312,8 @@ function Welcome({
         <Row k="consent_version" v={<span className="font-mono text-xs">{account.consent_version}</span>} />
       </div>
 
-      <div className="auth-next-note w-full rounded-(--radius-skin) px-4 py-3 text-left text-sm">
-        <strong>Næste skridt (Leverance C — ikke bygget endnu):</strong> opret barneprofil
-        (kaldenavn, fødselsår, avatar, valgfri pin).
+      <div className="w-full">
+        <OpretProfil account={account} />
       </div>
 
       <button type="button" onClick={onSignOut} className="auth-ghost rounded-(--radius-skin) px-5 py-2.5 text-sm font-semibold">
