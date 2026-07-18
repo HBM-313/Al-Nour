@@ -39,19 +39,38 @@ export interface Account {
   email: string;
   role: AccountRole;
   display_name: string | null;
+  /** GDPR-retsgrundlag (fase1b_profiler_pin_samtykke) — sat ved samtykke-accept */
+  consent_given_at: string | null;
+  consent_version: string | null;
   created_at: string;
   updated_at: string;
 }
+
+export type VoicePref = "female" | "male";
 
 export interface Profile {
   id: string;
   owner_account_id: string;
   display_name: string; // first name / nickname only — data minimization
-  avatar_character_id: string | null;
+  /**
+   * Emoji/kort tekst-kode for barnets valgte figur (live-kolonne er `text`,
+   * bevidst afvigelse fra 0001-designets avatar_character_id — se
+   * supabase/migrations/README.md). IKKE "rettes".
+   */
+  avatar: string | null;
   birth_year: number;
   ui_language: "da" | "ar";
   transliteration_enabled: boolean;
   current_level: 1 | 2 | 3 | 4;
+  /**
+   * Bcrypt-hash af dyre-pin-sekvensen (pool-index, fx "0,1,2"). ALDRIG
+   * klartekst. Null = intet pin sat — profilen er ulåst (forælderens valg).
+   * Sættes/tjekkes udelukkende via RPC (set_child_pin/verify_child_pin);
+   * hashen forlader aldrig databasen mod klienten.
+   */
+  pin_hash: string | null;
+  /** Oplæser-stemme — afløser lib/voicePref.ts's localStorage når profil er logget ind */
+  preferred_voice: VoicePref;
   created_at: string;
   updated_at: string;
 }

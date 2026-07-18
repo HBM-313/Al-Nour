@@ -1,0 +1,154 @@
+/*
+ * PinLogin — scene-styling. Farver portet 1:1 fra ejer-godkendt demo
+ * (nour-pinkode-demo.html): nattehimmel-baggrund, guld-glød, cremet tekst.
+ * Globale prefers-reduced-motion-regler i index.css nulstiller animationer
+ * (twinkle, shake, glow) automatisk — intet ekstra behøves her udover at
+ * undgå bevægelse som eneste informationsbærer (farve/tekst bærer altid
+ * status parallelt med shake/glow).
+ */
+
+.pin-scene {
+  background: linear-gradient(180deg, #0b1330 0%, #141d3f 70%, #1d2b50 100%);
+  color: #f5eddd;
+  box-shadow: 0 20px 50px -20px rgba(11, 19, 48, 0.6);
+}
+
+.pin-stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.pin-star {
+  position: absolute;
+  border-radius: 9999px;
+  background: #f5eddd;
+  opacity: 0.7;
+  animation: pin-twinkle 4s ease-in-out infinite;
+}
+@keyframes pin-twinkle {
+  0%,
+  100% {
+    opacity: 0.75;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+
+.pin-title {
+  color: #f5eddd;
+  font-family: var(--font-display);
+}
+
+.pin-link {
+  color: #c9a46b;
+  transition: color 0.2s ease;
+}
+.pin-link:hover,
+.pin-link:focus-visible {
+  color: #f5b942;
+}
+
+/* Avatar-cirkler: guld-glød ring, dyb nat-fyld */
+.pin-avatar-circle {
+  background: radial-gradient(circle at 35% 30%, #2e3f6e, #141d3f 70%);
+  box-shadow:
+    0 0 0 2px rgba(245, 185, 66, 0.35),
+    0 0 22px rgba(245, 185, 66, 0.25);
+}
+.pin-avatar:hover .pin-avatar-circle,
+.pin-avatar:focus-visible .pin-avatar-circle {
+  box-shadow:
+    0 0 0 3px rgba(245, 185, 66, 0.65),
+    0 0 30px rgba(245, 185, 66, 0.45);
+}
+.pin-avatar:focus-visible {
+  outline: none;
+}
+.pin-name {
+  color: #f5eddd;
+}
+
+.pin-welcome-glow {
+  animation: pin-welcome-pulse 1.6s ease-out infinite;
+}
+@keyframes pin-welcome-pulse {
+  0% {
+    box-shadow:
+      0 0 0 2px rgba(245, 185, 66, 0.4),
+      0 0 20px rgba(245, 185, 66, 0.3);
+  }
+  50% {
+    box-shadow:
+      0 0 0 6px rgba(245, 185, 66, 0.15),
+      0 0 40px rgba(245, 185, 66, 0.55);
+  }
+  100% {
+    box-shadow:
+      0 0 0 2px rgba(245, 185, 66, 0.4),
+      0 0 20px rgba(245, 185, 66, 0.3);
+  }
+}
+
+/* Lys-pladser: fyldes med guld-glød i takt med tryk */
+.pin-slot {
+  background: rgba(245, 237, 221, 0.15);
+  box-shadow: inset 0 0 0 1px rgba(245, 237, 221, 0.25);
+  transition:
+    background 0.25s ease,
+    box-shadow 0.25s ease,
+    transform 0.25s ease;
+}
+.pin-slot-lit {
+  background: #f5b942;
+  box-shadow:
+    0 0 10px rgba(245, 185, 66, 0.85),
+    inset 0 0 0 1px rgba(245, 185, 66, 0.9);
+  transform: scale(1.08);
+}
+
+.pin-feedback {
+  color: #c9a46b;
+  min-height: 1.25rem;
+}
+.pin-feedback-help {
+  color: #ffd98a;
+}
+
+/* Forkert kode: blid vandring, aldrig et hårdt "fejl"-udtryk */
+.pin-shake {
+  animation: pin-shake 0.5s ease-in-out;
+}
+@keyframes pin-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-6px);
+  }
+  75% {
+    transform: translateX(6px);
+  }
+}
+
+/* Dyre-knapper */
+.pin-animal-btn {
+  background: rgba(245, 237, 221, 0.06);
+  box-shadow: inset 0 0 0 1.5px rgba(245, 237, 221, 0.18);
+  color: #f5eddd;
+  position: relative;
+}
+.pin-animal-btn:hover:not(:disabled),
+.pin-animal-btn:focus-visible {
+  background: rgba(245, 185, 66, 0.12);
+  box-shadow: inset 0 0 0 1.5px rgba(245, 185, 66, 0.55);
+  outline: none;
+}
+.pin-animal-btn:disabled {
+  opacity: 0.5;
+}
+.pin-order-hint {
+  color: #c9a46b;
+  margin-top: -2px;
+}

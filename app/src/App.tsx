@@ -1,13 +1,15 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { VocabUnit, ArabicInline } from "@/components/bilingual/BilingualText"
 import { SourceVerifiedBadge } from "@/components/SourceVerifiedBadge"
 import { ListenFindGame } from "@/features/lyt-og-find/ListenFindGame"
 import { TegnBogstavetGame } from "@/features/tegn-bogstavet/TegnBogstavetGame"
 import { MatchPairsGame } from "@/features/match-par/MatchPairsGame"
 import { WorldMap } from "@/features/verdenskort/WorldMap"
+import { PinLogin } from "@/features/pin-login"
 import { getVoicePref, setVoicePref, type VoicePref } from "@/lib/voicePref"
 import { LessonScreen } from "@/features/lektion/LessonScreen"
-import type { AgeSkin } from "@/lib/types"
+import { supabase } from "@/lib/supabase"
+import type { AgeSkin, Profile } from "@/lib/types"
 
 /**
  * Foundation demo screen — verifies the Fase 0 frontend building blocks:
@@ -23,6 +25,30 @@ export default function App() {
   const [playing, setPlaying] = useState<"none" | "lyt" | "tegn" | "match">("none")
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null)
   const [mapRefresh, setMapRefresh] = useState(0)
+
+  // --- Pin-login-demo (leverance 1) ---------------------------------------
+  // Profiler leveres som prop (ren UI+RPC -- se features/pin-login/PinLogin).
+  // Her henter DEMOEN dem direkte for at kunne teste mod aegte RPC; det
+  // rigtige foraelder-login/samtykke-flow (leverance 2) leverer listen paa
+  // sin egen maade (kun profiler ejet af den indloggede foraelder, via RLS).
+  const [demoProfiles, setDemoProfiles] = useState<Profile[] | null>(null)
+  const [loggedInProfile, setLoggedInProfile] = useState<Profile | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void supabase
+      .from("profiles")
+      .select("*")
+      .eq("owner_account_id", "8ace1757-72c6-4ff0-ba19-9dc4f52e5007")
+      .order("created_at")
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (!error && data) setDemoProfiles(data as Profile[])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return (
     <div data-age-skin={skin} className="min-h-screen px-6 py-10">
@@ -97,6 +123,35 @@ export default function App() {
               {showTranslit ? "Skjul transskription" : "Vis transskription"}
             </button>
           </div>
+        </section>
+
+        {/* Pin-login (leverance 1 — plan-pin-login-port.md) */}
+        <section className="flex flex-col items-center gap-3">
+          <h2 className="text-sm font-semibold text-ink-soft">
+            Pin-login-demo (test-forælder: Ali pin 1-2-3, Zainab pin 1-2-3-4)
+          </h2>
+          {demoProfiles === null ? (
+            <p className="text-sm text-ink-soft">Henter testprofiler …</p>
+          ) : loggedInProfile ? (
+            <div className="flex flex-col items-center gap-3">
+              <p className="text-sm text-ink-soft">
+                Logget ind som <strong>{loggedInProfile.display_name}</strong>{" "}
+                (preferred_voice: {loggedInProfile.preferred_voice})
+              </p>
+              <button
+                onClick={() => setLoggedInProfile(null)}
+                className="rounded-(--radius-skin) bg-dawn-deep px-4 py-2 text-sm font-semibold"
+              >
+                Log ud (test igen)
+              </button>
+            </div>
+          ) : (
+            <PinLogin
+              skin={skin}
+              profiles={demoProfiles}
+              onLoggedIn={setLoggedInProfile}
+            />
+          )}
         </section>
 
         {/* Lektioner (Bogstavernes Dal) — spillene er mekanikker, ikke destinationer */}
