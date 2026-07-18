@@ -1,0 +1,97 @@
+/*
+ * Consent — samtykke-tekstboks + checkbox. Genbruger parent-auth's
+ * nattehimmel/guld-farvetokens (#f5eddd cremet, #c9a46b dæmpet guld,
+ * #f5b942 guld) for visuel konsistens — portet 1:1 fra ejer-godkendt demo
+ * (nour-samtykke-demo.html). Global prefers-reduced-motion i index.css
+ * nulstiller animationer automatisk.
+ */
+
+.consent-textbox {
+  background: rgba(7, 11, 30, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(245, 185, 66, 0.12);
+  max-height: 260px;
+  overflow-y: auto;
+  color: #f5eddd;
+}
+.consent-textbox h3 {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #f5b942;
+  font-weight: 600;
+  margin: 0.9rem 0 0.35rem;
+}
+.consent-textbox h3:first-child {
+  margin-top: 0;
+}
+.consent-textbox p {
+  margin: 0 0 0.75rem;
+}
+.consent-textbox ul {
+  margin: 0 0 0.75rem;
+  padding-left: 1.1rem;
+}
+.consent-textbox li {
+  margin-bottom: 0.25rem;
+}
+.consent-textbox::-webkit-scrollbar {
+  width: 6px;
+}
+.consent-textbox::-webkit-scrollbar-thumb {
+  background: rgba(245, 185, 66, 0.35);
+  border-radius: 6px;
+}
+
+.consent-warning {
+  background: rgba(245, 185, 66, 0.08);
+  border-left: 2px solid #f5b942;
+  padding: 0.5rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  color: #c9a46b;
+  margin-bottom: 0.6rem;
+}
+
+.consent-version {
+  color: #c9a46b;
+  font-size: 0.68rem;
+  text-align: right;
+}
+
+.consent-checkbox-row {
+  cursor: pointer;
+  user-select: none;
+}
+.consent-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  border: 2px solid rgba(245, 185, 66, 0.4);
+  border-radius: 6px;
+  margin-top: 1px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.15s ease;
+  background: transparent;
+}
+.consent-checkbox:checked {
+  background: #f5b942;
+  border-color: #f5b942;
+}
+.consent-checkbox:checked::after {
+  content: "✓";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1a1305;
+  font-size: 13px;
+  font-weight: 700;
+}
+.consent-checkbox:focus-visible {
+  outline: 2px solid #f5b942;
+  outline-offset: 2px;
+}

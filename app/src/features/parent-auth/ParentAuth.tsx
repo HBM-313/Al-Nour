@@ -15,6 +15,7 @@
 
 import { useMemo, useState } from "react";
 import type { Account } from "@/lib/types";
+import { Consent } from "@/features/consent";
 import { useParentAuth, type AuthMode } from "./useParentAuth";
 import "./parent-auth.css";
 
@@ -26,7 +27,7 @@ const EMAIL_RE = /^\S+@\S+\.\S+$/;
 const MIN_PASSWORD_LEN = 8;
 
 export function ParentAuth({ onAuthenticated }: ParentAuthProps) {
-  const { mode, phase, errorMessage, account, switchMode, submit, signOut } = useParentAuth({
+  const { mode, phase, errorMessage, account, switchMode, submit, signOut, updateAccount } = useParentAuth({
     onAuthenticated,
   });
 
@@ -63,7 +64,7 @@ export function ParentAuth({ onAuthenticated }: ParentAuthProps) {
         {phase === "checking_session" ? (
           <p className="auth-sub py-10 text-center text-sm">Tjekker login …</p>
         ) : account ? (
-          <Welcome account={account} onSignOut={() => void signOut()} />
+          <Welcome account={account} onSignOut={() => void signOut()} onConsentGiven={updateAccount} />
         ) : phase === "needs_confirmation" ? (
           <NeedsConfirmation onBackToLogin={() => switchMode("login")} />
         ) : (
@@ -267,7 +268,30 @@ function NeedsConfirmation({ onBackToLogin }: { onBackToLogin: () => void }) {
 // Velkomst — kort tilstands-bekræftelse, derefter overtager App'en flowet
 // ----------------------------------------------------------------------------
 
-function Welcome({ account, onSignOut }: { account: Account; onSignOut: () => void }) {
+function Welcome({
+  account,
+  onSignOut,
+  onConsentGiven,
+}: {
+  account: Account;
+  onSignOut: () => void;
+  onConsentGiven: (account: Account) => void;
+}) {
+  if (!account.consent_given_at) {
+    return (
+      <div className="flex flex-col items-center gap-4 py-2">
+        <Consent account={account} onConsented={onConsentGiven} />
+        <button
+          type="button"
+          onClick={onSignOut}
+          className="auth-ghost rounded-(--radius-skin) px-5 py-2.5 text-sm font-semibold"
+        >
+          Log ud i stedet
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col items-center gap-4 py-4 text-center">
       <div className="auth-welcome-glow size-14 rounded-full" aria-hidden />
@@ -282,13 +306,14 @@ function Welcome({ account, onSignOut }: { account: Account; onSignOut: () => vo
         <Row k="accounts.id" v={<span className="font-mono text-xs">{account.id}</span>} />
         <Row
           k="consent_given_at"
-          v={<span className="font-mono text-xs">{account.consent_given_at ?? "null"}</span>}
+          v={<span className="font-mono text-xs">{account.consent_given_at}</span>}
         />
+        <Row k="consent_version" v={<span className="font-mono text-xs">{account.consent_version}</span>} />
       </div>
 
       <div className="auth-next-note w-full rounded-(--radius-skin) px-4 py-3 text-left text-sm">
-        <strong>Næste skridt (Leverance B — ikke bygget endnu):</strong> uden samtykke kan der ikke
-        oprettes børneprofiler.
+        <strong>Næste skridt (Leverance C — ikke bygget endnu):</strong> opret barneprofil
+        (kaldenavn, fødselsår, avatar, valgfri pin).
       </div>
 
       <button type="button" onClick={onSignOut} className="auth-ghost rounded-(--radius-skin) px-5 py-2.5 text-sm font-semibold">

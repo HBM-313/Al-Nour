@@ -91,5 +91,5 @@ export function useParentAuth({ onAuthenticated }: UseParentAuthArgs = {}) {
     setErrorMessage(null);
   }, []);
 
-  return { mode, phase, errorMessage, account, switchMode, submit, signOut };
+  return { mode, phase, errorMessage, account, switchMode, submit, signOut, updateAccount: setAccount };
 }
