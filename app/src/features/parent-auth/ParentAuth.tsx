@@ -16,7 +16,7 @@
 import { useMemo, useState } from "react";
 import type { Account } from "@/lib/types";
 import { Consent } from "@/features/consent";
-import { OpretProfil } from "@/features/opret-profil";
+import { Dashboard } from "@/features/dashboard";
 import { useParentAuth, type AuthMode } from "./useParentAuth";
 import "./parent-auth.css";
 
@@ -313,7 +313,7 @@ function Welcome({
       </div>
 
       <div className="w-full">
-        <OpretProfil account={account} />
+        <Dashboard account={account} />
       </div>
 
       <button type="button" onClick={onSignOut} className="auth-ghost rounded-(--radius-skin) px-5 py-2.5 text-sm font-semibold">
