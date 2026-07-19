@@ -83,3 +83,30 @@ export function saveLocalStepProgress(
   };
   return { ok: write(store) };
 }
+
+/**
+ * Fuldt readonly-snapshot af gæste-lageret på tværs af ALLE skind — bruges
+ * af app-skallens engangs-migrering "tag dit lys med" (gæst → profil).
+ * current_step er skind-relativt og må derfor kun genbruges for barnets
+ * eget skind; andre skinds poster bidrager kun med completed/xp.
+ */
+export function getLocalProgressSnapshot(): Readonly<Store> {
+  return read();
+}
+
+/** Findes der overhovedet gæste-fremskridt på enheden? */
+export function hasLocalProgress(): boolean {
+  return Object.keys(read()).length > 0;
+}
+
+/**
+ * Ryd gæste-lageret — kaldes KUN efter en gennemført migrering til en
+ * profil, så det samme lys ikke kan tages med to gange.
+ */
+export function clearLocalProgress(): void {
+  try {
+    window.localStorage.removeItem(KEY);
+  } catch {
+    // Uden lager er der intet at rydde.
+  }
+}

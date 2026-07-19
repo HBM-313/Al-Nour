@@ -1,0 +1,273 @@
+/* App-shell — portet 1:1 fra ejer-godkendt demo (nour-app-skal-demo.html).
+   Nattehimmel #0b1330 + guld #f5b942 — samme scene som pin-login/parent-auth. */
+
+.shell-scene {
+  --sh-night: #0b1330;
+  --sh-night-soft: #141d42;
+  --sh-night-card: #1a2450;
+  --sh-gold: #f5b942;
+  --sh-gold-soft: #f8ce7a;
+  --sh-gold-dim: rgba(245, 185, 66, 0.16);
+  --sh-ink: #f4f0e6;
+  --sh-ink-soft: #b9b3d9;
+  --sh-warn: #f0906b;
+  --sh-radius: 22px;
+
+  position: relative;
+  min-height: 100dvh;
+  color: var(--sh-ink);
+  background:
+    radial-gradient(1.5px 1.5px at 12% 18%, rgba(255, 255, 255, 0.55) 50%, transparent 51%),
+    radial-gradient(1px 1px at 78% 9%, rgba(255, 255, 255, 0.4) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 62% 32%, rgba(255, 255, 255, 0.45) 50%, transparent 51%),
+    radial-gradient(1px 1px at 30% 60%, rgba(255, 255, 255, 0.35) 50%, transparent 51%),
+    linear-gradient(180deg, #0b1330 0%, #101a3e 70%, #17224c 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.shell-app {
+  width: 100%;
+  max-width: 430px;
+  padding: 14px 18px calc(24px + env(safe-area-inset-bottom));
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 1;
+}
+
+.shell-stars {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.shell-star {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7);
+  animation: shell-twinkle 4s ease-in-out infinite;
+}
+@keyframes shell-twinkle {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 0.9; }
+}
+
+.shell-screen {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  animation: shell-fade 0.35s ease;
+}
+@keyframes shell-fade {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell-screen { animation: none; }
+  .shell-star { animation: none; opacity: 0.5; }
+}
+
+/* --- Logo / landing ------------------------------------------------------ */
+.shell-logo { text-align: center; margin: 26px 0 6px; }
+.shell-lamp {
+  width: 74px;
+  height: 74px;
+  margin: 0 auto 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 42%, var(--sh-gold-soft) 0%, var(--sh-gold) 45%, rgba(245, 185, 66, 0.12) 72%, transparent 75%);
+  box-shadow: 0 0 44px 10px rgba(245, 185, 66, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+}
+.shell-title { font-family: var(--font-display); font-size: 2.3rem; letter-spacing: 0.5px; }
+.shell-title-ar { font-size: 1.25rem; color: var(--sh-gold); margin-top: 2px; }
+.shell-sub { color: var(--sh-ink-soft); font-size: 0.9rem; margin-top: 8px; }
+
+/* --- Knapper ------------------------------------------------------------- */
+.shell-stack { display: flex; flex-direction: column; gap: 14px; margin-top: auto; padding-top: 26px; }
+.shell-stack-lg { display: flex; flex-direction: column; gap: 16px; flex: 1; }
+.shell-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 18px 20px;
+  border: none;
+  border-radius: var(--sh-radius);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 1.05rem;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.shell-btn:active { transform: scale(0.97); }
+.shell-btn:disabled { opacity: 0.45; cursor: default; }
+.shell-btn-gold {
+  background: linear-gradient(180deg, var(--sh-gold-soft), var(--sh-gold));
+  color: #3a2a05;
+  box-shadow: 0 6px 24px rgba(245, 185, 66, 0.35);
+}
+.shell-btn-ghost {
+  background: var(--sh-night-card);
+  border: 1px solid rgba(245, 185, 66, 0.35);
+  color: var(--sh-gold-soft);
+}
+.shell-btn-quiet {
+  background: none;
+  border: none;
+  color: var(--sh-ink-soft);
+  font-family: inherit;
+  font-size: 0.9rem;
+  padding: 10px;
+  cursor: pointer;
+}
+.shell-btn:focus-visible,
+.shell-btn-quiet:focus-visible,
+.shell-back:focus-visible {
+  outline: 2px solid var(--sh-gold);
+  outline-offset: 2px;
+}
+
+.shell-hint { font-size: 0.78rem; color: var(--sh-ink-soft); line-height: 1.45; }
+.shell-center { text-align: center; padding: 0 10px; }
+
+/* --- Topbar / kort ------------------------------------------------------- */
+.shell-topbar { display: flex; align-items: center; justify-content: space-between; padding: 6px 0 14px; }
+.shell-topbar-title { font-family: var(--font-display); font-size: 1.05rem; color: var(--sh-gold-soft); }
+.shell-topbar-spacer { width: 52px; }
+.shell-back {
+  background: none;
+  border: none;
+  color: var(--sh-ink-soft);
+  font-family: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  align-self: flex-start;
+}
+
+.shell-card {
+  background: var(--sh-night-card);
+  border: 1px solid rgba(245, 185, 66, 0.25);
+  border-radius: var(--sh-radius);
+  padding: 22px;
+  margin-top: 18px;
+}
+.shell-card h3 { font-family: var(--font-display); color: var(--sh-gold-soft); margin-bottom: 8px; }
+.shell-card p { color: var(--sh-ink-soft); font-size: 0.95rem; line-height: 1.5; }
+
+.shell-input {
+  width: 100%;
+  padding: 15px 16px;
+  border-radius: 16px;
+  font-size: 1rem;
+  font-family: inherit;
+  background: var(--sh-night);
+  color: var(--sh-ink);
+  border: 1px solid rgba(185, 179, 217, 0.35);
+  margin: 12px 0 4px;
+}
+.shell-input:focus { outline: 2px solid var(--sh-gold); border-color: transparent; }
+.shell-field-err { color: var(--sh-warn); font-size: 0.85rem; min-height: 20px; margin-top: 6px; }
+
+/* --- Børne-indgang / worldbar -------------------------------------------- */
+.shell-parent-link { margin-top: auto; text-align: center; padding-top: 26px; }
+
+.shell-worldbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--sh-night-card);
+  border-radius: 99px;
+  border: 1px solid rgba(245, 185, 66, 0.25);
+  margin-bottom: 16px;
+}
+.shell-avatar-s {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 38%, rgba(245, 185, 66, 0.55), rgba(245, 185, 66, 0.15) 72%);
+}
+.shell-who { font-family: var(--font-display); font-size: 1rem; }
+.shell-voice-pill {
+  margin-inline-start: auto;
+  font-size: 0.7rem;
+  color: var(--sh-gold-soft);
+  border: 1px solid rgba(245, 185, 66, 0.4);
+  border-radius: 99px;
+  padding: 3px 9px;
+  white-space: nowrap;
+}
+
+/* --- Gæste-sti ------------------------------------------------------------ */
+.shell-guest-banner {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+  border-radius: var(--sh-radius);
+  background: var(--sh-gold-dim);
+  border: 1px solid rgba(245, 185, 66, 0.4);
+  margin-bottom: 16px;
+}
+.shell-guest-text { font-size: 0.85rem; line-height: 1.45; color: var(--sh-ink); }
+.shell-guest-text b { color: var(--sh-gold-soft); }
+.shell-guest-cta {
+  background: none;
+  border: none;
+  color: var(--sh-gold);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.shell-skin-row { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; }
+.shell-skin-btn {
+  padding: 8px 16px;
+  border-radius: 99px;
+  border: 1px solid rgba(185, 179, 217, 0.35);
+  background: none;
+  color: var(--sh-ink-soft);
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.shell-skin-btn-on { border-color: var(--sh-gold); color: var(--sh-gold); }
+
+/* --- Migrerings-prompt ----------------------------------------------------- */
+.shell-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 10, 28, 0.8);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 20;
+  backdrop-filter: blur(3px);
+}
+.shell-sheet {
+  width: 100%;
+  max-width: 430px;
+  background: var(--sh-night-soft);
+  border-radius: 26px 26px 0 0;
+  padding: 26px 22px calc(26px + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(245, 185, 66, 0.35);
+}
+.shell-sheet h3 { font-family: var(--font-display); color: var(--sh-gold-soft); font-size: 1.2rem; margin-bottom: 8px; }
+.shell-sheet p { color: var(--sh-ink-soft); font-size: 0.95rem; line-height: 1.55; margin-bottom: 16px; }
+.shell-sheet b { color: var(--sh-gold-soft); }
