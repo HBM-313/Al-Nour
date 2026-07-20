@@ -17,6 +17,7 @@ import { useMemo, useState } from "react";
 import type { Account } from "@/lib/types";
 import { Consent } from "@/features/consent";
 import { Dashboard } from "@/features/dashboard";
+import { VokabVaerksted } from "@/features/vokab-vaerksted";
 import { useParentAuth, type AuthMode } from "./useParentAuth";
 import "./parent-auth.css";
 
@@ -278,6 +279,8 @@ function Welcome({
   onSignOut: () => void;
   onConsentGiven: (account: Account) => void;
 }) {
+  const [portalTab, setPortalTab] = useState<"born" | "vaerksted">("born");
+
   if (!account.consent_given_at) {
     return (
       <div className="flex flex-col items-center gap-4 py-2">
@@ -312,14 +315,59 @@ function Welcome({
         <Row k="consent_version" v={<span className="font-mono text-xs">{account.consent_version}</span>} />
       </div>
 
+      {isStaff(account.role) && (
+        <div className="flex w-full gap-2" role="tablist" aria-label="Portal">
+          <PortalTab label="Børn" id="born" current={portalTab} onPick={setPortalTab} />
+          <PortalTab label="Værkstedet" id="vaerksted" current={portalTab} onPick={setPortalTab} />
+        </div>
+      )}
+
       <div className="w-full">
-        <Dashboard account={account} />
+        {portalTab === "vaerksted" && isStaff(account.role) ? (
+          <VokabVaerksted />
+        ) : (
+          <Dashboard account={account} />
+        )}
       </div>
 
       <button type="button" onClick={onSignOut} className="auth-ghost rounded-(--radius-skin) px-5 py-2.5 text-sm font-semibold">
         Log ud
       </button>
     </div>
+  );
+}
+
+/**
+ * Ordforråds-værkstedet er kurrikulum-redigering — kun for admin/editor.
+ * UI'et skjuler blot fanen; selve adgangen håndhæves af RLS
+ * (`vocabulary_write_admin_editor`), aldrig af klienten.
+ */
+function isStaff(role: Account["role"]): boolean {
+  return role === "admin" || role === "editor";
+}
+
+function PortalTab({
+  label,
+  id,
+  current,
+  onPick,
+}: {
+  label: string;
+  id: "born" | "vaerksted";
+  current: "born" | "vaerksted";
+  onPick: (t: "born" | "vaerksted") => void;
+}) {
+  const selected = current === id;
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={selected}
+      onClick={() => onPick(id)}
+      className={`auth-ghost flex-1 rounded-(--radius-skin) py-2.5 text-sm font-bold ${selected ? "auth-portal-tab-on" : ""}`}
+    >
+      {label}
+    </button>
   );
 }
 

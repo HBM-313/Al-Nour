@@ -172,3 +172,10 @@
   box-shadow: inset 0 0 0 1px rgba(245, 185, 66, 0.5);
   color: #f5eddd;
 }
+
+/* Portal-fane (Børn/Værkstedet) — kun synlig for admin/editor */
+.auth-portal-tab-on {
+  background: rgba(245, 185, 66, 0.16);
+  border-color: rgba(245, 185, 66, 0.45) !important;
+  color: #f5b942 !important;
+}

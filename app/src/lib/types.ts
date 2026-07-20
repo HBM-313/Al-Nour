@@ -289,6 +289,11 @@ export interface VocabularyWord {
   /** Mandsstemme — valgt når barnets stemmepræference er 'male' */
   audio_media_id_male: string | null;
   is_published: boolean;
+  /**
+   * Proveniens (migration 20260719): 'human' eller 'ai'. AI-foreslåede ord
+   * kan aldrig fødes udgivne — håndhævet i DB af trg_vocab_ai_draft_only.
+   */
+  suggested_by: "human" | "ai";
   created_at: string;
   updated_at: string;
 }
