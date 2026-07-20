@@ -54,3 +54,22 @@ via en dedikeret admin-kun RPC, ikke via denne bagdør.
 Funktionen er en del af migrationen, men selve *aktiveringen* sker i
 Supabase Dashboard (Authentication → Hooks → Custom Access Token) — det kan
 ikke gøres via SQL/MCP. Aktiveret 2026-07-18.
+
+
+## Historiernes Bjerge — redaktør-aqidah-kladde (2026-07-20)
+
+`20260720_historier_redaktoer_aqidah_kladde.sql`: før denne migration havde
+redaktør-rollen **nul** skriveret til aqidah-rækker (kun `approver`/`admin`
+kunne overhovedet indsætte en kladde) — strengere end plan-dokumentets §9,
+som løst beskriver redaktøren som en der "opretter/redigerer" indhold og kun
+er afskåret fra *udgivelse*. Ejer-beslutning 2026-07-20: løsn muren så
+redaktør kan oprette og redigere **uverificerede** aqidah-kladder (med
+obligatorisk kildehenvisning), men aldrig selv kilde-verificere eller udgive.
+
+Håndhæves i to uafhængige lag (bevidst redundans, samme filosofi som resten
+af muren): RLS-politikkernes USING-genbrug som WITH CHECK, OG triggerens nye
+Lag D (`enforce_aqidah_wall`). Hvis det ene lag fejler, holder det andet.
+Bevist med 9-punkts rollback-markør-regressionstest — se migrationsfilens
+header for den fulde liste. **Denne lempelse er bevidst og skal IKKE
+rulles tilbage** — den er en forudsætning for Historie-værkstedet
+(`features/historie-vaerksted/`).

@@ -17,6 +17,7 @@ import { useMemo, useState } from "react";
 import type { Account } from "@/lib/types";
 import { Consent } from "@/features/consent";
 import { Dashboard } from "@/features/dashboard";
+import { HistorieVaerksted } from "@/features/historie-vaerksted";
 import { VokabVaerksted } from "@/features/vokab-vaerksted";
 import { useParentAuth, type AuthMode } from "./useParentAuth";
 import "./parent-auth.css";
@@ -279,7 +280,7 @@ function Welcome({
   onSignOut: () => void;
   onConsentGiven: (account: Account) => void;
 }) {
-  const [portalTab, setPortalTab] = useState<"born" | "vaerksted">("born");
+  const [portalTab, setPortalTab] = useState<"born" | "vaerksted" | "historier">("born");
 
   if (!account.consent_given_at) {
     return (
@@ -315,16 +316,21 @@ function Welcome({
         <Row k="consent_version" v={<span className="font-mono text-xs">{account.consent_version}</span>} />
       </div>
 
-      {isStaff(account.role) && (
+      {erRedaktionel(account.role) && (
         <div className="flex w-full gap-2" role="tablist" aria-label="Portal">
           <PortalTab label="Børn" id="born" current={portalTab} onPick={setPortalTab} />
-          <PortalTab label="Værkstedet" id="vaerksted" current={portalTab} onPick={setPortalTab} />
+          {isStaff(account.role) && (
+            <PortalTab label="Værkstedet" id="vaerksted" current={portalTab} onPick={setPortalTab} />
+          )}
+          <PortalTab label="Historier" id="historier" current={portalTab} onPick={setPortalTab} />
         </div>
       )}
 
       <div className="w-full">
         {portalTab === "vaerksted" && isStaff(account.role) ? (
           <VokabVaerksted />
+        ) : portalTab === "historier" && erRedaktionel(account.role) ? (
+          <HistorieVaerksted role={account.role} />
         ) : (
           <Dashboard account={account} />
         )}
@@ -346,6 +352,18 @@ function isStaff(role: Account["role"]): boolean {
   return role === "admin" || role === "editor";
 }
 
+/**
+ * Historie-værkstedet (aqidah) vises for admin/editor/approver — bredere end
+ * `isStaff`, fordi en godkender skal kunne se og verificere/udgive
+ * fortællinger uden nødvendigvis at have adgang til Ordforråds-værkstedet.
+ * UI'et skjuler blot fanen; adgangen håndhæves af RLS + triggerens Lag D
+ * (`content_editor_write_aqidah_draft`, `content_approver_update_aqidah`),
+ * aldrig af klienten.
+ */
+function erRedaktionel(role: Account["role"]): boolean {
+  return role === "admin" || role === "editor" || role === "approver";
+}
+
 function PortalTab({
   label,
   id,
@@ -353,9 +371,9 @@ function PortalTab({
   onPick,
 }: {
   label: string;
-  id: "born" | "vaerksted";
-  current: "born" | "vaerksted";
-  onPick: (t: "born" | "vaerksted") => void;
+  id: "born" | "vaerksted" | "historier";
+  current: "born" | "vaerksted" | "historier";
+  onPick: (t: "born" | "vaerksted" | "historier") => void;
 }) {
   const selected = current === id;
   return (
