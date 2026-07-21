@@ -35,6 +35,14 @@ export interface WorldMapProps {
   /** Uden denne læses anonymt lokal-fremskridt (gæste-tilstand) */
   profileId?: string;
   onOpenLesson: (lessonId: string) => void;
+  /**
+   * Åbn Historiernes Bjerge (den nye barnets-side-feature). Når denne er
+   * wired, regnes regionen for "vågen" i UI'et. WorldMap selv læser ALDRIG
+   * content/aqidah (se header-kommentaren) — det er features/historiernes-
+   * bjerge/engine.ts der afgør, om der reelt findes udgivne fortællinger,
+   * og viser en venlig tom-tilstand hvis ikke.
+   */
+  onOpenHistorier?: () => void;
 }
 
 interface NodeState {
@@ -64,7 +72,12 @@ function pathBetween(a: { x: number; y: number }, b: { x: number; y: number }) {
 
 const NODE_R: Record<AgeSkin, number> = { soft: 26, mid: 22, teen: 19 };
 
-export function WorldMap({ skin, profileId, onOpenLesson }: WorldMapProps) {
+export function WorldMap({
+  skin,
+  profileId,
+  onOpenLesson,
+  onOpenHistorier,
+}: WorldMapProps) {
   const [nodes, setNodes] = useState<NodeState[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -342,21 +355,34 @@ export function WorldMap({ skin, profileId, onOpenLesson }: WorldMapProps) {
             </g>
           </g>
 
-          {/* Historiernes Bjerge (sover — fase 2). Kun lys på toppen. */}
+          {/* Historiernes Bjerge — vågner så snart onOpenHistorier er wired
+              fra AppShell. Kun lys på toppen; aldrig skikkelser. Selve
+              features/historiernes-bjerge/ afgør (og viser tom-tilstand for),
+              om der reelt findes udgivne fortællinger endnu. */}
           <g
             className="vk-node"
             role="button"
             tabIndex={0}
-            aria-label="Historiernes Bjerge — vågner i fase 2"
+            aria-label={
+              onOpenHistorier
+                ? "Historiernes Bjerge — åbn fortællinger"
+                : "Historiernes Bjerge — vågner i fase 2"
+            }
             onClick={() =>
-              showToast("Historiernes Bjerge — fortællinger venter her (fase 2)")
+              onOpenHistorier
+                ? onOpenHistorier()
+                : showToast("Historiernes Bjerge — fortællinger venter her (fase 2)")
             }
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
-                showToast(
-                  "Historiernes Bjerge — fortællinger venter her (fase 2)",
-                );
+                if (onOpenHistorier) {
+                  onOpenHistorier();
+                } else {
+                  showToast(
+                    "Historiernes Bjerge — fortællinger venter her (fase 2)",
+                  );
+                }
               }
             }}
           >
@@ -382,7 +408,7 @@ export function WorldMap({ skin, profileId, onOpenLesson }: WorldMapProps) {
               rx="120"
               ry="70"
               fill="url(#vk-glow)"
-              opacity={allDone ? 0.5 : 0}
+              opacity={onOpenHistorier || allDone ? 0.5 : 0}
               style={{ transition: "opacity 1.6s ease" }}
             />
             <text

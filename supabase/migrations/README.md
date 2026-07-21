@@ -73,3 +73,27 @@ Bevist med 9-punkts rollback-markør-regressionstest — se migrationsfilens
 header for den fulde liste. **Denne lempelse er bevidst og skal IKKE
 rulles tilbage** — den er en forudsætning for Historie-værkstedet
 (`features/historie-vaerksted/`).
+
+
+## Historiernes Bjerge — barnets side + quiz_da (2026-07-21)
+
+`20260721_historier_quiz_da.sql`: tilføjer `content.quiz_da` (jsonb,
+nullable, `content_quiz_da_is_array`-constraint). Rent datafelt — ingen ny
+RLS-politik eller trigger-ændring, fordi aqidah-muren allerede opererer på
+RÆKKE-niveau og derfor automatisk dækker enhver ny kolonne på `content`.
+
+Samtidig portet: `features/historiernes-bjerge/` (barnets visning af
+udgivne, kilde-verificerede fortællinger — lys-illustration, kilde-mærke,
+valgfri "hvad husker du"-quiz) og `WorldMap.tsx`/`AppShell.tsx` wired til
+at åbne den. Begge sidstnævnte filer har en bevidst arkitekturregel om
+ALDRIG at læse `content`/aqidah selv (se deres respektive header-
+kommentarer) — derfor tjekker WorldMap ikke "er der en udgivet historie"
+via en database-forespørgsel; regionen regnes for "vågen" i UI'et så
+snart `onOpenHistorier` er wired, og det er selve
+`historiernes-bjerge/engine.ts`, der viser en venlig tom-tilstand hvis der
+endnu ikke findes nogen udgivet fortælling.
+
+Historie-værkstedet (`features/historie-vaerksted/`) har endnu intet UI
+til at indtaste `quiz_da` — det er en separat, kommende leverance. Indtil
+da vises fortællinger uden quiz-sektion (feltet er nullable, ikke krævet
+for udgivelse).

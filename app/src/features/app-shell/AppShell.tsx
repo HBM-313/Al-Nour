@@ -20,6 +20,7 @@ import { ParentAuth } from "@/features/parent-auth";
 import { PinLogin } from "@/features/pin-login";
 import { WorldMap } from "@/features/verdenskort/WorldMap";
 import { LessonScreen } from "@/features/lektion/LessonScreen";
+import { HistorierBjergeScreen } from "@/features/historiernes-bjerge";
 import { ageSkinForBirthYear, type AgeSkin, type Profile } from "@/lib/types";
 import { useAppShell } from "./useAppShell";
 import "./app-shell.css";
@@ -252,6 +253,7 @@ function ChildMode({
 }) {
   const skin: AgeSkin = ageSkinForBirthYear(profile.birth_year);
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
+  const [showHistorier, setShowHistorier] = useState(false);
   const [mapRefresh, setMapRefresh] = useState(0);
 
   return (
@@ -279,6 +281,12 @@ function ChildMode({
             setMapRefresh((n) => n + 1);
           }}
         />
+      ) : showHistorier ? (
+        <HistorierBjergeScreen
+          skin={skin}
+          birthYear={profile.birth_year}
+          onExit={() => setShowHistorier(false)}
+        />
       ) : (
         <>
           <WorldMap
@@ -286,6 +294,7 @@ function ChildMode({
             skin={skin}
             profileId={profile.id}
             onOpenLesson={setActiveLessonId}
+            onOpenHistorier={() => setShowHistorier(true)}
           />
           <div className="shell-stack">
             <button className="shell-btn shell-btn-ghost" onClick={onSwitchUser}>
@@ -311,6 +320,7 @@ function GuestMode({
 }) {
   const [skin, setSkin] = useState<AgeSkin>("mid");
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
+  const [showHistorier, setShowHistorier] = useState(false);
   const [mapRefresh, setMapRefresh] = useState(0);
 
   return (
@@ -340,6 +350,8 @@ function GuestMode({
             setMapRefresh((n) => n + 1);
           }}
         />
+      ) : showHistorier ? (
+        <HistorierBjergeScreen skin={skin} onExit={() => setShowHistorier(false)} />
       ) : (
         <>
           <div className="shell-skin-row" role="group" aria-label="Alder">
@@ -357,6 +369,7 @@ function GuestMode({
             key={`${skin}-${mapRefresh}`}
             skin={skin}
             onOpenLesson={setActiveLessonId}
+            onOpenHistorier={() => setShowHistorier(true)}
           />
           <div className="shell-stack">
             <button className="shell-btn-quiet" onClick={onBack}>

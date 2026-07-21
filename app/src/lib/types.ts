@@ -75,6 +75,21 @@ export interface Profile {
   updated_at: string;
 }
 
+export interface QuizOption {
+  text_da: string;
+  correct: boolean;
+}
+
+/** "Hvad husker du?"-quiz efter en aqidah-fortælling. Lever på samme
+ * content-række som body_da og er derfor underlagt samme mur (RLS +
+ * enforce_aqidah_wall): ai_service kan aldrig skrive det, kun
+ * redaktør/godkender via historie-værkstedet. Se migration
+ * 20260721_historier_quiz_da og content_quiz_da_is_array-constrainten. */
+export interface QuizQuestion {
+  question_da: string;
+  options: QuizOption[];
+}
+
 export interface Content {
   id: string;
   world: ContentWorld;
@@ -94,6 +109,7 @@ export interface Content {
   body_da_simple: string | null;
   body_da_medium: string | null;
   body_da_deep: string | null;
+  quiz_da: QuizQuestion[] | null;
   level: 1 | 2 | 3 | 4 | null;
   is_published: boolean;
   published_by: string | null;

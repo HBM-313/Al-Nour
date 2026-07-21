@@ -1,0 +1,102 @@
+/*
+ * Historiernes Bjerge — barnets side.
+ * Nattehimmel over bjerge, ét blidt lys som eneste "figur" (kerneviden 2:
+ * de hellige afbildes ALDRIG som skikkelse, kun som lys). Ingen legende
+ * figurer, ingen spil — kun fortælling + en blid "hvad husker du?"-quiz.
+ * Farverne kommer fra index.css's delte tokens (--color-mountain m.fl.);
+ * her ligger kun de afledte toner og effekter, denne feature selv har brug for.
+ * Global prefers-reduced-motion (index.css) slukker automatisk .hb-glow's
+ * animation — ingen egen media-query nødvendig her.
+ */
+
+.hb-mountain-soft {
+  color: #a79bd1;
+}
+.hb-verified-bg {
+  background: #e3f1ea;
+}
+.hb-draft-bg {
+  background: #eceef4;
+}
+
+.hb-region {
+  min-height: 100%;
+  background:
+    radial-gradient(ellipse 70% 45% at 50% 8%, rgba(240, 180, 41, 0.16), transparent 60%),
+    linear-gradient(180deg, var(--color-night) 0%, var(--color-night-soft) 55%, #26325e 100%);
+}
+
+.hb-scene {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-skin) var(--radius-skin) 0 0;
+  background: linear-gradient(180deg, #141c3c 0%, #232f5c 100%);
+  aspect-ratio: 16 / 9;
+}
+.hb-glow {
+  animation: hb-pulse 4.5s ease-in-out infinite;
+  transform-origin: center;
+}
+@keyframes hb-pulse {
+  0%,
+  100% {
+    opacity: 0.75;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+.hb-card {
+  background: var(--color-dawn);
+  border-radius: 0 0 var(--radius-skin) var(--radius-skin);
+  box-shadow: 0 20px 40px rgba(10, 16, 40, 0.35);
+}
+
+.hb-source {
+  border-bottom: 1px dashed #e3d9c2;
+}
+
+.hb-quiz {
+  border-top: 2px solid var(--color-dawn-deep);
+}
+
+.hb-quiz-option {
+  border: 2px solid var(--color-dawn-deep);
+  background: #fff;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+.hb-quiz-option:hover:not(:disabled) {
+  border-color: #a79bd1;
+}
+.hb-quiz-option:disabled {
+  cursor: default;
+}
+.hb-quiz-option-correct {
+  border-color: var(--color-verified) !important;
+  background: #e3f1ea !important;
+}
+.hb-quiz-option-wrong {
+  border-color: var(--color-danger) !important;
+  background: #fbeae9 !important;
+}
+
+.hb-list-item {
+  background: var(--color-dawn);
+  border: 1px solid var(--color-dawn-deep);
+  transition: border-color 0.15s ease, transform 0.1s ease;
+}
+.hb-list-item:hover {
+  border-color: var(--color-mountain);
+}
+.hb-list-item:active {
+  transform: scale(0.99);
+}
+
+.hb-empty-icon {
+  opacity: 0.6;
+}

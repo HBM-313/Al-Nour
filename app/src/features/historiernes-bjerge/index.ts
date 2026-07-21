@@ -1,0 +1,1 @@
+export { HistorierBjergeScreen } from "./HistorierBjergeScreen";

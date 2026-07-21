@@ -64,6 +64,7 @@ export function buildAiContentInsert(
     body_da_simple: null,
     body_da_medium: null,
     body_da_deep: null,
+    quiz_da: null, // AI-tilladt indhold har ingen quiz herfra — quiz_da lever kun på aqidah-fortællinger, indtastet af redaktør/godkender
     is_published: false, // AI output is always a draft; a human publishes.
   };
 }
