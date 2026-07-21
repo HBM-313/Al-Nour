@@ -333,8 +333,11 @@ export function deriveBrushRadius(
     }
   }
 
-  // maxD = halv max stregbredde. Lille margen (5 %) så yderkanterne nås.
-  return Math.max(6, Math.round(maxD * 1.05));
+  // maxD = halv max stregbredde. Margen på 25 % (op fra tidligere 5 %) —
+  // ejer-observation: bogstavet skal være mindre i forhold til penslen for
+  // at tynde spidser/haler reelt kan nås ved naturlig tegning, ikke kun ved
+  // pixel-præcis ramning. Suppleres af støj-filteret i buildGlyphMap.
+  return Math.max(6, Math.round(maxD * 1.25));
 }
 
 /**
