@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "al-nour",
+  // Sat til dagens dato ved oprettelse — Cloudflares compatibility-dato, ikke en udløbsdato.
+  "compatibility_date": "2026-07-21",
+  "assets": {
+    "directory": "./dist",
+    // Ingen router i appen endnu (bekræftet: intet react-router i kodebasen),
+    // men PWA'en er en single-page-app — dette sikrer korrekt fallback til
+    // index.html for enhver ukendt sti, fremfor en Cloudflare 404-side.
+    "not_found_handling": "single-page-application"
+  }
+}
