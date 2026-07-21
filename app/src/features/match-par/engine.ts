@@ -103,6 +103,33 @@ function sample<T>(arr: readonly T[], n: number): T[] {
 // Ord-udvælgelse pr. aldersskind
 // ----------------------------------------------------------------------------
 
+export interface PickRoundWordsOptions {
+  /**
+   * Lav tærskel for hvor mange ord en kategori mindst skal have for at
+   * komme i spil (soft-skin tema-runde). Standard 3 — uden dette krævede
+   * koden hele rundeantallet (fx 6) i ÉN kategori, hvilket i praksis
+   * udelukkede smalle kategorier (hjem, hilsner, krop) PERMANENT, uanset
+   * hvor langt barnet er nået, fordi de aldrig har så mange ord i alt.
+   */
+  minCategorySize?: number;
+  /**
+   * Bogstav-id'er for lektionens EGNE nye bogstaver (ikke hele
+   * repetitions-poolen). Kategorier med mindst ét ord herfra foretrækkes,
+   * så barnet øver det der lige er lært — ikke kun gamle ord (fx familie),
+   * som ellers bliver "færdiglåst" tidligt og derfor dukker uforholdsmæssigt
+   * ofte op i alle senere lektioner.
+   */
+  preferLetterIds?: ReadonlySet<string>;
+  /** Undgå at vælge samme kategori som sidste runde, når der er alternativer. */
+  avoidCategory?: string;
+}
+
+export interface PickRoundWordsResult {
+  words: VocabularyWord[];
+  /** Kategorien rundens ord blev trukket fra (soft-skin), ellers null. */
+  chosenCategory: string | null;
+}
+
 /**
  * Vælg rundens ord.
  *
@@ -111,7 +138,9 @@ function sample<T>(arr: readonly T[], n: number): T[] {
  * barnet skelner på ordet selv, ikke på emnet.
  *
  * `category` kan tvinges udefra (fx fra lektions-navigationen); ellers
- * vælges den tilfældigt blandt kategorier med nok ord.
+ * vælges den tilfældigt blandt kategorier med nok ord — med præference for
+ * kategorier der indeholder lektionens nye bogstaver, og med variation
+ * fra runde til runde (se PickRoundWordsOptions).
  */
 export function pickRoundWords(
   skin: AgeSkin,
@@ -119,11 +148,15 @@ export function pickRoundWords(
   category?: VocabularyWord["category"],
   /** Trin-tilstand: par-antal fra lesson_steps i stedet for skind-standard */
   pairsOverride?: number,
-): VocabularyWord[] {
+  options: PickRoundWordsOptions = {},
+): PickRoundWordsResult {
   const cfg = SKIN_CONFIG[skin];
   const wanted = pairsOverride ?? cfg.pairs;
+  const minCategorySize = options.minCategorySize ?? Math.min(3, wanted);
 
   let pool: readonly VocabularyWord[] = vocabulary;
+  let chosenCategory: string | null = category ?? null;
+
   if (category) {
     const inCat = vocabulary.filter((w) => w.category === category);
     if (inCat.length >= 2) pool = inCat;
@@ -134,16 +167,35 @@ export function pickRoundWords(
       list.push(w);
       byCategory.set(w.category, list);
     }
-    const richEnough = [...byCategory.values()].filter(
-      (list) => list.length >= wanted,
-    );
-    if (richEnough.length > 0) {
-      pool = richEnough[Math.floor(Math.random() * richEnough.length)];
+
+    // Relakseret tærskel — smalle kategorier får en reel chance, i stedet
+    // for at kræve fuldt rundeantal i én kategori.
+    let candidates = [...byCategory.entries()].filter(([, list]) => list.length >= minCategorySize);
+
+    // Foretræk kategorier der rører lektionens EGNE nye bogstaver.
+    if (options.preferLetterIds && options.preferLetterIds.size > 0) {
+      const withNewLetters = candidates.filter(([, list]) =>
+        list.some((w) => w.first_letter_id !== null && options.preferLetterIds?.has(w.first_letter_id)),
+      );
+      if (withNewLetters.length > 0) candidates = withNewLetters;
+    }
+
+    // Undgå gentagelse af sidste kategori, når der findes alternativer.
+    if (options.avoidCategory && candidates.length > 1) {
+      const withoutLast = candidates.filter(([name]) => name !== options.avoidCategory);
+      if (withoutLast.length > 0) candidates = withoutLast;
+    }
+
+    if (candidates.length > 0) {
+      const [name, list] = candidates[Math.floor(Math.random() * candidates.length)];
+      pool = list;
+      chosenCategory = name;
     }
   }
 
   // Færre ord end ønsket (fx smal kategori) → mindre runde frem for fejl.
-  return sample(pool, Math.min(wanted, pool.length));
+  const words = sample(pool, Math.min(wanted, pool.length));
+  return { words, chosenCategory };
 }
 
 /** Byg det blandede kort-dæk: to kort (da + ar) pr. ord. */

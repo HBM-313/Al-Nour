@@ -92,6 +92,8 @@ export function useMatchPairs(options: UseMatchPairsOptions) {
   const player = useMemo(() => createAudioPlayer(), []);
   const seqRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Sidst valgte kategori (soft-skin tema-runde) — undgår at gentage den samme kategori to lektioner i træk. */
+  const lastCategoryRef = useRef<string | null>(null);
   const dataRef = useRef<{
     letters: Letter[];
     vocabulary: VocabularyWord[];
@@ -113,6 +115,7 @@ export function useMatchPairs(options: UseMatchPairsOptions) {
     if (timerRef.current) clearTimeout(timerRef.current);
     let pool = data.vocabulary;
     let pairsWanted: number | undefined;
+    let preferLetterIds: Set<string> | undefined;
     if (step) {
       // Kun ord hvis startbogstav er lært: trinnets nye bogstaver +
       // (ved repetition) alt før dem. Barnet møder aldrig uset stof.
@@ -133,8 +136,17 @@ export function useMatchPairs(options: UseMatchPairsOptions) {
       // (kan kun ske ved defekt pensum-data; hellere spil end blank skærm).
       if (filtered.length >= 2) pool = filtered;
       pairsWanted = step.questionCount;
+      // Lektionens EGNE nye bogstaver (ikke hele repetitions-poolen) —
+      // bruges til at foretrække netop-lærte ord frem for kun gamle ord.
+      preferLetterIds = new Set(
+        data.letters.filter((l) => step.letterPositions.includes(l.position)).map((l) => l.id),
+      );
     }
-    const words = pickRoundWords(skin, pool, category, pairsWanted);
+    const { words, chosenCategory } = pickRoundWords(skin, pool, category, pairsWanted, {
+      preferLetterIds,
+      avoidCategory: lastCategoryRef.current ?? undefined,
+    });
+    if (chosenCategory) lastCategoryRef.current = chosenCategory;
     setDeck(buildDeck(words));
     setPhase("playing");
     setLitKeys(new Set());
