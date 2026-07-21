@@ -5,14 +5,14 @@
  * Viser KUN udgivne, kilde-verificerede aqidah-fortællinger (engine.ts).
  * Ingen legende figurer, intet spil — kun illustreret fortælling (lys,
  * aldrig skikkelse — kerneviden 2) og en blid "hvad husker du?"-quiz.
- * Quizzen er valgfri pr. fortælling (quiz_da kan være null), fordi
- * historie-værkstedet endnu ikke har et UI til at indtaste den
- * (kommende leverance) — indtil da vises fortællingen uden quiz-sektion.
+ * Quizzen er valgfri pr. fortælling (kan være null) og har tre alders-
+ * varianter (simpel/mellem/dyb) med samme fallback-mønster som teksten:
+ * en tom variant betyder gruppen ser den fælles quiz_da (quizForSkin).
  */
 
 import { useEffect, useState } from "react";
 import type { AgeSkin, Content } from "@/lib/types";
-import { bodyForSkin } from "@/lib/types";
+import { bodyForSkin, quizForSkin } from "@/lib/types";
 import { ageForFetch, fetchStoriesForAge } from "./engine";
 import "./historiernes-bjerge.css";
 
@@ -200,9 +200,10 @@ function StoryView({
           <p>{bodyText}</p>
         </div>
 
-        {story.quiz_da && story.quiz_da.length > 0 && (
-          <Quiz questions={story.quiz_da} skin={skin} />
-        )}
+        {(() => {
+          const quiz = quizForSkin(story, skin);
+          return quiz && quiz.length > 0 ? <Quiz questions={quiz} skin={skin} /> : null;
+        })()}
       </div>
     </div>
   );

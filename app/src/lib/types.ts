@@ -110,6 +110,11 @@ export interface Content {
   body_da_medium: string | null;
   body_da_deep: string | null;
   quiz_da: QuizQuestion[] | null;
+  /** Alders-varianter af quizzen — samme fallback-mønster som body_da_simple/medium/deep.
+   * Tom/null variant betyder gruppen falder tilbage på den fælles quiz_da. Se quizForSkin(). */
+  quiz_da_simple: QuizQuestion[] | null;
+  quiz_da_medium: QuizQuestion[] | null;
+  quiz_da_deep: QuizQuestion[] | null;
   level: 1 | 2 | 3 | 4 | null;
   is_published: boolean;
   published_by: string | null;
@@ -243,6 +248,16 @@ export function bodyForSkin(content: Content, skin: AgeSkin): string {
     case "teen":
       return content.body_da_deep ?? content.body_da;
   }
+}
+
+/** Pick the right quiz variant for the age skin, falling back to quiz_da (the shared quiz).
+ * Same fallback pattern as bodyForSkin: an empty/null variant means that age group sees the
+ * shared quiz instead. Returns null if there is no quiz at all for this story. */
+export function quizForSkin(content: Content, skin: AgeSkin): QuizQuestion[] | null {
+  const variant =
+    skin === "soft" ? content.quiz_da_simple : skin === "mid" ? content.quiz_da_medium : content.quiz_da_deep;
+  if (variant && variant.length > 0) return variant;
+  return content.quiz_da;
 }
 
 // ----------------------------------------------------------------------------

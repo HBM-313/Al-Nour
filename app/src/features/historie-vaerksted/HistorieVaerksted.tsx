@@ -11,10 +11,22 @@
  */
 
 import { useMemo, useState } from "react";
-import type { Account, Content } from "@/lib/types";
-import { ALDERSSPAEND, type AlderKey, type AqidahDraftInput } from "./engine";
+import type { Account, Content, QuizQuestion } from "@/lib/types";
+import { ALDERSSPAEND, validateQuizVariant, type AlderKey, type AqidahDraftInput } from "./engine";
 import { useHistorieVaerksted, type StatusFilter } from "./useHistorieVaerksted";
 import "./historie-vaerksted.css";
+
+/** De fire quiz-varianter i formularen, og hvilket AqidahDraftInput-felt hver skriver til. */
+const QUIZ_VARIANTER = [
+  { key: "faelles", label: "Fælles", inputKey: "quiz_da" as const },
+  { key: "simpel", label: "Simpel (3–6)", inputKey: "quiz_da_simple" as const },
+  { key: "mellem", label: "Mellem (7–10)", inputKey: "quiz_da_medium" as const },
+  { key: "dyb", label: "Dyb (11–14)", inputKey: "quiz_da_deep" as const },
+] as const;
+type QuizVariantKey = (typeof QUIZ_VARIANTER)[number]["key"];
+type QuizState = Record<QuizVariantKey, QuizQuestion[]>;
+
+const TOM_QUIZ_STATE: QuizState = { faelles: [], simpel: [], mellem: [], dyb: [] };
 
 export interface HistorieVaerkstedProps {
   role: Account["role"];
@@ -242,6 +254,10 @@ const TOM: AqidahDraftInput = {
   body_da_deep: "",
   alder: "3-14",
   level: 1,
+  quiz_da: null,
+  quiz_da_simple: null,
+  quiz_da_medium: null,
+  quiz_da_deep: null,
 };
 
 function StoryForm({ hv }: { hv: HV }) {
@@ -262,11 +278,85 @@ function StoryForm({ hv }: { hv: HV }) {
             (a) => a.min_age === redigererStory.min_age && a.max_age === redigererStory.max_age,
           )?.value ?? "3-14") as AlderKey,
           level: (redigererStory.level ?? 1) as 1 | 2 | 3 | 4,
+          quiz_da: redigererStory.quiz_da,
+          quiz_da_simple: redigererStory.quiz_da_simple,
+          quiz_da_medium: redigererStory.quiz_da_medium,
+          quiz_da_deep: redigererStory.quiz_da_deep,
         }
       : TOM,
   );
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Quiz redigeres altid som arrays internt (aldrig null) — konverteres til null ved gem hvis tom.
+  const [quiz, setQuiz] = useState<QuizState>(() =>
+    redigererStory
+      ? {
+          faelles: redigererStory.quiz_da ?? [],
+          simpel: redigererStory.quiz_da_simple ?? [],
+          mellem: redigererStory.quiz_da_medium ?? [],
+          dyb: redigererStory.quiz_da_deep ?? [],
+        }
+      : TOM_QUIZ_STATE,
+  );
+  const [aktivVariant, setAktivVariant] = useState<QuizVariantKey>("faelles");
+
+  function opdaterVariant(variant: QuizVariantKey, spørgsmål: QuizQuestion[]) {
+    setQuiz((q) => ({ ...q, [variant]: spørgsmål }));
+  }
+  function tilføjSpørgsmål() {
+    const nuværende = quiz[aktivVariant];
+    if (nuværende.length >= 5) return;
+    opdaterVariant(aktivVariant, [
+      ...nuværende,
+      { question_da: "", options: [{ text_da: "", correct: true }, { text_da: "", correct: false }] },
+    ]);
+  }
+  function fjernSpørgsmål(qi: number) {
+    opdaterVariant(aktivVariant, quiz[aktivVariant].filter((_, i) => i !== qi));
+  }
+  function opdaterSpørgsmålTekst(qi: number, tekst: string) {
+    opdaterVariant(
+      aktivVariant,
+      quiz[aktivVariant].map((q, i) => (i === qi ? { ...q, question_da: tekst } : q)),
+    );
+  }
+  function tilføjSvarmulighed(qi: number) {
+    opdaterVariant(
+      aktivVariant,
+      quiz[aktivVariant].map((q, i) =>
+        i === qi && q.options.length < 5 ? { ...q, options: [...q.options, { text_da: "", correct: false }] } : q,
+      ),
+    );
+  }
+  function fjernSvarmulighed(qi: number, oi: number) {
+    opdaterVariant(
+      aktivVariant,
+      quiz[aktivVariant].map((q, i) => {
+        if (i !== qi || q.options.length <= 2) return q;
+        const fjernedeVarKorrekt = q.options[oi].correct;
+        const nyeOptions = q.options.filter((_, j) => j !== oi);
+        if (fjernedeVarKorrekt) nyeOptions[0] = { ...nyeOptions[0], correct: true };
+        return { ...q, options: nyeOptions };
+      }),
+    );
+  }
+  function opdaterSvarTekst(qi: number, oi: number, tekst: string) {
+    opdaterVariant(
+      aktivVariant,
+      quiz[aktivVariant].map((q, i) =>
+        i === qi ? { ...q, options: q.options.map((o, j) => (j === oi ? { ...o, text_da: tekst } : o)) } : q,
+      ),
+    );
+  }
+  function sætKorrekt(qi: number, oi: number) {
+    opdaterVariant(
+      aktivVariant,
+      quiz[aktivVariant].map((q, i) =>
+        i === qi ? { ...q, options: q.options.map((o, j) => ({ ...o, correct: j === oi })) } : q,
+      ),
+    );
+  }
 
   const onSave = async () => {
     setErr(null);
@@ -282,6 +372,14 @@ function StoryForm({ hv }: { hv: HV }) {
       setErr("Indsæt den godkendte kildetekst.");
       return;
     }
+    for (const v of QUIZ_VARIANTER) {
+      const fejl = validateQuizVariant(quiz[v.key], v.label);
+      if (fejl) {
+        setAktivVariant(v.key);
+        setErr(fejl);
+        return;
+      }
+    }
     setBusy(true);
     const saveError = await save(
       {
@@ -290,6 +388,10 @@ function StoryForm({ hv }: { hv: HV }) {
         title_ar: f.title_ar?.trim() || null,
         source_reference: f.source_reference.trim(),
         body_da: f.body_da.trim(),
+        quiz_da: quiz.faelles.length ? quiz.faelles : null,
+        quiz_da_simple: quiz.simpel.length ? quiz.simpel : null,
+        quiz_da_medium: quiz.mellem.length ? quiz.mellem : null,
+        quiz_da_deep: quiz.dyb.length ? quiz.dyb : null,
       },
       state.redigererId,
     );
@@ -403,6 +505,109 @@ function StoryForm({ hv }: { hv: HV }) {
             ))}
           </select>
         </Felt>
+      </div>
+
+      <div className="hv-quiz-section rounded-3xl p-3.5">
+        <p className="text-sm font-extrabold hv-quiz-title">🧠 "Hvad husker du?" — quiz pr. aldersgruppe</p>
+        <p className="hv-felthint">
+          Samme mur som teksten ovenfor. <b>Fælles</b> vises til alle aldre, medmindre du udfylder en
+          aldersvariant — så får netop den gruppe sin egen quiz (samme princip som tekstens
+          simpel/mellem/dyb). Hvert spørgsmål: mindst 2 svar, præcis ét rigtigt.
+        </p>
+
+        <div className="flex flex-wrap gap-1.5 mt-2" role="tablist" aria-label="Quiz-variant">
+          {QUIZ_VARIANTER.map((v) => (
+            <button
+              key={v.key}
+              type="button"
+              role="tab"
+              aria-selected={aktivVariant === v.key}
+              onClick={() => setAktivVariant(v.key)}
+              className={`hv-vtab rounded-full px-3 py-1.5 text-xs font-bold ${aktivVariant === v.key ? "hv-vtab-on" : ""}`}
+            >
+              {v.label}
+              {quiz[v.key].length > 0 && <span className="hv-vtab-count">{quiz[v.key].length}</span>}
+            </button>
+          ))}
+        </div>
+
+        {quiz[aktivVariant].length === 0 ? (
+          <p className="hv-felthint mt-2">
+            Ingen spørgsmål i denne variant endnu — helt valgfrit.{" "}
+            {aktivVariant !== "faelles"
+              ? "Uden spørgsmål her får aldersgruppen den fælles quiz."
+              : "Tryk “+ Tilføj spørgsmål” for at starte."}
+          </p>
+        ) : (
+          quiz[aktivVariant].map((q, qi) => (
+            <div key={qi} className="hv-quiz-q rounded-2xl p-3 mt-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="hv-dim text-xs font-bold">Spørgsmål {qi + 1}</span>
+                <button
+                  type="button"
+                  onClick={() => fjernSpørgsmål(qi)}
+                  className="hv-q-remove"
+                  aria-label={`Fjern spørgsmål ${qi + 1}`}
+                >
+                  ✕
+                </button>
+              </div>
+              <Felt label="Spørgsmål (dansk)">
+                <input
+                  value={q.question_da}
+                  onChange={(e) => opdaterSpørgsmålTekst(qi, e.target.value)}
+                  placeholder="Fx: Hvad husker du bedst fra fortællingen?"
+                  className="hv-input w-full rounded-2xl px-3.5 py-2.5 text-sm"
+                />
+              </Felt>
+              <p className="hv-felthint mt-2">Svarmuligheder — vælg det ét rigtige svar med prikken:</p>
+              {q.options.map((o, oi) => (
+                <div key={oi} className="flex items-center gap-2 mt-1.5">
+                  <input
+                    type="radio"
+                    name={`hv-correct-${aktivVariant}-${qi}`}
+                    checked={o.correct}
+                    onChange={() => sætKorrekt(qi, oi)}
+                    aria-label={`Markér svarmulighed ${oi + 1} som rigtig`}
+                    className="hv-radio"
+                  />
+                  <input
+                    value={o.text_da}
+                    onChange={(e) => opdaterSvarTekst(qi, oi, e.target.value)}
+                    placeholder={`Svarmulighed ${oi + 1}`}
+                    className="hv-input flex-1 rounded-2xl px-3.5 py-2 text-sm"
+                  />
+                  {q.options.length > 2 && (
+                    <button
+                      type="button"
+                      onClick={() => fjernSvarmulighed(qi, oi)}
+                      className="hv-opt-remove"
+                      aria-label={`Fjern svarmulighed ${oi + 1}`}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={() => tilføjSvarmulighed(qi)}
+                  disabled={q.options.length >= 5}
+                  className="hv-btn"
+                >
+                  + Svarmulighed
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+
+        <div className="mt-2.5">
+          <button type="button" onClick={tilføjSpørgsmål} disabled={quiz[aktivVariant].length >= 5} className="hv-btn">
+            + Tilføj spørgsmål
+          </button>
+        </div>
       </div>
 
       <Felt label="Verden">
