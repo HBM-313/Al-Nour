@@ -461,7 +461,8 @@ export function TegnBogstavetGame({
           key={`${step.letter.id}-${step.form}`}
           glyph={step.glyph}
           brushRadius={tuning.brushRadius}
-          threshold={tuning.threshold}
+          baseScale={tuning.fontScale}
+          threshold={tuning.completion}
           locked={phase === "step_done"}
           onProgress={handleProgress}
           onComplete={handleComplete}
@@ -474,7 +475,7 @@ export function TegnBogstavetGame({
             <div
               className="h-full rounded-full transition-all duration-200"
               style={{
-                width: `${Math.min(100, (coverage / tuning.threshold) * 100)}%`,
+                width: `${Math.min(100, (coverage / tuning.completion) * 100)}%`,
                 background:
                   "linear-gradient(90deg, var(--color-nour), var(--color-nour-soft))",
               }}
@@ -489,7 +490,7 @@ export function TegnBogstavetGame({
             Præcision: {Math.round((1 - offRatio) * 100)} %
           </p>
         ) : null}
-        {skin !== "teen" && offRatio > 0.5 && coverage < tuning.threshold ? (
+        {skin !== "teen" && offRatio > 0.5 && coverage < tuning.completion ? (
           <p className="text-center text-sm text-ink-soft">
             Prøv at blive inde i bogstavet — så vokser lyset hurtigere ✨
           </p>

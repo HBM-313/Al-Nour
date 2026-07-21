@@ -19,6 +19,8 @@
 import { useCallback, useEffect, useRef } from "react";
 import {
   buildGlyphMap,
+  deriveBrushRadius,
+  fitGlyphFontSize,
   TraceProgress,
   type GlyphMap,
   type GlyphSample,
@@ -37,10 +39,13 @@ interface Particle {
 
 export interface TraceCanvasProps {
   glyph: string;
+  /** Fallback pensel-radius; den faktiske pensel udledes af stregbredden. */
   brushRadius: number;
+  /** Aldersskindets fontScale (styrer bogstavets størrelse). */
+  baseScale: number;
   /** Kaldes løbende med (coverage 0–1, offRatio 0–1) */
   onProgress: (coverage: number, offRatio: number) => void;
-  /** Kaldes én gang når dækningen når tærsklen */
+  /** Kaldes én gang når dækningen når tærsklen (fuld udfyldning) */
   onComplete: () => void;
   threshold: number;
   /** Lås canvas efter færdiggørelse */
@@ -51,6 +56,7 @@ export interface TraceCanvasProps {
 export function TraceCanvas({
   glyph,
   brushRadius,
+  baseScale,
   onProgress,
   onComplete,
   threshold,
@@ -58,6 +64,8 @@ export function TraceCanvas({
   className = "",
 }: TraceCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  // Faktisk pensel-radius udledt af glyffens stregbredde (sat ved glyf-opsætning)
+  const brushRef = useRef<number>(brushRadius);
   const stateRef = useRef<{
     map: GlyphMap | null;
     progress: TraceProgress | null;
@@ -132,8 +140,11 @@ export function TraceCanvas({
     // vi en fallback-serif og dæknings-kortet passer ikke til det viste.
     void document.fonts.load(`600 80px ${ARABIC_FONT}`, glyph).then(() => {
       if (cancelled) return;
-      st.map = buildGlyphMap(glyph, w, h, ARABIC_FONT);
-      st.progress = new TraceProgress(st.map, brushRadius);
+      // Pensel = glyffens stregbredde, så én streg langs midten fylder ud.
+      const derived = deriveBrushRadius(glyph, w, h, ARABIC_FONT, baseScale);
+      brushRef.current = derived;
+      st.map = buildGlyphMap(glyph, w, h, ARABIC_FONT, baseScale);
+      st.progress = new TraceProgress(st.map, derived);
       onProgressRef.current(0, 0);
     });
 
@@ -172,7 +183,7 @@ export function TraceCanvas({
           // så source-atop herunder klipper mod glyffen alene, ikke mod
           // hele canvas'et (som var buggen: klip skete tidligere direkte på
           // hoved-canvas'et efter baggrunden allerede var fyldt).
-          lctx.font = glyphFont(lctx, glyph, w, h);
+          lctx.font = glyphFont(lctx, glyph, w, h, baseScale);
           lctx.textAlign = "center";
           lctx.textBaseline = "middle";
           lctx.fillStyle = "rgba(120, 136, 190, 0.32)";
@@ -255,7 +266,7 @@ export function TraceCanvas({
       cancelled = true;
       cancelAnimationFrame(st.raf);
     };
-  }, [glyph, brushRadius]);
+  }, [glyph, brushRadius, baseScale]);
 
   // --------------------------------------------------------------------------
   // Pointer-håndtering: mal på paint-laget, tænd lyspunkter, afgiv gnister
@@ -269,10 +280,11 @@ export function TraceCanvas({
       const pctx = st.paint.getContext("2d");
       if (!pctx) return;
 
-      // Streg med rund pensel — gradient fra nour til nour-soft
+      // Streg med rund pensel — bredde = glyffens stregbredde (én-streg-fyld)
+      const r = brushRef.current;
       pctx.strokeStyle = "#f0b429";
       pctx.fillStyle = "#f0b429";
-      pctx.lineWidth = brushRadius * 2;
+      pctx.lineWidth = r * 2;
       pctx.lineCap = "round";
       pctx.lineJoin = "round";
       if (st.last) {
@@ -282,7 +294,7 @@ export function TraceCanvas({
         pctx.stroke();
       } else {
         pctx.beginPath();
-        pctx.arc(x, y, brushRadius, 0, Math.PI * 2);
+        pctx.arc(x, y, r, 0, Math.PI * 2);
         pctx.fill();
       }
       st.last = { x, y };
@@ -333,7 +345,7 @@ export function TraceCanvas({
         onCompleteRef.current();
       }
     },
-    [brushRadius, threshold],
+    [threshold],
   );
 
   const pointerPos = (e: React.PointerEvent): { x: number; y: number } => {
@@ -370,17 +382,14 @@ export function TraceCanvas({
   );
 }
 
-/** Samme font-tilpasning som i tracing.ts — skal matche 1:1 */
+/** Samme font-tilpasning som i tracing.ts — skal matche 1:1 (samme baseScale) */
 function glyphFont(
   ctx: CanvasRenderingContext2D,
   glyph: string,
   w: number,
   h: number,
+  baseScale: number,
 ): string {
-  let fontSize = Math.floor(h * 0.72);
-  for (; fontSize > 12; fontSize -= 8) {
-    ctx.font = `600 ${fontSize}px ${ARABIC_FONT}`;
-    if (ctx.measureText(glyph).width <= w * 0.82) break;
-  }
+  const fontSize = fitGlyphFontSize(ctx, glyph, w, h, ARABIC_FONT, baseScale);
   return `600 ${fontSize}px ${ARABIC_FONT}`;
 }

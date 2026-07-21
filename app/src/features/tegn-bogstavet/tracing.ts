@@ -34,15 +34,45 @@ const SAMPLE_STEP = 6;
 const BUCKET_SIZE = 32;
 
 /**
+ * Beregn font-størrelsen for en glyf ved en given base-skala.
+ * Deles af buildGlyphMap og TraceCanvas' silhuet-tegning, så dæknings-kortet
+ * ALTID matcher det viste bogstav 1:1 (ellers passer dækningen ikke).
+ *
+ * `baseScale` styres pr. aldersskind (se SKIN_TUNING.fontScale): større
+ * bogstav for de mindste (nemmere at fylde ud med tykke fingre), mindre for
+ * de ældre (mere præcist). Penslen udledes bagefter af stregbredden, se
+ * deriveBrushRadius — så én streg langs midten fylder bogstavet ud.
+ */
+export function fitGlyphFontSize(
+  ctx: CanvasRenderingContext2D,
+  glyph: string,
+  width: number,
+  height: number,
+  fontFamily: string,
+  baseScale: number,
+): number {
+  let fontSize = Math.floor(height * baseScale);
+  for (; fontSize > 12; fontSize -= 6) {
+    ctx.font = `600 ${fontSize}px ${fontFamily}`;
+    if (ctx.measureText(glyph).width <= width * 0.82) break;
+  }
+  return fontSize;
+}
+
+/**
  * Rasterisér en glyf og byg dæknings-kortet.
  * Fonten skal være færdigindlæst (await document.fonts.load(...)) inden kald,
  * ellers måles der mod en fallback-font.
+ *
+ * `baseScale` = aldersskindets fontScale (se SKIN_TUNING). Skal matche den
+ * skala TraceCanvas tegner silhuetten med.
  */
 export function buildGlyphMap(
   glyph: string,
   width: number,
   height: number,
   fontFamily: string,
+  baseScale = 0.72,
 ): GlyphMap {
   const off = document.createElement("canvas");
   off.width = width;
@@ -50,15 +80,18 @@ export function buildGlyphMap(
   const ctx = off.getContext("2d", { willReadFrequently: true });
   if (!ctx) return emptyMap();
 
-  // Find den største font-størrelse hvor glyffen passer med luft
-  let fontSize = Math.floor(height * 0.72);
+  // Font-størrelse styret af aldersskindets skala (samme udregning som canvas)
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  for (; fontSize > 12; fontSize -= 8) {
-    ctx.font = `600 ${fontSize}px ${fontFamily}`;
-    const m = ctx.measureText(glyph);
-    if (m.width <= width * 0.82) break;
-  }
+  const fontSize = fitGlyphFontSize(
+    ctx,
+    glyph,
+    width,
+    height,
+    fontFamily,
+    baseScale,
+  );
+  ctx.font = `600 ${fontSize}px ${fontFamily}`;
 
   ctx.clearRect(0, 0, width, height);
   ctx.fillStyle = "#000";
@@ -201,11 +234,106 @@ export class TraceProgress {
   }
 }
 
-/** Dæknings-tærskel og pensel-tykkelse pr. aldersskind */
+/**
+ * Udled pensel-radius af glyffens stregbredde via en chamfer distance
+ * transform: for hver glyf-pixel beregnes afstanden til nærmeste kant; den
+ * største afstand = halvdelen af den tykkeste stregbredde. Penslen sættes til
+ * den værdi, så barnet kan tegne bogstavet i ÉN streg langs midterlinjen og
+ * fylde bredden ud — i stedet for at skulle "male" en bred flade frem/tilbage.
+ *
+ * Rasteriseringen skal ske ved SAMME baseScale som buildGlyphMap/silhuetten.
+ * Returnerer en radius i canvas-px (afrundet, med lille margen så kanterne nås).
+ */
+export function deriveBrushRadius(
+  glyph: string,
+  width: number,
+  height: number,
+  fontFamily: string,
+  baseScale: number,
+): number {
+  const off = document.createElement("canvas");
+  off.width = width;
+  off.height = height;
+  const ctx = off.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return 12;
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const fontSize = fitGlyphFontSize(
+    ctx,
+    glyph,
+    width,
+    height,
+    fontFamily,
+    baseScale,
+  );
+  ctx.font = `600 ${fontSize}px ${fontFamily}`;
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = "#000";
+  ctx.fillText(glyph, width / 2, height / 2);
+
+  const alpha = ctx.getImageData(0, 0, width, height).data;
+  const INF = 1e9;
+  const dist = new Float32Array(width * height);
+  for (let i = 0; i < width * height; i++) {
+    dist[i] = alpha[i * 4 + 3] > 96 ? INF : 0;
+  }
+  // Forward pass
+  for (let y = 1; y < height; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const k = y * width + x;
+      if (dist[k] === 0) continue;
+      let m = dist[k];
+      if (dist[k - 1] + 1 < m) m = dist[k - 1] + 1;
+      if (dist[k - width] + 1 < m) m = dist[k - width] + 1;
+      if (dist[k - width - 1] + 1.414 < m) m = dist[k - width - 1] + 1.414;
+      if (dist[k - width + 1] + 1.414 < m) m = dist[k - width + 1] + 1.414;
+      dist[k] = m;
+    }
+  }
+  // Backward pass — track max
+  let maxD = 0;
+  for (let y = height - 2; y >= 1; y--) {
+    for (let x = width - 2; x >= 1; x--) {
+      const k = y * width + x;
+      if (dist[k] === 0) continue;
+      let m = dist[k];
+      if (dist[k + 1] + 1 < m) m = dist[k + 1] + 1;
+      if (dist[k + width] + 1 < m) m = dist[k + width] + 1;
+      if (dist[k + width + 1] + 1.414 < m) m = dist[k + width + 1] + 1.414;
+      if (dist[k + width - 1] + 1.414 < m) m = dist[k + width - 1] + 1.414;
+      dist[k] = m;
+      if (m < INF && m > maxD) maxD = m;
+    }
+  }
+
+  // maxD = halv max stregbredde. Lille margen (5 %) så yderkanterne nås.
+  return Math.max(6, Math.round(maxD * 1.05));
+}
+
+/**
+ * Pr. aldersskind:
+ *  - `fontScale`: bogstavets størrelse (større = mindre alder).
+ *  - `completion`: dæknings-krav for at bogstavet er HELT udfyldt (0.96 i alle
+ *    skind — ejer-beslutning: bogstavet skal fyldes helt før man går videre,
+ *    i alle aldre; 96 % frem for 100 % fordi de yderste kant-pixels i praksis
+ *    ikke kan rammes af en rund pensel på et sample-gitter).
+ *  - `maxOffRatio`: bruges KUN til "ren streg"/XP-bonus (isCleanTrace),
+ *    aldrig til at afgøre om bogstavet er færdigt.
+ *
+ * Penslen udledes nu af stregbredden (deriveBrushRadius) og er derfor ikke
+ * længere en fast værdi her. Feltet `brushRadius` bevares som sikker fallback
+ * hvis stregbredde-udregningen skulle fejle.
+ */
 export const SKIN_TUNING = {
-  soft: { threshold: 0.62, brushRadius: 16, maxOffRatio: 1 }, // kan ikke fejle
-  mid: { threshold: 0.72, brushRadius: 11, maxOffRatio: 0.35 },
-  teen: { threshold: 0.8, brushRadius: 8, maxOffRatio: 0.22 },
+  soft: { fontScale: 0.82, completion: 0.96, brushRadius: 18, maxOffRatio: 1 },
+  mid: { fontScale: 0.7, completion: 0.96, brushRadius: 12, maxOffRatio: 0.35 },
+  teen: {
+    fontScale: 0.58,
+    completion: 0.96,
+    brushRadius: 8,
+    maxOffRatio: 0.22,
+  },
 } as const;
 
 /** "Ren" streg (til XP-bonus): høj dækning og lav uden-for-andel. Påvirker
@@ -216,5 +344,5 @@ export function isCleanTrace(
   skin: keyof typeof SKIN_TUNING,
 ): boolean {
   const t = SKIN_TUNING[skin];
-  return coverage >= t.threshold && offRatio <= t.maxOffRatio * 0.6;
+  return coverage >= t.completion && offRatio <= t.maxOffRatio * 0.6;
 }
