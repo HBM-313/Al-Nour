@@ -117,10 +117,36 @@ export function buildGlyphMap(
     }
   }
 
+  // Isolerede punkter fjernes: ved skarpe spidser/seriffer anti-aliaser
+  // font-rasterizeren nogle indre pixels under alpha 96 selv midt i
+  // glyffen, hvilket efterlader spredte enkelt-punkter uden naboer. De
+  // punkter kræver at barnet rammer dem helt præcist for at blive tændt,
+  // hvilket i praksis er umuligt med en rund pensel på et fast gitter —
+  // det var årsagen til at dækning konsekvent toppede lidt under
+  // completion-tærsklen uanset bogstav. Et punkt uden mindst 2 naboer
+  // inden for SAMPLE_STEP-afstand er rasteriserings-støj, ikke bogstav-
+  // "kød", og skal ikke indgå i dæknings-kravet.
+  const isCore = (i: number): boolean => {
+    const s = samples[i];
+    let neighbours = 0;
+    for (const o of samples) {
+      if (o === s) continue;
+      const dx = o.x - s.x;
+      const dy = o.y - s.y;
+      if (dx * dx + dy * dy <= SAMPLE_STEP * SAMPLE_STEP * 2.5) {
+        neighbours++;
+        if (neighbours >= 2) return true;
+      }
+    }
+    return false;
+  };
+  const coreSamples = samples.filter((_, i) => isCore(i));
+  const finalSamples = coreSamples.length > 0 ? coreSamples : samples;
+
   // Spatial buckets
   const cols = Math.ceil(width / BUCKET_SIZE);
   const buckets = new Map<number, number[]>();
-  samples.forEach((s, i) => {
+  finalSamples.forEach((s, i) => {
     const key =
       Math.floor(s.y / BUCKET_SIZE) * cols + Math.floor(s.x / BUCKET_SIZE);
     const arr = buckets.get(key);
@@ -132,12 +158,12 @@ export function buildGlyphMap(
   // Heuristik, ikke streg-orden — men peger barnet det rigtige sted hen.
   let startHint: GlyphSample | null = null;
   const rightEdge = maxX - (maxX - minX) * 0.25;
-  for (const s of samples) {
+  for (const s of finalSamples) {
     if (s.x >= rightEdge && (!startHint || s.y < startHint.y)) startHint = s;
   }
 
   return {
-    samples,
+    samples: finalSamples,
     buckets,
     bucketSize: BUCKET_SIZE,
     cols,
