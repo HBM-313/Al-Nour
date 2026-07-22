@@ -1,0 +1,201 @@
+/* ErrorBoundary — fejlskærm i tre aldersskind (Leverance 0.2, ejer-godkendt
+   demo fejlskaerm-demo.html 2026-07-22).
+   "app": fuld nattehimmel-overtagelse (samme scene som app-shell.css).
+   "game": kontained kort der sidder i lektionens eksisterende mørke ramme. */
+
+.eb-scene {
+  --eb-night-card: #1a2450;
+  --eb-gold: #f5b942;
+  --eb-gold-soft: #f8ce7a;
+  --eb-gold-dim: rgba(245, 185, 66, 0.16);
+  --eb-ink: #f4f0e6;
+  --eb-ink-soft: #b9b3d9;
+
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(1.5px 1.5px at 12% 18%, rgba(255, 255, 255, 0.55) 50%, transparent 51%),
+    radial-gradient(1px 1px at 78% 9%, rgba(255, 255, 255, 0.4) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 62% 32%, rgba(255, 255, 255, 0.45) 50%, transparent 51%),
+    radial-gradient(1px 1px at 30% 60%, rgba(255, 255, 255, 0.35) 50%, transparent 51%),
+    linear-gradient(180deg, #0b1330 0%, #101a3e 70%, #17224c 100%);
+  padding: 24px;
+}
+
+.eb-app {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: eb-fade 0.35s ease;
+}
+
+.eb-game-wrap {
+  --eb-night-card: #1a2450;
+  --eb-gold: #f5b942;
+  --eb-gold-soft: #f8ce7a;
+  --eb-gold-dim: rgba(245, 185, 66, 0.16);
+  --eb-ink: #f4f0e6;
+  --eb-ink-soft: #b9b3d9;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 0;
+  animation: eb-fade 0.35s ease;
+}
+
+.eb-card {
+  background: var(--eb-night-card);
+  border: 1px solid var(--eb-gold-dim);
+  border-radius: 18px;
+  padding: 26px 22px;
+  text-align: center;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.eb-lamp {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 42%,
+    var(--eb-gold-soft) 0%,
+    var(--eb-gold) 45%,
+    rgba(245, 185, 66, 0.12) 72%,
+    transparent 75%
+  );
+  box-shadow: 0 0 44px 10px rgba(245, 185, 66, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.1rem;
+  margin-bottom: 18px;
+  animation: eb-flicker 2.6s ease-in-out infinite;
+}
+.eb-lamp-sm {
+  width: 56px;
+  height: 56px;
+  font-size: 1.4rem;
+  margin-bottom: 12px;
+}
+
+.eb-title {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  margin: 0 0 8px;
+  color: var(--eb-ink);
+}
+.eb-body {
+  color: var(--eb-ink-soft);
+  font-size: 0.88rem;
+  max-width: 280px;
+  margin: 0 0 26px;
+  line-height: 1.55;
+}
+.eb-card .eb-title {
+  font-size: 1.05rem;
+}
+.eb-card .eb-body {
+  font-size: 0.82rem;
+  margin-bottom: 18px;
+}
+
+.eb-btn-gold {
+  border: none;
+  cursor: pointer;
+  padding: 16px 28px;
+  border-radius: 22px;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 1rem;
+  background: linear-gradient(180deg, var(--eb-gold-soft), var(--eb-gold));
+  color: #3a2a05;
+  box-shadow: 0 6px 24px rgba(245, 185, 66, 0.35);
+}
+.eb-btn-gold:active {
+  transform: scale(0.97);
+}
+.eb-card .eb-btn-gold {
+  padding: 12px 20px;
+  font-size: 0.9rem;
+  width: 100%;
+}
+
+.eb-btn-ghost {
+  margin-top: 12px;
+  background: transparent;
+  border: none;
+  color: var(--eb-ink-soft);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+@keyframes eb-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes eb-flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  45% {
+    opacity: 0.75;
+  }
+  55% {
+    opacity: 0.92;
+  }
+}
+
+/* Aldersskind styrer kun form/skala, aldrig indhold — samme princip som index.css */
+[data-age-skin="soft"].eb-scene,
+[data-age-skin="soft"] .eb-card {
+  border-radius: 28px;
+}
+[data-age-skin="soft"] .eb-title {
+  font-size: 1.5rem;
+}
+[data-age-skin="soft"] .eb-body {
+  font-size: 0.98rem;
+}
+[data-age-skin="soft"] .eb-btn-gold {
+  font-size: 1.1rem;
+  padding: 18px 30px;
+}
+
+[data-age-skin="teen"] .eb-card {
+  border-radius: 14px;
+}
+[data-age-skin="teen"] .eb-title {
+  font-size: 1.15rem;
+}
+[data-age-skin="teen"] .eb-body {
+  font-size: 0.82rem;
+}
+[data-age-skin="teen"] .eb-lamp {
+  animation-duration: 3.4s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eb-lamp {
+    animation: none;
+  }
+  .eb-app,
+  .eb-game-wrap {
+    animation: none;
+  }
+}

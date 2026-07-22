@@ -20,6 +20,7 @@ import type { AgeSkin } from "@/lib/types";
 import { ListenFindGame } from "@/features/lyt-og-find/ListenFindGame";
 import { TegnBogstavetGame } from "@/features/tegn-bogstavet/TegnBogstavetGame";
 import { MatchPairsGame } from "@/features/match-par/MatchPairsGame";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { useLesson } from "./useLesson";
 import "./lektion.css";
 
@@ -187,29 +188,50 @@ export function LessonScreen({
                 {lesson.currentStep.title_da}
               </p>
               {lesson.currentStep.game_type === "lyt_og_find" && (
-                <ListenFindGame
+                <ErrorBoundary
+                  scope="game"
                   skin={skin}
-                  level={level}
-                  showTransliteration={showTransliteration}
-                  step={lesson.currentParams}
-                  onRoundComplete={lesson.completeStep}
-                />
+                  component="ListenFindGame"
+                  onExit={onExit}
+                >
+                  <ListenFindGame
+                    skin={skin}
+                    level={level}
+                    showTransliteration={showTransliteration}
+                    step={lesson.currentParams}
+                    onRoundComplete={lesson.completeStep}
+                  />
+                </ErrorBoundary>
               )}
               {lesson.currentStep.game_type === "tegn_bogstavet" && (
-                <TegnBogstavetGame
+                <ErrorBoundary
+                  scope="game"
                   skin={skin}
-                  step={lesson.currentParams}
-                  onRoundComplete={lesson.completeStep}
-                />
+                  component="TegnBogstavetGame"
+                  onExit={onExit}
+                >
+                  <TegnBogstavetGame
+                    skin={skin}
+                    step={lesson.currentParams}
+                    onRoundComplete={lesson.completeStep}
+                  />
+                </ErrorBoundary>
               )}
               {lesson.currentStep.game_type === "match_par" && (
-                <MatchPairsGame
+                <ErrorBoundary
+                  scope="game"
                   skin={skin}
-                  level={level}
-                  showTransliteration={showTransliteration}
-                  step={lesson.currentParams}
-                  onRoundComplete={lesson.completeStep}
-                />
+                  component="MatchPairsGame"
+                  onExit={onExit}
+                >
+                  <MatchPairsGame
+                    skin={skin}
+                    level={level}
+                    showTransliteration={showTransliteration}
+                    step={lesson.currentParams}
+                    onRoundComplete={lesson.completeStep}
+                  />
+                </ErrorBoundary>
               )}
             </div>
           )}
