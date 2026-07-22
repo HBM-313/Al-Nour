@@ -39,7 +39,7 @@ export type LessonLoadState =
 
 export type LessonPhase = "intro" | "step" | "breather" | "done";
 
-export type StepSaveState = "idle" | "saving" | "saved" | "error";
+export type StepSaveState = "idle" | "saving" | "saved" | "queued" | "error";
 
 export interface UseLessonOptions {
   lessonId: string;
@@ -177,7 +177,9 @@ export function useLesson(options: UseLessonOptions) {
           nextIndex,
           earnedXp,
           finished,
-        ).then(({ ok }) => setSaveState(ok ? "saved" : "error"));
+        ).then(({ ok, pending }) =>
+          setSaveState(!ok ? "error" : pending ? "queued" : "saved"),
+        );
       } else {
         const { ok } = saveLocalStepProgress(
           lessonId,

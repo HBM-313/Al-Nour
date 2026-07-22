@@ -164,7 +164,7 @@ export function TegnBogstavetGame({
   const [xp, setXp] = useState(0);
   const [cleanCount, setCleanCount] = useState(0);
   const [saveState, setSaveState] = useState<
-    "idle" | "saving" | "saved" | "error"
+    "idle" | "saving" | "saved" | "queued" | "error"
   >("idle");
   const [, setMilestone] = useState(0);
   const [cheerPulse, setCheerPulse] = useState(0);
@@ -318,8 +318,8 @@ export function TegnBogstavetGame({
     if (saveState !== "idle") return;
     let cancelled = false;
     setSaveState("saving");
-    void saveRoundProgress(profileId, lessonId, xp).then(({ ok }) => {
-      if (!cancelled) setSaveState(ok ? "saved" : "error");
+    void saveRoundProgress(profileId, lessonId, xp).then(({ ok, pending }) => {
+      if (!cancelled) setSaveState(!ok ? "error" : pending ? "queued" : "saved");
     });
     return () => {
       cancelled = true;
@@ -391,8 +391,17 @@ export function TegnBogstavetGame({
                   />
                   Fremskridt gemt
                 </>
+              ) : saveState === "queued" ? (
+                <>
+                  <span
+                    className="size-2 rounded-full"
+                    style={{ background: "var(--color-nour)" }}
+                    aria-hidden
+                  />
+                  Dit lys gemmes, når du er online igen
+                </>
               ) : saveState === "error" ? (
-                "Fremskridt kunne ikke gemmes — det tæller stadig for dig!"
+                "Kunne ikke gemmes lige nu — prøver igen"
               ) : null}
             </p>
           ) : null}

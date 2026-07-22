@@ -438,7 +438,7 @@ function RoundDone({
   xp: number;
   correctCount: number;
   total: number;
-  saveState: "idle" | "saving" | "saved" | "error";
+  saveState: "idle" | "saving" | "saved" | "queued" | "error";
   savingEnabled: boolean;
   onRestart: () => void;
   onExit?: () => void;
@@ -491,8 +491,17 @@ function RoundDone({
               <Flame className="size-4" style={{ color: "var(--color-nour)" }} />
               Fremskridt gemt
             </>
+          ) : saveState === "queued" ? (
+            <>
+              <span
+                className="size-2 rounded-full"
+                style={{ background: "var(--color-nour)" }}
+                aria-hidden
+              />
+              Dit lys gemmes, når du er online igen
+            </>
           ) : saveState === "error" ? (
-            "Fremskridt kunne ikke gemmes — det tæller stadig for dig!"
+            "Kunne ikke gemmes lige nu — prøver igen"
           ) : null}
         </p>
       ) : null}

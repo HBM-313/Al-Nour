@@ -35,7 +35,7 @@ export type LoadState =
   | { status: "error"; message: string }
   | { status: "ready" };
 
-export type SaveState = "idle" | "saving" | "saved" | "error";
+export type SaveState = "idle" | "saving" | "saved" | "queued" | "error";
 
 /**
  * Begivenhed som UI'et reagerer visuelt på (lysbro, vip, ryst).
@@ -411,8 +411,8 @@ export function useMatchPairs(options: UseMatchPairsOptions) {
 
     let cancelled = false;
     setSaveState("saving");
-    void saveRoundProgress(profileId, lessonId, xp).then(({ ok }) => {
-      if (!cancelled) setSaveState(ok ? "saved" : "error");
+    void saveRoundProgress(profileId, lessonId, xp).then(({ ok, pending }) => {
+      if (!cancelled) setSaveState(!ok ? "error" : pending ? "queued" : "saved");
     });
     return () => {
       cancelled = true;

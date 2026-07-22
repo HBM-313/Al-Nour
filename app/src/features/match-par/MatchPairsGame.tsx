@@ -675,10 +675,20 @@ function RoundDone({
           {stats}
         </p>
         {savingEnabled && (
-          <p className="mt-1 text-xs" style={{ color: "#8fa4c4" }}>
+          <p className="mt-1 flex items-center justify-center gap-1.5 text-xs" style={{ color: "#8fa4c4" }}>
             {game.saveState === "saving" && "Gemmer fremskridt …"}
             {game.saveState === "saved" && "Fremskridt gemt ✓"}
-            {game.saveState === "error" && "Kunne ikke gemme — prøver igen næste runde"}
+            {game.saveState === "queued" && (
+              <>
+                <span
+                  className="size-1.5 rounded-full"
+                  style={{ background: "var(--color-nour)" }}
+                  aria-hidden
+                />
+                Dit lys gemmes, når du er online igen
+              </>
+            )}
+            {game.saveState === "error" && "Kunne ikke gemmes lige nu — prøver igen"}
           </p>
         )}
         <div className="mt-4 flex justify-center gap-2">

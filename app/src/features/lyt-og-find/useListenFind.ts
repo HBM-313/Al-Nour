@@ -27,7 +27,7 @@ export type LoadState =
   | { status: "error"; message: string }
   | { status: "ready" };
 
-export type SaveState = "idle" | "saving" | "saved" | "error";
+export type SaveState = "idle" | "saving" | "saved" | "queued" | "error";
 
 export interface AnswerResult {
   correct: boolean;
@@ -274,8 +274,8 @@ export function useListenFind(options: UseListenFindOptions) {
     let cancelled = false;
 
     setSaveState("saving");
-    void saveRoundProgress(profileId, lessonId, xp).then(({ ok }) => {
-      if (!cancelled) setSaveState(ok ? "saved" : "error");
+    void saveRoundProgress(profileId, lessonId, xp).then(({ ok, pending }) => {
+      if (!cancelled) setSaveState(!ok ? "error" : pending ? "queued" : "saved");
     });
     return () => {
       cancelled = true;

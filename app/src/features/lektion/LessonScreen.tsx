@@ -420,11 +420,20 @@ function Done({
 function SaveHint({ lesson }: { lesson: LessonState }) {
   if (lesson.saveState === "idle") return null;
   return (
-    <p className="mt-1 text-xs" style={{ color: "#8fa4c4" }}>
+    <p className="mt-1 flex items-center gap-1.5 text-xs" style={{ color: "#8fa4c4" }}>
       {lesson.saveState === "saving" && "Gemmer fremskridt …"}
       {lesson.saveState === "saved" && "Fremskridt gemt ✓"}
-      {lesson.saveState === "error" &&
-        "Kunne ikke gemme — fremskridt holdes i denne session"}
+      {lesson.saveState === "queued" && (
+        <>
+          <span
+            className="size-1.5 rounded-full"
+            style={{ background: "var(--color-nour)" }}
+            aria-hidden
+          />
+          Dit lys gemmes, når du er online igen
+        </>
+      )}
+      {lesson.saveState === "error" && "Kunne ikke gemmes lige nu — prøver igen"}
     </p>
   );
 }
