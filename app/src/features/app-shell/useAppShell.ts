@@ -22,6 +22,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { setVoicePref } from "@/lib/voicePref";
+import { startSyncEngine } from "@/lib/progressQueue";
 import type { Profile } from "@/lib/types";
 import {
   checkGuestMigration,
@@ -94,6 +95,11 @@ export function useAppShell() {
       sub.subscription.unsubscribe();
     };
   }, [loadProfiles]);
+
+  // Leverance 1.1: tøm den offline-kø der måtte være liggende fra sidste
+  // session (app-start), og igen hver gang enheden bliver online. Billigt
+  // no-op når køen er tom — kører derfor uafhængigt af login-status.
+  useEffect(() => startSyncEngine(), []);
 
   /** Barnet har bestået dyre-pinnen (eller profilen er ulåst). */
   const onChildLoggedIn = useCallback((profile: Profile) => {

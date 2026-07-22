@@ -3,37 +3,35 @@
  *
  * Leverance 1.2 (plan-platformsmodning.md §1.2): skriver ikke længere
  * "læs-derefter-skriv" fra klienten. Al xp-addition, streak- og
- * status-logik ligger nu i én atomisk Postgres-funktion (`record_progress`),
- * så to faner eller en hurtig kø-genafspilning ikke kan tabe xp eller
- * ødelægge streak. Streak-reglen (samme dag → uændret; i går → +1;
- * ellers → 1) er uændret — bare flyttet ind i RPC'en.
+ * status-logik ligger i én atomisk Postgres-funktion (`record_progress`),
+ * så to faner eller en kø-genafspilning ikke kan tabe xp eller ødelægge
+ * streak. Streak-reglen (samme dag → uændret; i går → +1; ellers → 1) er
+ * uændret — bare flyttet ind i RPC'en.
  *
- * Idempotens: hvert kald bærer et event_id. Sendes samme event_id to gange
- * (fx en kø-post fra Leverance 1.1 der synkes igen efter en afbrudt
- * forbindelse), lægger RPC'en IKKE xp til igen — den er et bevidst no-op.
- * Kaldere der selv styrer retry (den kommende IndexedDB-kø) skal give deres
- * eget, holdbare event_id videre; almindelige online-kald kan lade et nyt
- * blive genereret automatisk.
+ * Leverance 1.1: skriver ALTID gennem `progressQueue` (IndexedDB) FØRST,
+ * som forsøger øjeblikkelig afsendelse og lader posten blive liggende
+ * offline-sikkert hvis den fejler. `pending: true` i returværdien betyder
+ * "gemt lokalt, venter på at blive synket" — intet fremskridt er tabt,
+ * det er blot forsinket. Idempotens ved gensynk kommer fra RPC'ens
+ * event_id-tjek (se progressQueue.ts).
  */
 
-import { supabase } from "@/lib/supabase";
+import { enqueueAndSend, type SaveOutcome } from "@/lib/progressQueue";
 
 export async function saveRoundProgress(
   profileId: string,
   lessonId: string,
   earnedXp: number,
   eventId: string = crypto.randomUUID(),
-): Promise<{ ok: boolean }> {
-  const { error } = await supabase.rpc("record_progress", {
-    p_event_id: eventId,
-    p_profile_id: profileId,
-    p_lesson_id: lessonId,
-    p_earned_xp: earnedXp,
-    p_current_step: 0,
-    p_completed: true,
+): Promise<SaveOutcome> {
+  return enqueueAndSend({
+    eventId,
+    profileId,
+    lessonId,
+    earnedXp,
+    currentStep: 0,
+    completed: true,
   });
-
-  return { ok: !error };
 }
 
 /**
@@ -50,15 +48,13 @@ export async function saveStepProgress(
   earnedXp: number,
   lessonCompleted: boolean,
   eventId: string = crypto.randomUUID(),
-): Promise<{ ok: boolean }> {
-  const { error } = await supabase.rpc("record_progress", {
-    p_event_id: eventId,
-    p_profile_id: profileId,
-    p_lesson_id: lessonId,
-    p_earned_xp: earnedXp,
-    p_current_step: currentStep,
-    p_completed: lessonCompleted,
+): Promise<SaveOutcome> {
+  return enqueueAndSend({
+    eventId,
+    profileId,
+    lessonId,
+    earnedXp,
+    currentStep,
+    completed: lessonCompleted,
   });
-
-  return { ok: !error };
 }
