@@ -37,17 +37,18 @@ Admin (mig) · Indholds-redaktør (kan ikke udgive aqidah) · Godkender (eneste 
 
 ## Hvor jeg er nu (opdater dette felt løbende)
 
-**Status (2026-07-22, session 11 — Leverance 1.1 + 1.2: offline-kø + atomisk `record_progress`-RPC, GENNEMFØRT.)**
-Se `supabase/migrations/README.md` → "record_progress-RPC + event-idempotens" for den fulde tekniske beskrivelse af 1.2. Kort resumé af begge leverancer:
+**Status (2026-07-22, session 11 — Leverance 1.1 + 1.2: offline-kø + atomisk `record_progress`-RPC, FULDT GENNEMFØRT inkl. UI.)**
+Se `supabase/migrations/README.md` → "record_progress-RPC + event-idempotens" for den fulde tekniske beskrivelse af 1.2. Kort resumé af alle tre dele:
 
 - **1.2 — atomisk RPC:** `progress.ts`s tidligere læs-derefter-skriv er erstattet af én atomisk Postgres-funktion `record_progress()` (`INSERT ... ON CONFLICT DO UPDATE`). Xp forbliver additiv (delta pr. runde, som hidtil) — IKKE kumulativ, det var en fejlantagelse i en tidlig, forkastet v1 af RPC'en (se README for detaljer). Idempotens sikres af en ny tabel `progress_events` (fail-closed RLS, ingen policies — kun RPC'en rører den): hvert kald bærer et `event_id`, og en gentagelse af samme id er et bevidst no-op. Streak-regel (samme dag/i går/nulstil) og step-reset ved fuldførelse er flyttet uændret fra frontend ind i RPC'en. Ejerskabs-tjek som `set_child_pin`. Bevist med 11-punkts rollback-markør-regressionstest mod live-DB, 0 rækker persisteret.
 - **1.1 — offline-kø:** nyt modul `lib/progressQueue.ts` — IndexedDB-baseret FIFO-skrivekø (ikke localStorage). `saveStepProgress`/`saveRoundProgress` skriver ALTID til køen først og forsøger straks afsendelse; lykkes det ikke (offline), bliver posten trygt liggende og forsøges igen. Rækkefølgen bevares strengt (`flushQueue` stopper ved første fejl i stedet for at springe entries over), fordi `current_step` sættes direkte i RPC'en, ikke monotont. `startSyncEngine()` tømmer køen ved app-start og på hvert `online`-event — wired ind i `useAppShell.ts`. Injicerbar afsender (samme DI-mønster som `errorLog.ts`) gør hele køen testbar uden Supabase/netværk: 9 nye tests (`progressQueue.test.ts`, `fake-indexeddb` som ny devDependency) dækker idempotens, FIFO-rækkefølge, kø-overlevelse ved simuleret "genstart", og online-sync.
-- Build-kæde grøn: `tsc --noEmit` 0 fejl · `oxlint` 0/0 · **93/93 tests** · build ✓. (Sidefund: `npm audit fix` ryddede en pre-eksisterende `fast-uri`-sårbarhed via `vite-plugin-pwa`-kæden, uafhængigt af denne leverance.)
-- **Ikke bygget endnu:** den diskrete UI-status-tekst ("Dit lys gemmes, når du er online igen") i børne-UI'et. Kø-logikken (`getPendingCount()`) er klar til at drive den, men selve UI'et mangler stadig sin Visualizer-demo og ejer-godkendelse, jf. det etablerede mønster.
+- **1.1 (UI) — rolig gemmes-status:** ny `"queued"`-tilstand i saveState-typerne for alle fire spil (Lyt & Find, Tegn Bogstavet, Match-par, lektions-skærmen). Vist som en blødt pulserende guld-prik (samme farve som `--color-nour`) + teksten "Dit lys gemmes, når du er online igen". Ejer-godkendt via en isoleret Visualizer-demo (`save-status-demo.html`) før porting. Den gamle fejltekst ("holdes i denne session") var blevet forældet af køens eksistens — opdateret til "Kunne ikke gemmes lige nu — prøver igen" (nu en sjælden tilstand: kun hvis IndexedDB slet ikke findes OG direkte afsendelse også fejler).
+- Build-kæde grøn gennem hele leverancen: `tsc --noEmit` 0 fejl · `oxlint` 0/0 · **93/93 tests** · build ✓. (Sidefund: `npm audit fix` ryddede en pre-eksisterende `fast-uri`-sårbarhed via `vite-plugin-pwa`-kæden, uafhængigt af denne leverance.)
+- Pushet i tre commits: `3f1516b` (1.2-RPC), `c137fe9` (1.1-kø), `7cf0073` (1.1 UI-status).
 
 **Dokumentations-fund (flag til ejer, ikke rettet her):** denne fils historik stopper ved 2026-07-17 (TTS-status) FØR denne sessions opdatering. Sessionerne 6–10 (test-framework, ErrorBoundary/fejllogning, CI/CD m.m. — se Claude-projektmappens handoff.md for fuld status) er tilsyneladende aldrig blevet committet til `docs/handoff.md` i selve repoet, kun til Project-filen. De to filer er dermed drevet fra hinanden før nu. Bør reconcileres i en kommende session.
 
-**Næste skridt:** Visualizer-demo af den diskrete "gemmes offline"-status → ejer-godkendelse → port. Derefter Leverance 1.3 (streak flyttes til profilen — global i stedet for lektions-specifik) og 1.4 (GDPR: forælderen kan slette sin egen konto). Se `plan-platformsmodning.md` §1.3–1.4.
+**Næste skridt:** Leverance 1.3 — streak flyttes til profilen (global i stedet for lektions-specifik: `profiles.streak_count` + `profiles.last_active_day`). Derefter 1.4 (GDPR: forælderen kan slette sin egen konto). Se `plan-platformsmodning.md` §1.3–1.4.
 
 ---
 
