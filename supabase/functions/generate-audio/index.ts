@@ -102,6 +102,20 @@ const IPA_BY_NAME_AR: Record<string, string> = {
   "ياء": "jaːʔ",
 };
 
+/**
+ * For غين (Ghayn) blev IPA-feltet accepteret af Google (tagget 'ipa-forced'
+ * i media), men lyden var stadig ikke overbevisende — modellens fonem-
+ * inventar ser ud til reelt at mangle den uvulare frikativ ɣ, selvom
+ * instruktionen ikke fejlede. Forsøger X-SAMPA i stedet, som Chirp3-HD
+ * også understøtter og som modellen kan tolke anderledes end IPA.
+ * Rammer heller ikke dette, er det en reel grænse i stemmemodellen —
+ * ikke noget flere fonetik-forsøg kan løse, og bør i så fald flyttes til
+ * den planlagte menneskelige optagelses-fase i stedet.
+ */
+const XSAMPA_BY_NAME_AR: Record<string, string> = {
+  "غين": "Gajn",
+};
+
 interface WorkItem {
   table: "letters" | "vocabulary";
   id: string;
@@ -136,22 +150,23 @@ function isServiceRoleToken(bearer: string, envServiceKey: string): boolean {
 }
 
 /**
- * Kald Google TTS. Forsøger IPA-udtale-tvang først hvis `ipa` er angivet
- * (kun bogstaver); fejler dét kald (fx fordi Preview-feltet afvises eller
- * opfører sig uventet), falder vi automatisk tilbage til almindelig
+ * Kald Google TTS. Forsøger udtale-tvang først hvis `override` er angivet
+ * (kun bogstaver): IPA som udgangspunkt, X-SAMPA hvor IPA er kendt
+ * utilstrækkelig (se XSAMPA_BY_NAME_AR). Fejler det forsøg (fx fordi
+ * Preview-feltet afvises), falder vi automatisk tilbage til almindelig
  * tekst-syntese for samme klip i stedet for at fejle helt.
  */
 async function synthesize(
   ttsKey: string,
   text: string,
   voiceName: string,
-  ipa: string | undefined,
-): Promise<{ ok: true; audioContentB64: string; usedIpa: boolean } | { ok: false; error: string }> {
-  async function call(withIpa: boolean) {
+  override: { encoding: "PHONETIC_ENCODING_IPA" | "PHONETIC_ENCODING_X_SAMPA"; pronunciation: string } | undefined,
+): Promise<{ ok: true; audioContentB64: string; usedOverride: string | null } | { ok: false; error: string }> {
+  async function call(withOverride: boolean) {
     const input: Record<string, unknown> = { text };
-    if (withIpa && ipa) {
+    if (withOverride && override) {
       input.customPronunciations = {
-        pronunciations: [{ phrase: text, phoneticEncoding: "PHONETIC_ENCODING_IPA", pronunciation: ipa }],
+        pronunciations: [{ phrase: text, phoneticEncoding: override.encoding, pronunciation: override.pronunciation }],
       };
     }
     return fetch(`${GOOGLE_TTS_URL}?key=${ttsKey}`, {
@@ -165,11 +180,13 @@ async function synthesize(
     });
   }
 
-  if (ipa) {
+  if (override) {
     const res = await call(true);
     if (res.ok) {
       const j = await res.json();
-      if (j.audioContent) return { ok: true, audioContentB64: j.audioContent, usedIpa: true };
+      if (j.audioContent) {
+        return { ok: true, audioContentB64: j.audioContent, usedOverride: override.encoding };
+      }
     }
     // Preview-feltet fejlede eller gav intet lydindhold — falder tilbage til almindelig tekst.
   }
@@ -181,7 +198,7 @@ async function synthesize(
   }
   const fj = await fallback.json();
   if (!fj.audioContent) return { ok: false, error: "TTS: intet audioContent i svaret" };
-  return { ok: true, audioContentB64: fj.audioContent, usedIpa: false };
+  return { ok: true, audioContentB64: fj.audioContent, usedOverride: null };
 }
 
 Deno.serve(async (req) => {
@@ -288,13 +305,21 @@ Deno.serve(async (req) => {
   }
 
   const batch = work.slice(0, limit);
-  const results: Array<{ id: string; ok: boolean; error?: string; usedIpa?: boolean }> = [];
+  const results: Array<{ id: string; ok: boolean; error?: string; override?: string | null }> = [];
 
   for (const item of batch) {
     try {
-      // 1. Generér lyd hos Google Cloud TTS — IPA-tvang for bogstaver hvis dækket.
-      const ipa = item.table === "letters" ? IPA_BY_NAME_AR[item.text] : undefined;
-      const synth = await synthesize(ttsKey, item.text, item.voiceName, ipa);
+      // 1. Generér lyd hos Google Cloud TTS — udtale-tvang for bogstaver hvis dækket
+      //    (X-SAMPA foretrukket hvis kendt bedre for netop dette bogstav, ellers IPA).
+      const override =
+        item.table === "letters"
+          ? XSAMPA_BY_NAME_AR[item.text]
+            ? { encoding: "PHONETIC_ENCODING_X_SAMPA" as const, pronunciation: XSAMPA_BY_NAME_AR[item.text] }
+            : IPA_BY_NAME_AR[item.text]
+              ? { encoding: "PHONETIC_ENCODING_IPA" as const, pronunciation: IPA_BY_NAME_AR[item.text] }
+              : undefined
+          : undefined;
+      const synth = await synthesize(ttsKey, item.text, item.voiceName, override);
       if (!synth.ok) {
         results.push({ id: item.id, ok: false, error: synth.error });
         continue;
@@ -319,12 +344,18 @@ Deno.serve(async (req) => {
 
       // 3. media-række — LYD-REGLEN: ai + aldrig recitation. Databasens
       //    egne constraints/triggere validerer (kan ikke omgås herfra).
+      const overrideTag =
+        synth.usedOverride === "PHONETIC_ENCODING_X_SAMPA"
+          ? "xsampa-forced"
+          : synth.usedOverride === "PHONETIC_ENCODING_IPA"
+            ? "ipa-forced"
+            : null;
       const media = await db
         .from("media")
         .insert({
           type: "audio",
           url: publicUrl,
-          tags: synth.usedIpa ? [...item.tags, "ipa-forced"] : item.tags,
+          tags: overrideTag ? [...item.tags, overrideTag] : item.tags,
           generated_by: "ai",
           is_recitation: false,
           reusable: true,
@@ -347,7 +378,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      results.push({ id: item.id, ok: true, usedIpa: synth.usedIpa });
+      results.push({ id: item.id, ok: true, override: synth.usedOverride });
     } catch (e) {
       results.push({
         id: item.id,
@@ -358,11 +389,13 @@ Deno.serve(async (req) => {
   }
 
   const generated = results.filter((r) => r.ok).length;
-  const ipaForced = results.filter((r) => r.ok && r.usedIpa).length;
+  const ipaForced = results.filter((r) => r.ok && r.override === "PHONETIC_ENCODING_IPA").length;
+  const xsampaForced = results.filter((r) => r.ok && r.override === "PHONETIC_ENCODING_X_SAMPA").length;
   const failed = results.filter((r) => !r.ok);
   return json({
     generated,
     ipa_forced: ipaForced,
+    xsampa_forced: xsampaForced,
     failed: failed.length,
     failures: failed.slice(0, 5),
     remaining: work.length - batch.length + failed.length,
