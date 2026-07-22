@@ -116,6 +116,24 @@ const XSAMPA_BY_NAME_AR: Record<string, string> = {
   "غين": "Gajn",
 };
 
+/**
+ * Tredje forsøg for غين (Ghayn): hverken IPA eller X-SAMPA via Googles
+ * eksperimentelle customPronunciations-felt gav en overbevisende lyd,
+ * selvom feltet blev accepteret uden fejl begge gange. Arabisk skrift uden
+ * tashkeel (korte vokaltegn) er i sagens natur tvetydig for maskin-udtale
+ * (kendt, veldokumenteret problem for arabisk TTS/NLP generelt) — "غين"
+ * uden vokaler kan tolkes forkert af modellens egen tekst-til-lyd-analyse.
+ * Her sendes i stedet den FULDT VOKALISEREDE klassiske stavemåde غَيْن som
+ * selve tekst-input — ingen Preview-felt involveret, bare almindelig
+ * tekst, hvilket gør denne vej langt mere robust end de to forrige forsøg.
+ * Det VISTE bogstav-navn i appen (`letters.name_ar`) er uændret "غين" —
+ * kun det der reelt sendes til TTS er mere præcist stavet.
+ * Denne strategi har forrang for IPA/X-SAMPA når den findes.
+ */
+const VOCALIZED_TEXT_BY_NAME_AR: Record<string, string> = {
+  "غين": "غَيْن",
+};
+
 interface WorkItem {
   table: "letters" | "vocabulary";
   id: string;
@@ -150,23 +168,26 @@ function isServiceRoleToken(bearer: string, envServiceKey: string): boolean {
 }
 
 /**
- * Kald Google TTS. Forsøger udtale-tvang først hvis `override` er angivet
- * (kun bogstaver): IPA som udgangspunkt, X-SAMPA hvor IPA er kendt
- * utilstrækkelig (se XSAMPA_BY_NAME_AR). Fejler det forsøg (fx fordi
- * Preview-feltet afvises), falder vi automatisk tilbage til almindelig
- * tekst-syntese for samme klip i stedet for at fejle helt.
+ * Kald Google TTS. Tre niveauer af udtale-hjælp for bogstaver, i rækkefølge:
+ * 1. Vokaliseret tekst-erstatning (VOCALIZED_TEXT_BY_NAME_AR) — mest robust,
+ *    bruger slet ikke Preview-feltet, bare mere præcis almindelig tekst.
+ * 2. Phonetic override (IPA, evt. X-SAMPA) via Googles customPronunciations.
+ * 3. Almindelig tekst-syntese af det oprindelige bogstavnavn.
+ * Fejler et niveau (fx fordi Preview-feltet afvises), falder vi automatisk
+ * videre i stedet for at fejle helt.
  */
 async function synthesize(
   ttsKey: string,
   text: string,
   voiceName: string,
+  vocalizedText: string | undefined,
   override: { encoding: "PHONETIC_ENCODING_IPA" | "PHONETIC_ENCODING_X_SAMPA"; pronunciation: string } | undefined,
-): Promise<{ ok: true; audioContentB64: string; usedOverride: string | null } | { ok: false; error: string }> {
-  async function call(withOverride: boolean) {
-    const input: Record<string, unknown> = { text };
+): Promise<{ ok: true; audioContentB64: string; strategy: string | null } | { ok: false; error: string }> {
+  async function call(spokenText: string, withOverride: boolean) {
+    const input: Record<string, unknown> = { text: spokenText };
     if (withOverride && override) {
       input.customPronunciations = {
-        pronunciations: [{ phrase: text, phoneticEncoding: override.encoding, pronunciation: override.pronunciation }],
+        pronunciations: [{ phrase: spokenText, phoneticEncoding: override.encoding, pronunciation: override.pronunciation }],
       };
     }
     return fetch(`${GOOGLE_TTS_URL}?key=${ttsKey}`, {
@@ -180,25 +201,32 @@ async function synthesize(
     });
   }
 
-  if (override) {
-    const res = await call(true);
+  if (vocalizedText) {
+    const res = await call(vocalizedText, false);
     if (res.ok) {
       const j = await res.json();
-      if (j.audioContent) {
-        return { ok: true, audioContentB64: j.audioContent, usedOverride: override.encoding };
-      }
+      if (j.audioContent) return { ok: true, audioContentB64: j.audioContent, strategy: "vocalized-text" };
+    }
+    // Uventet — ren tekst-syntese bør stort set aldrig fejle. Fortsætter til næste niveau.
+  }
+
+  if (override) {
+    const res = await call(text, true);
+    if (res.ok) {
+      const j = await res.json();
+      if (j.audioContent) return { ok: true, audioContentB64: j.audioContent, strategy: override.encoding };
     }
     // Preview-feltet fejlede eller gav intet lydindhold — falder tilbage til almindelig tekst.
   }
 
-  const fallback = await call(false);
+  const fallback = await call(text, false);
   if (!fallback.ok) {
     const msg = await fallback.text();
     return { ok: false, error: `TTS ${fallback.status}: ${msg.slice(0, 160)}` };
   }
   const fj = await fallback.json();
   if (!fj.audioContent) return { ok: false, error: "TTS: intet audioContent i svaret" };
-  return { ok: true, audioContentB64: fj.audioContent, usedOverride: null };
+  return { ok: true, audioContentB64: fj.audioContent, strategy: null };
 }
 
 Deno.serve(async (req) => {
@@ -305,12 +333,13 @@ Deno.serve(async (req) => {
   }
 
   const batch = work.slice(0, limit);
-  const results: Array<{ id: string; ok: boolean; error?: string; override?: string | null }> = [];
+  const results: Array<{ id: string; ok: boolean; error?: string; strategy?: string | null }> = [];
 
   for (const item of batch) {
     try {
-      // 1. Generér lyd hos Google Cloud TTS — udtale-tvang for bogstaver hvis dækket
-      //    (X-SAMPA foretrukket hvis kendt bedre for netop dette bogstav, ellers IPA).
+      // 1. Generér lyd hos Google Cloud TTS — udtale-hjælp for bogstaver hvis dækket
+      //    (vokaliseret tekst > X-SAMPA > IPA > almindelig tekst, se synthesize()).
+      const vocalizedText = item.table === "letters" ? VOCALIZED_TEXT_BY_NAME_AR[item.text] : undefined;
       const override =
         item.table === "letters"
           ? XSAMPA_BY_NAME_AR[item.text]
@@ -319,7 +348,7 @@ Deno.serve(async (req) => {
               ? { encoding: "PHONETIC_ENCODING_IPA" as const, pronunciation: IPA_BY_NAME_AR[item.text] }
               : undefined
           : undefined;
-      const synth = await synthesize(ttsKey, item.text, item.voiceName, override);
+      const synth = await synthesize(ttsKey, item.text, item.voiceName, vocalizedText, override);
       if (!synth.ok) {
         results.push({ id: item.id, ok: false, error: synth.error });
         continue;
@@ -344,18 +373,20 @@ Deno.serve(async (req) => {
 
       // 3. media-række — LYD-REGLEN: ai + aldrig recitation. Databasens
       //    egne constraints/triggere validerer (kan ikke omgås herfra).
-      const overrideTag =
-        synth.usedOverride === "PHONETIC_ENCODING_X_SAMPA"
-          ? "xsampa-forced"
-          : synth.usedOverride === "PHONETIC_ENCODING_IPA"
-            ? "ipa-forced"
-            : null;
+      const strategyTag =
+        synth.strategy === "vocalized-text"
+          ? "vocalized-text"
+          : synth.strategy === "PHONETIC_ENCODING_X_SAMPA"
+            ? "xsampa-forced"
+            : synth.strategy === "PHONETIC_ENCODING_IPA"
+              ? "ipa-forced"
+              : null;
       const media = await db
         .from("media")
         .insert({
           type: "audio",
           url: publicUrl,
-          tags: overrideTag ? [...item.tags, overrideTag] : item.tags,
+          tags: strategyTag ? [...item.tags, strategyTag] : item.tags,
           generated_by: "ai",
           is_recitation: false,
           reusable: true,
@@ -378,7 +409,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      results.push({ id: item.id, ok: true, override: synth.usedOverride });
+      results.push({ id: item.id, ok: true, strategy: synth.strategy });
     } catch (e) {
       results.push({
         id: item.id,
@@ -389,11 +420,13 @@ Deno.serve(async (req) => {
   }
 
   const generated = results.filter((r) => r.ok).length;
-  const ipaForced = results.filter((r) => r.ok && r.override === "PHONETIC_ENCODING_IPA").length;
-  const xsampaForced = results.filter((r) => r.ok && r.override === "PHONETIC_ENCODING_X_SAMPA").length;
+  const vocalizedCount = results.filter((r) => r.ok && r.strategy === "vocalized-text").length;
+  const ipaForced = results.filter((r) => r.ok && r.strategy === "PHONETIC_ENCODING_IPA").length;
+  const xsampaForced = results.filter((r) => r.ok && r.strategy === "PHONETIC_ENCODING_X_SAMPA").length;
   const failed = results.filter((r) => !r.ok);
   return json({
     generated,
+    vocalized_text: vocalizedCount,
     ipa_forced: ipaForced,
     xsampa_forced: xsampaForced,
     failed: failed.length,
