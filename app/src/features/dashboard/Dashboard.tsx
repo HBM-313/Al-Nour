@@ -221,7 +221,7 @@ function ProgressBox({
       )}
       <StatRow k="Fuldførte lektioner" v={`${summary.completedCount} af 7`} />
       <StatRow k="Lys samlet (XP)" v={`${summary.totalXp} ✨`} />
-      <StatRow k="Streak" v={`${summary.bestStreak} dage 🔥`} />
+      <StatRow k="Streak" v={`${summary.streakCount} dage 🔥`} />
     </div>
   );
 }

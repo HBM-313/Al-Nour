@@ -137,3 +137,61 @@ Lyt & Find, Tegn Bogstavet, Match-par, `useLesson` — er urørte), men kalder
 nu `record_progress`-RPC'en med et auto-genereret `event_id` i stedet for
 select+upsert. Den kommende IndexedDB-kø (Leverance 1.1) skal give sit eget
 holdbare `event_id` med, så idempotensen også dækker offline-genafspilning.
+
+
+## Global streak — `profiles.streak_count` (2026-07-22)
+
+`20260722_global_streak_profiles.sql`: Leverance 1.3
+(plan-platformsmodning.md §1.3). Streak lå hidtil på `progress` med
+`UNIQUE(profile_id, lesson_id)` — altså én streak PR LEKTION. Et barn der
+spiller trofast hver dag, men skifter lektion, oplevede at streaken evigt
+viste "1". Rettet ved at flytte streak til `profiles` (ét barn = én
+streak): nye kolonner `profiles.streak_count` (int, default 0,
+`check (streak_count >= 0)`) og `profiles.last_active_day` (date, IKKE
+timestamptz — undgår tidszonefejl ved dags-sammenligning).
+
+**ARKITEKTUR-BESLUTNING (bevidst, ikke en rettelse af en fejl):**
+`progress.streak_count` **fryses** fra denne migration. Kolonnen fjernes
+ikke — den bevares som historisk/audit-felt med de værdier den havde ved
+udgangen af Leverance 1.2 — men `record_progress()` sætter og opdaterer
+den ikke længere. Nye `progress`-rækker får kolonnens default (`0`);
+eksisterende rækkers værdier røres ikke. Al streak-visning i frontend skal
+fremover læse `profiles.streak_count`, aldrig `progress.streak_count`.
+Alternativet (udfase/droppe kolonnen helt) blev fravalgt for at undgå en
+destruktiv migration oven på en leverance der i forvejen handler om at
+undgå datatab.
+
+`record_progress()` låser nu profil-rækken (`for update`) FØRST, i samme
+`select` som autorisationstjekket (samme mønster som hidtil: kun
+`owner_account_id = auth.uid()` eller `admin`). Det er en bevidst ændring
+af låserækkefølgen: streak er global, så to samtidige kald for samme barn
+(to faner, to forskellige lektioner) skal serialiseres på PROFIL-niveau —
+den gamle lås på `progress`-rækken (via `UNIQUE(profile_id, lesson_id)`)
+er ikke længere nok, fordi streak ikke længere hænger på den specifikke
+lektion-række.
+
+Streak-reglen er uændret i sin logik, blot flyttet fra
+`progress.last_completed_at`/`progress.streak_count` til
+`profiles.last_active_day`/`profiles.streak_count`: samme dag → uændret;
+i går → +1; ellers (eller intet tidligere fremskridt) → 1.
+
+Bevist med 8-punkts rollback-markør-regressionstest mod live-DB (0 rækker
+persisteret bagefter, verificeret): første fuldførelse → streak 1; samme
+dag, ny lektion → streak IKKE fordoblet; "i går" → +1; hul på ≥2 dage →
+nulstil til 1; `progress.streak_count` forbliver frosset på `0` for nye
+rækker; søskendes streak er uafhængige (Zainab upåvirket af Ali); samme
+forælder kan skrive begge sine børns fremskridt; en uautoriseret bruger
+afvises eksplicit med "ikke autoriseret".
+
+Frontend porteret samtidig: `features/dashboard/engine.ts` læste tidligere
+`Math.max(...progress.streak_count)` på tværs af lektioner ("bedste
+streak") — det gav aldrig mening som en ægte streak og er nu erstattet af
+et direkte read af `profile.streak_count`. Feltet i `ProgressSummary` er
+omdøbt fra `bestStreak` til `streakCount`, fordi semantikken reelt ændrede
+sig (ikke længere "bedste af flere", men "barnets ene, globale streak") —
+`Dashboard.tsx` opdateret til samme navn. `features/app-shell/engine.ts`s
+`migrateGuestProgress` (gæste-fremskridt → profil ved første login)
+skrev tidligere `streak_count: 1` direkte på hver migreret `progress`-
+række; det felt er nu droppet fra upsert'et (kolonnen er frosset — det
+første rigtige `record_progress`-kald efter migreringen sætter
+`profiles.streak_count` korrekt ud fra dags-reglen).

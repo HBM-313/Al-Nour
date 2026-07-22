@@ -109,7 +109,8 @@ export async function migrateGuestProgress(
       status: completed ? "completed" : "in_progress",
       current_step: completed ? 0 : (own?.current_step ?? 0),
       xp,
-      streak_count: 1,
+      // streak_count IKKE sat: kolonnen er frosset siden Leverance 1.3
+      // (streak er nu global på profiles, sat af record_progress()).
       last_completed_at: now,
     };
   });

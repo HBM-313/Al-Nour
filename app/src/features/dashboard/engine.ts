@@ -42,7 +42,8 @@ export interface ProgressSummary {
   current: { orderIndex: number; step: number; totalSteps: number } | null;
   completedCount: number;
   totalXp: number;
-  bestStreak: number;
+  /** Global streak for barnet (profiles.streak_count, Leverance 1.3) — ikke længere udledt af progress-rækkerne. */
+  streakCount: number;
   /** true = barnet er slet ikke begyndt */
   empty: boolean;
 }
@@ -76,7 +77,6 @@ export async function fetchProgressSummary(
   const lanterns: LessonProgressDot[] = [];
   let completedCount = 0;
   let totalXp = 0;
-  let bestStreak = 0;
   let inProgress: { lessonId: string; orderIndex: number; step: number } | null = null;
 
   for (const l of lessons) {
@@ -84,7 +84,6 @@ export async function fetchProgressSummary(
     let state: LessonProgressDot["state"] = "not_started";
     if (p) {
       totalXp += p.xp;
-      bestStreak = Math.max(bestStreak, p.streak_count);
       if (p.status === "completed") {
         state = "done";
         completedCount++;
@@ -120,7 +119,7 @@ export async function fetchProgressSummary(
       current,
       completedCount,
       totalXp,
-      bestStreak,
+      streakCount: child.streak_count,
       empty: completedCount === 0 && current === null,
     },
   };

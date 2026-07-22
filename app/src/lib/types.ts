@@ -71,6 +71,14 @@ export interface Profile {
   pin_hash: string | null;
   /** Oplæser-stemme — afløser lib/voicePref.ts's localStorage når profil er logget ind */
   preferred_voice: VoicePref;
+  /**
+   * Global streak for barnet (Leverance 1.3) — sættes udelukkende af
+   * record_progress()-RPC'en. Erstatter den tidligere pr.-lektion-streak
+   * på Progress.streak_count (som er frosset, se supabase/migrations/README.md).
+   */
+  streak_count: number;
+  /** Sidste dag barnet fuldførte noget (dato, ikke tidsstempel) — bruges kun af record_progress()'s streak-regel. */
+  last_active_day: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -155,6 +163,11 @@ export interface Progress {
   lesson_id: string;
   status: ProgressStatus;
   xp: number;
+  /**
+   * FROSSET siden Leverance 1.3 — record_progress() sætter/opdaterer ikke
+   * længere denne kolonne (streak er global, se Profile.streak_count).
+   * Bevaret som historisk/audit-felt. Læs IKKE dette for streak-visning.
+   */
   streak_count: number;
   /** Næste trin (0-baseret index i lektionens lesson_steps) — "fortsæt hvor du slap" */
   current_step: number;
