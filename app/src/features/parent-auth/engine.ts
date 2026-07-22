@@ -98,6 +98,51 @@ export async function signOutParent(): Promise<void> {
   await supabase.auth.signOut();
 }
 
+/**
+ * Bekræfter adgangskoden for den ALLEREDE indloggede forælder — samme
+ * genbrugs-mønster som `app-shell/engine.ts`s `verifyParentPassword`
+ * (signInWithPassword mod sessionens egen e-mail). Bruges som port foran
+ * kontosletning (ejer-beslutning: adgangskode kræves, se Leverance 1.4).
+ * Fail-closed: mangler sessionen/e-mailen, eller fejler kaldet, er svaret nej.
+ */
+export async function verifyOwnPassword(password: string): Promise<boolean> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const email = data.session?.user.email;
+    if (!email) return false;
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * GDPR Art. 17 — forælderen sletter sin egen konto (Leverance 1.4).
+ * Kalder `delete_own_account()`-RPC'en (SECURITY DEFINER, rører
+ * udelukkende `auth.uid()`s egen konto — ingen parameter, ingen
+ * klient-valgt id). Cascade i databasen rydder alle børneprofiler, alt
+ * fremskridt og klasse-medlemskab i samme kald. Øjeblikkelig, ingen
+ * fortrydelsesperiode (ejer-beslutning). Ved succes ryddes klient-
+ * sessionen eksplicit, da den nu-slettede brugers token ellers kan blive
+ * siddende i browserens storage indtil det udløber.
+ */
+export async function deleteOwnAccount(): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const { error } = await supabase.rpc("delete_own_account");
+    if (error) {
+      return {
+        ok: false,
+        error: "Kontoen kunne ikke slettes. Prøv igen, eller kontakt os hvis det gentager sig.",
+      };
+    }
+    await supabase.auth.signOut();
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Kunne ikke oprette forbindelse. Tjek din internetforbindelse." };
+  }
+}
+
 /** Henter en evt. eksisterende session + sikrer accounts-rækken. Bruges ved opstart. */
 export async function restoreSession(): Promise<Account | null> {
   const { data } = await supabase.auth.getSession();

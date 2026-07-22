@@ -39,7 +39,27 @@ Admin (mig) · Indholds-redaktør (kan ikke udgive aqidah) · Godkender (eneste 
 
 ## Hvor jeg er nu (opdater dette felt løbende)
 
-**Status (2026-07-22, session 12 — Leverance 1.3: global streak, FULDT GENNEMFØRT.)**
+**Status (2026-07-23, session 13 — Leverance 1.4: GDPR, forælderen kan slette sin egen konto, FULDT GENNEMFØRT.)**
+
+Barnets data kunne slettes med ét klik (Leverance D); forælderens egen konto kunne ikke — ingen DELETE-policy på `accounts`. Art. 17 gælder også den voksne.
+
+**Slette-graf kortlagt før migrationen** (fuld `pg_constraint`-scan): `auth.users` → `accounts` → `profiles` → `progress`/`progress_events`/`class_members` (alt CASCADE), samt `accounts` → `classes` (CASCADE, hvis lærer) → `class_members`. FUND: fire kolonner pegede på `accounts` med `ON DELETE NO ACTION` — `content.created_by`, `content.published_by`, `content_reports.reporter_account_id`, `media.created_by` — ville have blokeret sletning for en redaktør/godkender-konto der har oprettet/publiceret indhold eller rapporteret en fejl. Rettet til `SET NULL` (alle fire nullable, ingen CHECK afhænger af dem, muren urørt). `error_log` har bevidst ingen FK til accounts/profiles (dataminimering) og indgår ikke i grafen. Se `supabase/migrations/README.md` → "delete_own_account()" for det fulde design.
+
+**RPC:** `delete_own_account()` (SECURITY DEFINER, ejet af `postgres`, ingen parametre — sletter altid kun `auth.uid()`s egen konto via `delete from auth.users`, resten kaskaderer). Grant kun til `authenticated`. Bevist med rollback-markør-regressionstest mod live-DB (0 rækker persisteret, to engangs-testkonti brugt — ikke test-foraelder@nour.test): uautentificeret afvist ✓, kryds-konto-isolation (konto B sletter sig selv, konto A upåvirket) ✓, fuld sletning efterlader 0 forældreløse rækker i `accounts`/`profiles`/`progress`/`progress_events`/`class_members`/`classes` ✓, Ali (reel testdata) urørt ✓.
+
+**Udvidelsespunkt for Leverance B3** (plan-boernesession-og-dashboard.md) markeret eksplicit i funktionens krop: når børn får egne `auth.users`-rækker, skal en trigger på `profiles` DELETE slette den tilhørende barne-auth-bruger.
+
+**Ejer-beslutninger:** øjeblikkelig sletning (ikke soft-delete — stærkest GDPR-position) · adgangskode-genindtastning kræves før sletning.
+
+**Frontend** (`features/parent-auth/`): `engine.ts` fik `verifyOwnPassword` (samme `signInWithPassword`-mønster som `app-shell`s forældre-gate) og `deleteOwnAccount` (kalder RPC'en, rydder derefter klient-sessionen med `supabase.auth.signOut()`). `useParentAuth.ts` fik `deleteAccount(password)` + `justDeleted`-tilstand. `ParentAuth.tsx`: `Welcome`-visningen har en diskret "Slet min konto"-link under "Log ud" (synlig for alle kontoroller — RPC'en skelner ikke), åbner et to-trins overlay (forklaring → adgangskode → uigenkaldelig sletning), og en rolig `Farewell`-skærm vises efter succes i stedet for straks at falde tilbage til login-formularen. Ny CSS-klasse `.auth-danger-link`.
+
+Build-kæde grøn: `tsc --noEmit` 0 fejl · `oxlint` 0/0 · **93/93 tests** (uændrede — ingen eksisterende test rørte konto-sletning) · build ✓.
+
+**Næste skridt:** B-blokken fra `plan-boernesession-og-dashboard.md`, startende med **B1 — barnets identitet i databasen** (egen Supabase-auth-bruger pr. barn med syntetisk e-mail, `child`-rolle via access-token-hooket ud fra `profiles.auth_user_id`, RLS så barnet kun ser sig selv, `record_progress` udvidet til at acceptere barnets egen session). Den tungeste og mest sikkerhedskritiske leverance siden Fase 0's mur — læs hele del 4 og del 5 i planen først, særligt fælde 5.1 (skrivekøen går i baglås ved profilskift, hvis den ikke gøres pr. profil).
+
+---
+
+**Tidligere status (2026-07-22, session 12 — Leverance 1.3: global streak, FULDT GENNEMFØRT.)**
 
 Streak lå hidtil på `progress` med `UNIQUE(profile_id, lesson_id)` — altså én streak PR LEKTION, ikke pr. barn. Et barn der spillede trofast hver dag, men skiftede lektion, oplevede at streaken evigt viste "1". Rettet: nye kolonner `profiles.streak_count` + `profiles.last_active_day` (dato, ikke tidsstempel), `record_progress()` omskrevet til at låse profil-rækken (`for update`) og beregne streaken globalt pr. barn i stedet for pr. (profil, lektion). Se `supabase/migrations/README.md` → "Global streak" for det fulde design, herunder den bevidste beslutning om at FRYSE `progress.streak_count` (bevaret som historik, ikke længere skrevet til). Bevist med 8-punkts rollback-markør-regressionstest mod live-DB (0 rækker persisteret): samme dag/ny lektion fordobler ikke streaken, "i går" → +1, hul ≥2 dage → nulstil, søskendes streaks er uafhængige, uautoriseret bruger afvises. Frontend porteret: `features/dashboard/engine.ts` (den tidligere `Math.max`-udledte "bedste streak" på tværs af lektioner er erstattet af et direkte read af `profile.streak_count`; feltet omdøbt `bestStreak` → `streakCount` i `ProgressSummary`, `Dashboard.tsx` fulgt med), `features/app-shell/engine.ts` (`migrateGuestProgress` skriver ikke længere til den nu frosne `progress.streak_count`), `lib/types.ts` (nye felter på `Profile`, `Progress.streak_count` markeret frosset i JSDoc). Build-kæde grøn: `tsc --noEmit` 0 fejl · `oxlint` 0/0 · **93/93 tests** (uændrede — ingen af de eksisterende tests rørte streak-logik) · build ✓.
 

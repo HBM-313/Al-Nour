@@ -173,6 +173,20 @@
   color: #f5eddd;
 }
 
+/* Slet-konto-link (Leverance 1.4) — diskret, ikke en primær handling */
+.auth-danger-link {
+  background: transparent;
+  color: rgba(240, 147, 123, 0.65);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s ease;
+}
+.auth-danger-link:hover,
+.auth-danger-link:focus-visible {
+  color: #f0937b;
+  outline: none;
+}
+
 /* Portal-fane (Børn/Værkstedet) — kun synlig for admin/editor */
 .auth-portal-tab-on {
   background: rgba(245, 185, 66, 0.16);

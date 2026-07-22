@@ -30,7 +30,19 @@ const EMAIL_RE = /^\S+@\S+\.\S+$/;
 const MIN_PASSWORD_LEN = 8;
 
 export function ParentAuth({ onAuthenticated }: ParentAuthProps) {
-  const { mode, phase, errorMessage, account, switchMode, submit, signOut, updateAccount } = useParentAuth({
+  const {
+    mode,
+    phase,
+    errorMessage,
+    account,
+    justDeleted,
+    switchMode,
+    submit,
+    signOut,
+    updateAccount,
+    deleteAccount,
+    dismissFarewell,
+  } = useParentAuth({
     onAuthenticated,
   });
 
@@ -66,8 +78,15 @@ export function ParentAuth({ onAuthenticated }: ParentAuthProps) {
       <div className="relative">
         {phase === "checking_session" ? (
           <p className="auth-sub py-10 text-center text-sm">Tjekker login …</p>
+        ) : justDeleted ? (
+          <Farewell onClose={dismissFarewell} />
         ) : account ? (
-          <Welcome account={account} onSignOut={() => void signOut()} onConsentGiven={updateAccount} />
+          <Welcome
+            account={account}
+            onSignOut={() => void signOut()}
+            onConsentGiven={updateAccount}
+            onDeleteAccount={deleteAccount}
+          />
         ) : phase === "needs_confirmation" ? (
           <NeedsConfirmation onBackToLogin={() => switchMode("login")} />
         ) : (
@@ -275,12 +294,15 @@ function Welcome({
   account,
   onSignOut,
   onConsentGiven,
+  onDeleteAccount,
 }: {
   account: Account;
   onSignOut: () => void;
   onConsentGiven: (account: Account) => void;
+  onDeleteAccount: (password: string) => Promise<{ ok: boolean; error?: string }>;
 }) {
   const [portalTab, setPortalTab] = useState<"born" | "vaerksted" | "historier">("born");
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
 
   if (!account.consent_given_at) {
     return (
@@ -339,6 +361,164 @@ function Welcome({
       <button type="button" onClick={onSignOut} className="auth-ghost rounded-(--radius-skin) px-5 py-2.5 text-sm font-semibold">
         Log ud
       </button>
+
+      <button
+        type="button"
+        onClick={() => setShowDeleteAccount(true)}
+        className="auth-danger-link text-xs font-semibold"
+      >
+        Slet min konto
+      </button>
+
+      {showDeleteAccount && (
+        <DeleteAccountOverlay
+          email={account.email}
+          onConfirm={onDeleteAccount}
+          onCancel={() => setShowDeleteAccount(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Farvel-skærm efter en vellykket kontosletning (Leverance 1.4). Vises i
+ * stedet for at falde direkte tilbage til login-formularen — en rolig
+ * bekræftelse på at Art. 17-anmodningen er gennemført, ikke bare et tomt
+ * skift af skærm.
+ */
+function Farewell({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="flex flex-col items-center gap-4 py-10 text-center">
+      <div className="auth-welcome-glow size-14 rounded-full" aria-hidden />
+      <div>
+        <h2 className="auth-title text-xl font-bold">Din konto er slettet</h2>
+        <p className="auth-sub mt-2 text-sm leading-relaxed">
+          Din konto og alt tilhørende data — børneprofiler, fremskridt og lys — er slettet
+          permanent. Tak fordi du brugte Nour.
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onClose}
+        className="auth-ghost rounded-(--radius-skin) px-5 py-2.5 text-sm font-semibold"
+      >
+        Luk
+      </button>
+    </div>
+  );
+}
+
+/**
+ * To-trins bekræftelse + adgangskode-genindtastning før kontosletning
+ * (ejer-beslutning, Leverance 1.4): (1) forklar konsekvenser tydeligt,
+ * (2) bekræft identitet med adgangskoden, derefter det endelige,
+ * uigenkaldelige kald. Genbruger db-*-klasserne fra dashboard.css (allerede
+ * indlæst, da Dashboard altid importeres i denne fil) for visuel konsistens
+ * med den øvrige sletnings-UI (barneprofil-sletningen).
+ */
+function DeleteAccountOverlay({
+  email,
+  onConfirm,
+  onCancel,
+}: {
+  email: string;
+  onConfirm: (password: string) => Promise<{ ok: boolean; error?: string }>;
+  onCancel: () => void;
+}) {
+  const [phase, setPhase] = useState<"explain" | "password">("explain");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const submit = async () => {
+    setError(null);
+    setDeleting(true);
+    const res = await onConfirm(password);
+    setDeleting(false);
+    if (!res.ok) {
+      setError(res.error ?? "Sletning fejlede. Prøv igen.");
+      return;
+    }
+    // Ved succes forsvinder denne overlay af sig selv, fordi account bliver
+    // null og ParentAuth skifter til Farewell-skærmen.
+  };
+
+  return (
+    <div className="db-overlay" role="dialog" aria-modal="true" aria-label="Slet din konto">
+      <div className="db-card w-full max-w-sm rounded-(--radius-skin) p-5">
+        {phase === "explain" ? (
+          <>
+            <h3 className="text-center text-lg font-bold">Slet din konto?</h3>
+            <p className="db-ov-text mt-2 text-center text-[13.5px] leading-relaxed">
+              Dette sletter <b className="db-hint-warn">alt permanent</b>: din konto ({email}),
+              alle dine børns profiler, alt deres fremskridt og lys, og alle dyre-koder.
+            </p>
+            <p className="db-empty mt-2 text-center text-xs leading-relaxed">
+              Det kan <b className="db-hint-warn">ikke fortrydes</b> — der er ingen
+              fortrydelsesperiode. Sletningen sker med det samme.
+            </p>
+            <div className="mt-4 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => setPhase("password")}
+                className="db-btn-danger w-full rounded-2xl py-3.5 text-base font-bold"
+              >
+                Ja, jeg forstår — fortsæt
+              </button>
+              <button
+                type="button"
+                onClick={onCancel}
+                className="db-btn-ghost w-full rounded-2xl py-3 text-sm font-semibold"
+              >
+                Fortryd
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h3 className="text-center text-lg font-bold">Bekræft med din adgangskode</h3>
+            <p className="db-ov-text mt-2 text-center text-[13.5px] leading-relaxed">
+              Indtast din adgangskode for at slette kontoen for altid.
+            </p>
+            <input
+              type="password"
+              autoComplete="current-password"
+              placeholder="Adgangskode"
+              value={password}
+              disabled={deleting}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && password && !deleting) void submit();
+              }}
+              className="auth-input mt-3 w-full rounded-(--radius-skin) px-4 py-3 text-sm"
+            />
+            {error && (
+              <p className="db-hint-warn mt-2 text-center text-xs" role="alert">
+                {error}
+              </p>
+            )}
+            <div className="mt-4 flex flex-col gap-2">
+              <button
+                type="button"
+                disabled={!password || deleting}
+                onClick={() => void submit()}
+                className="db-btn-danger w-full rounded-2xl py-3.5 text-base font-bold"
+              >
+                {deleting ? "Sletter…" : "Slet min konto for altid"}
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={onCancel}
+                className="db-btn-ghost w-full rounded-2xl py-3 text-sm font-semibold"
+              >
+                Fortryd
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

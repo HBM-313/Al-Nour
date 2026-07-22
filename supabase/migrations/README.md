@@ -195,3 +195,69 @@ skrev tidligere `streak_count: 1` direkte på hver migreret `progress`-
 række; det felt er nu droppet fra upsert'et (kolonnen er frosset — det
 første rigtige `record_progress`-kald efter migreringen sætter
 `profiles.streak_count` korrekt ud fra dags-reglen).
+
+
+## delete_own_account() — GDPR: forælderen kan slette sin egen konto (2026-07-23)
+
+`20260723_delete_own_account.sql`: Leverance 1.4 (plan-platformsmodning.md
+§1.4). Barnets data kunne slettes med ét klik (Leverance D); forælderens
+egen konto kunne ikke — der var ingen DELETE-policy på `accounts`. Art. 17
+gælder også den voksne.
+
+**Slette-graf kortlagt FØR migrationen** (fuld `pg_constraint`-scan af
+public-schema, 2026-07-23): `auth.users` → `accounts` (CASCADE) →
+`profiles` (CASCADE) → `progress`/`progress_events`/`class_members`
+(CASCADE), samt `accounts` → `classes` (CASCADE, hvis kontoen er lærer) →
+`class_members` (CASCADE). Alt dette var allerede korrekt sat op.
+
+**FUND (hullet migrationen lukker):** fire kolonner pegede på `accounts`
+med `ON DELETE NO ACTION`: `content.created_by`, `content.published_by`,
+`content_reports.reporter_account_id`, `media.created_by`. Havde kontoen
+(fx en redaktør/godkender, eller en forælder der har brugt en fremtidig
+"noget er galt"-knap) oprettet/publiceret indhold eller rapporteret en
+fejl, ville `delete_own_account()` være fejlet med en fremmednøgle-fejl —
+sletningen ville simpelthen ikke lykkes. Alle fire kolonner er nullable,
+så FK'erne er ændret til `SET NULL`: selve indholdet/rapporten er ikke
+persondata og skal bevares; kun forfatter-referencen fjernes. Ingen
+CHECK-constraint på `content`/`media` afhænger af disse kolonner —
+aqidah-muren er urørt.
+
+`error_log` har bevidst INGEN FK til `accounts`/`profiles` (dataminimering,
+Leverance 0.2) — indgår derfor ikke i slette-grafen og kræver ingen
+handling her.
+
+**RPC-designet:** `delete_own_account()` tager ingen parametre — kontoen
+der slettes er altid `auth.uid()`, aldrig en klient-valgt id. Selve
+sletningen sker på `auth.users`-rækken; resten kaskaderer. SECURITY
+DEFINER, ejet af `postgres` (som har DELETE-grant på `auth.users`), `grant
+execute` kun til `authenticated` (samme mønster som `ensure_parent_account`).
+
+**UDVIDELSESPUNKT for Leverance B3** (plan-boernesession-og-dashboard.md):
+når børn får egne `auth.users`-rækker via `profiles.auth_user_id`, skal en
+trigger på `profiles` DELETE slette den tilhørende barne-auth-bruger —
+ellers efterlader `delete_own_account()` (og den eksisterende
+ét-kliks-barnesletning) forældreløse børne-auth-brugere. Kommentaren
+`UDVIDELSESPUNKT` i funktionens krop markerer præcis hvor. Indtil B1/B2 er
+bygget, findes ingen børne-auth-brugere, så nuværende cascade er
+tilstrækkelig.
+
+**Beslutninger (ejer, klikbare valgmuligheder):** øjeblikkelig sletning
+(ikke soft-delete/fortrydelsesperiode — stærkest GDPR-position, data må
+ikke bestå efter en sletningsanmodning) · adgangskode-genindtastning
+kræves i UI'et før kaldet (samme `signInWithPassword`-mønster som den
+eksisterende forældre-port, `app-shell/engine.ts` → `verifyParentPassword`).
+
+Bevist med rollback-markør-regressionstest mod live-DB, 0 rækker
+persisteret: uautentificeret kald afvist · kryds-konto-isolation (konto B
+sletter sig selv, konto A upåvirket) · fuld sletning af konto A efterlader
+0 forældreløse rækker i `accounts`/`profiles`/`progress`/
+`progress_events`/`class_members`/`classes` · en reel anden familie (Ali)
+urørt. Testen brugte to engangs-testkonti, ikke `test-foraelder@nour.test`.
+
+Frontend (`features/parent-auth/`): `Welcome`-visningen har fået en
+diskret "Slet min konto"-handling under "Log ud", tilgængelig for alle
+kontoroller (RPC'en skelner ikke — Art. 17 gælder uanset rolle). To-trins
+overlay: (1) forklaring af konsekvenser, (2) adgangskode-genindtastning +
+endelig bekræftelse. Efter succes: `supabase.auth.signOut()` rydder
+klient-sessionen, og en rolig afsluttende skærm vises i stedet for straks
+at falde tilbage til login-formularen.

@@ -13,7 +13,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Account } from "@/lib/types";
-import { restoreSession, signInParent, signOutParent, signUpParent } from "./engine";
+import {
+  deleteOwnAccount,
+  restoreSession,
+  signInParent,
+  signOutParent,
+  signUpParent,
+  verifyOwnPassword,
+} from "./engine";
 
 export type AuthMode = "login" | "signup";
 export type AuthPhase = "checking_session" | "idle" | "loading" | "error" | "needs_confirmation";
@@ -27,6 +34,8 @@ export function useParentAuth({ onAuthenticated }: UseParentAuthArgs = {}) {
   const [phase, setPhase] = useState<AuthPhase>("checking_session");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [account, setAccount] = useState<Account | null>(null);
+  /** true efter en vellykket kontosletning — viser en rolig afsluttende skærm i stedet for straks at falde tilbage til login-formularen. */
+  const [justDeleted, setJustDeleted] = useState(false);
   const onAuthenticatedRef = useRef(onAuthenticated);
   onAuthenticatedRef.current = onAuthenticated;
 
@@ -91,5 +100,43 @@ export function useParentAuth({ onAuthenticated }: UseParentAuthArgs = {}) {
     setErrorMessage(null);
   }, []);
 
-  return { mode, phase, errorMessage, account, switchMode, submit, signOut, updateAccount: setAccount };
+  /**
+   * GDPR Art. 17: sletter kontoen for altid (Leverance 1.4). Kræver
+   * adgangskode-genindtastning (ejer-beslutning) — verificeres FØR selve
+   * RPC-kaldet, samme port-mønster som `app-shell`s forældre-gate.
+   */
+  const deleteAccount = useCallback(
+    async (password: string): Promise<{ ok: boolean; error?: string }> => {
+      const passwordOk = await verifyOwnPassword(password);
+      if (!passwordOk) {
+        return { ok: false, error: "Forkert adgangskode." };
+      }
+      const res = await deleteOwnAccount();
+      if (!res.ok) {
+        return { ok: false, error: res.error };
+      }
+      setAccount(null);
+      setPhase("idle");
+      setErrorMessage(null);
+      setJustDeleted(true);
+      return { ok: true };
+    },
+    [],
+  );
+
+  const dismissFarewell = useCallback(() => setJustDeleted(false), []);
+
+  return {
+    mode,
+    phase,
+    errorMessage,
+    account,
+    justDeleted,
+    switchMode,
+    submit,
+    signOut,
+    updateAccount: setAccount,
+    deleteAccount,
+    dismissFarewell,
+  };
 }
