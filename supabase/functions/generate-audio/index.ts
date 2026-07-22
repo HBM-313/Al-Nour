@@ -15,6 +15,22 @@
  * (nogle få tusind tegn i alt) uden betaling. Datamodel og resten af
  * pipelinen er UÆNDRET — kun selve TTS-kaldet er skiftet leverandør.
  *
+ * TILFØJELSE 2026-07-21 — IPA-udtale-tvang for bogstavnavne:
+ * `ar-XA` er Googles ENESTE (generiske) arabisk-lokalisering til
+ * Chirp3-HD — ikke en ren fusha-model. Ejeren rapporterede at ب/ت, د/ذ
+ * og س/ش lød forkert/ens for de mindste børn. Mest sandsynlige årsag:
+ * ذ (Dhal) kan i en generisk/dialekt-farvet model glide sammen med د
+ * (et kendt dialekt-fænomen — "ذال" bliver til noget der lyder som
+ * "دال"). Chirp3-HD understøtter (Preview) `customPronunciations` med
+ * IPA-lydskrift, som TVINGER den korrekte klassiske udtale uanset
+ * modellens dialekt-hældning. IPA_BY_NAME_AR dækker alle 28 bogstaver
+ * (fremtidssikret), men kun de bogstaver ejeren aktivt nulstiller
+ * audio_media_id for bliver rent faktisk regenereret (idempotent som
+ * altid). Er `customPronunciations` (Preview-status hos Google) ikke
+ * understøttet i praksis, falder funktionen automatisk tilbage til
+ * almindelig tekst-syntese for netop det klip — pipelinen fejler aldrig
+ * pga. dette forsøg.
+ *
  * Stemmer (ejer-beslutning, verificeret via voices:list at gender stemmer):
  *   Kvinde: ar-XA-Chirp3-HD-Aoede
  *   Mand:   ar-XA-Chirp3-HD-Charon
@@ -28,8 +44,8 @@
  * afvises — ellers kunne enhver bruger brænde TTS-kvoten af.
  *
  * Hemmeligheder (Supabase → Edge Functions → Secrets):
- *   GOOGLE_TTS_API_KEY      — Google Cloud API-nøgle, begrænset til
- *                              Cloud Text-to-Speech API (mindste privilegie)
+ *   GOOGLE_TTS_API_KEY     — Google Cloud API-nøgle, begrænset til
+ *                             Cloud Text-to-Speech API (mindste privilegie)
  *   GOOGLE_TTS_VOICE_FEMALE — valgfri; standard ar-XA-Chirp3-HD-Aoede
  *   GOOGLE_TTS_VOICE_MALE   — valgfri; standard ar-XA-Chirp3-HD-Charon
  *
@@ -47,6 +63,44 @@ const GOOGLE_TTS_URL = "https://texttospeech.googleapis.com/v1/text:synthesize";
 const DEFAULT_VOICE_FEMALE = "ar-XA-Chirp3-HD-Aoede";
 const DEFAULT_VOICE_MALE = "ar-XA-Chirp3-HD-Charon";
 const LANGUAGE_CODE = "ar-XA"; // Modern Standard Arabic
+
+/**
+ * IPA-lydskrift for alle 28 bogstavnavne (klassisk/fusha-udtale), nøglet på
+ * `letters.name_ar` (den tekst der reelt sendes til TTS). Formålet er at
+ * tvinge den korrekte klassiske udtale uanset hvordan `ar-XA`'s generiske
+ * model ellers ville tolke navnet (fx dialekt-sammenfald ذ→د).
+ * Emfatiske bogstaver (ص ض ط ظ) markeret med IPA's pharyngealiserings-tegn ˤ.
+ */
+const IPA_BY_NAME_AR: Record<string, string> = {
+  "ألف": "ʔalif",
+  "باء": "baːʔ",
+  "تاء": "taːʔ",
+  "ثاء": "θaːʔ",
+  "جيم": "dʒiːm",
+  "حاء": "ħaːʔ",
+  "خاء": "xaːʔ",
+  "دال": "daːl",
+  "ذال": "ðaːl",
+  "راء": "raːʔ",
+  "زاي": "zaːj",
+  "سين": "siːn",
+  "شين": "ʃiːn",
+  "صاد": "sˤaːd",
+  "ضاد": "dˤaːd",
+  "طاء": "tˤaːʔ",
+  "ظاء": "ðˤaːʔ",
+  "عين": "ʕajn",
+  "غين": "ɣajn",
+  "فاء": "faːʔ",
+  "قاف": "qaːf",
+  "كاف": "kaːf",
+  "لام": "laːm",
+  "ميم": "miːm",
+  "نون": "nuːn",
+  "هاء": "haːʔ",
+  "واو": "waːw",
+  "ياء": "jaːʔ",
+};
 
 interface WorkItem {
   table: "letters" | "vocabulary";
@@ -79,6 +133,55 @@ function isServiceRoleToken(bearer: string, envServiceKey: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Kald Google TTS. Forsøger IPA-udtale-tvang først hvis `ipa` er angivet
+ * (kun bogstaver); fejler dét kald (fx fordi Preview-feltet afvises eller
+ * opfører sig uventet), falder vi automatisk tilbage til almindelig
+ * tekst-syntese for samme klip i stedet for at fejle helt.
+ */
+async function synthesize(
+  ttsKey: string,
+  text: string,
+  voiceName: string,
+  ipa: string | undefined,
+): Promise<{ ok: true; audioContentB64: string; usedIpa: boolean } | { ok: false; error: string }> {
+  async function call(withIpa: boolean) {
+    const input: Record<string, unknown> = { text };
+    if (withIpa && ipa) {
+      input.customPronunciations = {
+        pronunciations: [{ phrase: text, phoneticEncoding: "PHONETIC_ENCODING_IPA", pronunciation: ipa }],
+      };
+    }
+    return fetch(`${GOOGLE_TTS_URL}?key=${ttsKey}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        input,
+        voice: { languageCode: LANGUAGE_CODE, name: voiceName },
+        audioConfig: { audioEncoding: "MP3" },
+      }),
+    });
+  }
+
+  if (ipa) {
+    const res = await call(true);
+    if (res.ok) {
+      const j = await res.json();
+      if (j.audioContent) return { ok: true, audioContentB64: j.audioContent, usedIpa: true };
+    }
+    // Preview-feltet fejlede eller gav intet lydindhold — falder tilbage til almindelig tekst.
+  }
+
+  const fallback = await call(false);
+  if (!fallback.ok) {
+    const msg = await fallback.text();
+    return { ok: false, error: `TTS ${fallback.status}: ${msg.slice(0, 160)}` };
+  }
+  const fj = await fallback.json();
+  if (!fj.audioContent) return { ok: false, error: "TTS: intet audioContent i svaret" };
+  return { ok: true, audioContentB64: fj.audioContent, usedIpa: false };
 }
 
 Deno.serve(async (req) => {
@@ -144,20 +247,26 @@ Deno.serve(async (req) => {
   if (vocabRes.error) return json({ error: vocabRes.error.message }, 500);
 
   const work: WorkItem[] = [];
+  // Cache-busting: samme fil-sti pr. bogstav/ord ved regenerering betyder at
+  // browser/CDN/PWA kan blive ved med at servere den GAMLE lydfil, selvom
+  // den underliggende fil rent faktisk er overskrevet (upsert) — URL'en så
+  // uændret ud, så caches aldrig opdagede ændringen. Et tidsstempel i
+  // filnavnet garanterer en frisk, aldrig-før-set URL ved hver regenerering.
+  const generationStamp = Date.now();
   for (const l of lettersRes.data ?? []) {
     const base = `letters/${String(l.position).padStart(2, "0")}-${l.id}`;
     if (l.audio_media_id === null) {
       work.push({
         table: "letters", id: l.id as string, text: l.name_ar as string,
         column: "audio_media_id", voiceName: voiceFemale,
-        filename: `${base}-f.mp3`, tags: ["tts", "google-tts", "letters", "voice:female"],
+        filename: `${base}-f-${generationStamp}.mp3`, tags: ["tts", "google-tts", "letters", "voice:female"],
       });
     }
     if (l.audio_media_id_male === null) {
       work.push({
         table: "letters", id: l.id as string, text: l.name_ar as string,
         column: "audio_media_id_male", voiceName: voiceMale,
-        filename: `${base}-m.mp3`, tags: ["tts", "google-tts", "letters", "voice:male"],
+        filename: `${base}-m-${generationStamp}.mp3`, tags: ["tts", "google-tts", "letters", "voice:male"],
       });
     }
   }
@@ -166,46 +275,31 @@ Deno.serve(async (req) => {
       work.push({
         table: "vocabulary", id: w.id as string, text: w.word_ar as string,
         column: "audio_media_id", voiceName: voiceFemale,
-        filename: `vocab/${w.id}-f.mp3`, tags: ["tts", "google-tts", "vocabulary", "voice:female"],
+        filename: `vocab/${w.id}-f-${generationStamp}.mp3`, tags: ["tts", "google-tts", "vocabulary", "voice:female"],
       });
     }
     if (w.audio_media_id_male === null) {
       work.push({
         table: "vocabulary", id: w.id as string, text: w.word_ar as string,
         column: "audio_media_id_male", voiceName: voiceMale,
-        filename: `vocab/${w.id}-m.mp3`, tags: ["tts", "google-tts", "vocabulary", "voice:male"],
+        filename: `vocab/${w.id}-m-${generationStamp}.mp3`, tags: ["tts", "google-tts", "vocabulary", "voice:male"],
       });
     }
   }
 
   const batch = work.slice(0, limit);
-  const results: Array<{ id: string; ok: boolean; error?: string }> = [];
+  const results: Array<{ id: string; ok: boolean; error?: string; usedIpa?: boolean }> = [];
 
   for (const item of batch) {
     try {
-      // 1. Generér lyd hos Google Cloud TTS
-      const ttsRes = await fetch(`${GOOGLE_TTS_URL}?key=${ttsKey}`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          input: { text: item.text },
-          voice: { languageCode: LANGUAGE_CODE, name: item.voiceName },
-          audioConfig: { audioEncoding: "MP3" },
-        }),
-      });
-      if (!ttsRes.ok) {
-        const msg = await ttsRes.text();
-        results.push({ id: item.id, ok: false, error: `TTS ${ttsRes.status}: ${msg.slice(0, 160)}` });
+      // 1. Generér lyd hos Google Cloud TTS — IPA-tvang for bogstaver hvis dækket.
+      const ipa = item.table === "letters" ? IPA_BY_NAME_AR[item.text] : undefined;
+      const synth = await synthesize(ttsKey, item.text, item.voiceName, ipa);
+      if (!synth.ok) {
+        results.push({ id: item.id, ok: false, error: synth.error });
         continue;
       }
-      const ttsJson = await ttsRes.json();
-      const audioContentB64 = ttsJson.audioContent as string | undefined;
-      if (!audioContentB64) {
-        results.push({ id: item.id, ok: false, error: "TTS: intet audioContent i svaret" });
-        continue;
-      }
-      // Google returnerer base64-kodet MP3 i JSON — decode til bytes.
-      const binary = atob(audioContentB64);
+      const binary = atob(synth.audioContentB64);
       const audio = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) audio[i] = binary.charCodeAt(i);
 
@@ -230,7 +324,7 @@ Deno.serve(async (req) => {
         .insert({
           type: "audio",
           url: publicUrl,
-          tags: item.tags,
+          tags: synth.usedIpa ? [...item.tags, "ipa-forced"] : item.tags,
           generated_by: "ai",
           is_recitation: false,
           reusable: true,
@@ -253,7 +347,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      results.push({ id: item.id, ok: true });
+      results.push({ id: item.id, ok: true, usedIpa: synth.usedIpa });
     } catch (e) {
       results.push({
         id: item.id,
@@ -264,9 +358,11 @@ Deno.serve(async (req) => {
   }
 
   const generated = results.filter((r) => r.ok).length;
+  const ipaForced = results.filter((r) => r.ok && r.usedIpa).length;
   const failed = results.filter((r) => !r.ok);
   return json({
     generated,
+    ipa_forced: ipaForced,
     failed: failed.length,
     failures: failed.slice(0, 5),
     remaining: work.length - batch.length + failed.length,
