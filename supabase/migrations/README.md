@@ -97,3 +97,43 @@ Historie-værkstedet (`features/historie-vaerksted/`) har endnu intet UI
 til at indtaste `quiz_da` — det er en separat, kommende leverance. Indtil
 da vises fortællinger uden quiz-sektion (feltet er nullable, ikke krævet
 for udgivelse).
+
+
+## `record_progress`-RPC + event-idempotens (2026-07-22)
+
+`20260722_record_progress_atomic_rpc.sql`: Leverance 1.2
+(plan-platformsmodning.md §1.2). `progress.ts` lavede tidligere
+læs-derefter-skriv uden transaktion — to faner eller en kø-genafspilning
+kunne tabe xp eller ødelægge streak. Erstattet af én atomisk
+`INSERT ... ON CONFLICT DO UPDATE` i `record_progress()`.
+
+**Vigtigt design-fund undervejs:** den faktiske `progress.ts` sender xp som
+**delta pr. runde** (lægges til eksisterende), ikke kumulativ tilstand. En
+første version af RPC'en antog fejlagtigt kumulativ tilstand og brugte
+`GREATEST()`-merge — forkastet inden porting, aldrig brugt i produktion.
+Additiv xp kan ikke gøres replay-sikker med `GREATEST()`, så løsningen blev
+en ny tabel `progress_events(event_id uuid primary key, ...)`: hvert kald
+til `record_progress` bærer et `event_id`; ses samme id igen (kø-replay
+efter afbrudt forbindelse i Leverance 1.1), er kaldet et bevidst no-op —
+ingen dobbelt-xp. `progress_events` har RLS slået til med **ingen
+policies** (fail-closed) — kun selve RPC'en (SECURITY DEFINER) rører den.
+
+Streak-reglen (samme dag → uændret; i går → +1; ellers → 1) og
+step-nulstilling ved fuldførelse er flyttet uændret fra `progress.ts` ind i
+RPC'en — **ikke** rettet til global streak (det er stadig
+`UNIQUE(profile_id, lesson_id)`-begrænset); det er Leverance 1.3.
+
+Bevist med 11-punkts rollback-markør-regressionstest mod live-DB (0 rækker
+persisteret bagefter, verificeret): initial-gem, additiv xp over flere
+runder, event-idempotens (ingen dobbelt-xp ved replay), fuldførelse
+nulstiller step til 0, streak "i går → +1", streak-hul (≥2 dage) → nulstil
+til 1, negativ xp afvist, manglende event_id afvist, fremmed bruger afvist,
+uautentificeret kald afvist, samme forælder kan skrive begge egne børns
+fremskridt.
+
+Frontend (`lib/progress.ts`) porteret samtidig: `saveRoundProgress`/
+`saveStepProgress` har uændrede eksterne signaturer (alle fire kaldsteder —
+Lyt & Find, Tegn Bogstavet, Match-par, `useLesson` — er urørte), men kalder
+nu `record_progress`-RPC'en med et auto-genereret `event_id` i stedet for
+select+upsert. Den kommende IndexedDB-kø (Leverance 1.1) skal give sit eget
+holdbare `event_id` med, så idempotensen også dækker offline-genafspilning.

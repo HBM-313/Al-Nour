@@ -1,59 +1,37 @@
 /**
- * Delt progress-gem for spillene: XP-akkumulering + dags-baseret streak,
- * upsert på UNIQUE(profile_id, lesson_id).
+ * Delt progress-gem for spillene: XP-akkumulering + dags-baseret streak.
  *
- * Streak-regel: samme dag → uændret; i går → +1; ellers → 1.
+ * Leverance 1.2 (plan-platformsmodning.md §1.2): skriver ikke længere
+ * "læs-derefter-skriv" fra klienten. Al xp-addition, streak- og
+ * status-logik ligger nu i én atomisk Postgres-funktion (`record_progress`),
+ * så to faner eller en hurtig kø-genafspilning ikke kan tabe xp eller
+ * ødelægge streak. Streak-reglen (samme dag → uændret; i går → +1;
+ * ellers → 1) er uændret — bare flyttet ind i RPC'en.
+ *
+ * Idempotens: hvert kald bærer et event_id. Sendes samme event_id to gange
+ * (fx en kø-post fra Leverance 1.1 der synkes igen efter en afbrudt
+ * forbindelse), lægger RPC'en IKKE xp til igen — den er et bevidst no-op.
+ * Kaldere der selv styrer retry (den kommende IndexedDB-kø) skal give deres
+ * eget, holdbare event_id videre; almindelige online-kald kan lade et nyt
+ * blive genereret automatisk.
  */
 
 import { supabase } from "@/lib/supabase";
-
-function dayKey(d: Date): string {
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-}
-
-function isYesterday(prev: Date, now: Date): boolean {
-  const y = new Date(now);
-  y.setDate(now.getDate() - 1);
-  return dayKey(prev) === dayKey(y);
-}
 
 export async function saveRoundProgress(
   profileId: string,
   lessonId: string,
   earnedXp: number,
+  eventId: string = crypto.randomUUID(),
 ): Promise<{ ok: boolean }> {
-  const existing = await supabase
-    .from("progress")
-    .select("xp, streak_count, last_completed_at")
-    .eq("profile_id", profileId)
-    .eq("lesson_id", lessonId)
-    .maybeSingle();
-
-  if (existing.error) return { ok: false };
-
-  const now = new Date();
-  const prev = existing.data;
-  const prevDate = prev?.last_completed_at
-    ? new Date(prev.last_completed_at)
-    : null;
-
-  let streak = 1;
-  if (prevDate && prev) {
-    if (dayKey(prevDate) === dayKey(now)) streak = prev.streak_count;
-    else if (isYesterday(prevDate, now)) streak = prev.streak_count + 1;
-  }
-
-  const { error } = await supabase.from("progress").upsert(
-    {
-      profile_id: profileId,
-      lesson_id: lessonId,
-      status: "completed",
-      xp: (prev?.xp ?? 0) + earnedXp,
-      streak_count: streak,
-      last_completed_at: now.toISOString(),
-    },
-    { onConflict: "profile_id,lesson_id" },
-  );
+  const { error } = await supabase.rpc("record_progress", {
+    p_event_id: eventId,
+    p_profile_id: profileId,
+    p_lesson_id: lessonId,
+    p_earned_xp: earnedXp,
+    p_current_step: 0,
+    p_completed: true,
+  });
 
   return { ok: !error };
 }
@@ -62,7 +40,8 @@ export async function saveRoundProgress(
  * Gem pr. TRIN i en lektion — "fortsæt hvor du slap"-kontrakten.
  * currentStep er det NÆSTE trin barnet skal spille (0-baseret).
  * Kaldes efter hvert fuldført trin, så intet fremskridt kan tabes,
- * uanset hvornår sessionen forlades. Samme streak-regel som runde-gem.
+ * uanset hvornår sessionen forlades. Fuldført lektion nulstiller
+ * trin-markøren til 0 (klar til genspil) — håndteret i RPC'en.
  */
 export async function saveStepProgress(
   profileId: string,
@@ -70,41 +49,16 @@ export async function saveStepProgress(
   currentStep: number,
   earnedXp: number,
   lessonCompleted: boolean,
+  eventId: string = crypto.randomUUID(),
 ): Promise<{ ok: boolean }> {
-  const existing = await supabase
-    .from("progress")
-    .select("xp, streak_count, last_completed_at")
-    .eq("profile_id", profileId)
-    .eq("lesson_id", lessonId)
-    .maybeSingle();
-
-  if (existing.error) return { ok: false };
-
-  const now = new Date();
-  const prev = existing.data;
-  const prevDate = prev?.last_completed_at
-    ? new Date(prev.last_completed_at)
-    : null;
-
-  let streak = 1;
-  if (prevDate && prev) {
-    if (dayKey(prevDate) === dayKey(now)) streak = prev.streak_count;
-    else if (isYesterday(prevDate, now)) streak = prev.streak_count + 1;
-  }
-
-  const { error } = await supabase.from("progress").upsert(
-    {
-      profile_id: profileId,
-      lesson_id: lessonId,
-      status: lessonCompleted ? "completed" : "in_progress",
-      // Fuldført lektion nulstiller trin-markøren (klar til genspil)
-      current_step: lessonCompleted ? 0 : currentStep,
-      xp: (prev?.xp ?? 0) + earnedXp,
-      streak_count: streak,
-      last_completed_at: now.toISOString(),
-    },
-    { onConflict: "profile_id,lesson_id" },
-  );
+  const { error } = await supabase.rpc("record_progress", {
+    p_event_id: eventId,
+    p_profile_id: profileId,
+    p_lesson_id: lessonId,
+    p_earned_xp: earnedXp,
+    p_current_step: currentStep,
+    p_completed: lessonCompleted,
+  });
 
   return { ok: !error };
 }
