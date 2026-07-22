@@ -85,3 +85,4 @@ export async function reportError(
     console.error("[error_log] logning fejlede uventet:", loggingFailure);
   }
 }
+const __ciProofOfFailure: number = "denne streng er ikke et tal";
