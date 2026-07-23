@@ -39,7 +39,27 @@ Admin (mig) · Indholds-redaktør (kan ikke udgive aqidah) · Godkender (eneste 
 
 ## Hvor jeg er nu (opdater dette felt løbende)
 
-**Status (2026-07-23, session 13 — Leverance 1.4: GDPR, forælderen kan slette sin egen konto, FULDT GENNEMFØRT.)**
+**Status (2026-07-23, session 14 — Leverance B1: barnets identitet i databasen. Database-lag + hook FULDT GENNEMFØRT og anvendt på live-DB; Edge Function deployeret men IKKE ende-til-ende-testet endnu; PUSH TIL REPO AFVENTER GitHub-token i chatten.)**
+
+Problemet (plan-boernesession-og-dashboard.md, del 1–3): barnet spillede indtil nu INDE I forælderens session — dyre-pinnen var kun en UI-port, ikke en identitet. Alt et barn foretog sig skete med forælderens fulde rettigheder. Løst med **mulighed A**: hver børneprofil kan nu få sin egen `auth.users`-række med syntetisk e-mail (`c-<profil-uuid>@child.nour.invalid`, RFC 2606-reserveret, ruter ingen steder) og en kryptografisk tilfældig adgangskode intet menneske ser.
+
+**Skema-drift-tjek FØR migrationen:** intet ændret siden `2ed0d1a` (Leverance 1.4). `auth_user_role()` bevist fail-closed for en bruger uden `accounts`-række (giver `'anon'`, ikke `null`/fejl). `content`/`letters`/`vocabulary`/`lessons`s offentlige læse-policies er rolle-uafhængige — et barn arver automatisk samme offentlige læseadgang, ingen ændringer nødvendige der.
+
+**Migration `20260723_child_identity_b1` (anvendt på live-DB):** `profiles.auth_user_id uuid unique references auth.users(id) on delete set null` · `custom_access_token_hook` udvidet med en `child`-gren (ingen `accounts`-række + match i `profiles.auth_user_id` → claims `user_role:'child'` + `profile_id`) · ny trigger `trg_profiles_protect_child_columns` (samme mønster som `protect_account_role_and_id`) hvidlister PRÆCIS hvilke felter barnets session selv må ændre (`preferred_voice`, `transliteration_enabled`, `ui_language`) · additive RLS-policies `profiles_child_select_own`/`profiles_child_update_own`/`progress_child_select_own`, alle bundet til `auth_user_id = auth.uid()` (den faktiske signerede bruger, ALDRIG et klient-styret claim) · `record_progress()`s ejerskabstjek (ét sted i funktionen) udvidet med en tredje vej for barnets egen session. Se `supabase/migrations/README.md` → "20260723_child_identity_b1" for det fulde design.
+
+**Bevist med rollback-markør-regressionstest mod live-DB, 0 rækker persisteret** — alle 8 punkter fra planens B1-afsnit: barn ser egen profil ✓ · ikke søskendes ✓ · ingen adgang til `accounts` ✓ · kan ikke ændre `pin_hash`/flytte `owner_account_id` (trigger blokerer) ✓ · KAN ændre hvidlistede felter ✓ · kan gemme eget fremskridt via `record_progress` ✓ · ikke søskendes fremskridt ✓ · forælderens session upåvirket (ingen regression) ✓. `ai_service`s nul tabel-adgang til `profiles`/`accounts`/`progress` bekræftet uændret (`has_table_privilege` — ingen grants overhovedet, uafhængigt af RLS). Ali/Zainab er URØRTE — ejer-beslutning denne session: ingen automatisk provisionering af eksisterende profiler, kun ny/eksplicit aktivering fremover.
+
+**Edge Function `provision-child-auth`** (deployeret, version 1, aktiv, `verify_jwt: true`): opretter selve auth-identiteten. Kræver gyldig forælder/admin-JWT (IKKE service-nøglen), læser/verificerer ejerskab med KALDERENS JWT under eksisterende RLS (`profiles_owner_all`) — ingen egen ejerskabs-logik. Idempotent + kapløbs-værn (rydder op i en tabt væddeløbers overflødige auth-bruger). **Mangler en Secret for at kunne bruges:** `CHILD_AUTH_SERVICE_ROLE_KEY` (Supabase → Edge Functions → Secrets, samme værdi som Project Settings → API → service_role) — ejer-handling, kan ikke sættes via MCP/SQL. Funktionen er derfor IKKE ende-til-ende-testet med en rigtig session endnu.
+
+Build-kæde grøn: `tsc --noEmit` 0 fejl · `oxlint` 0/0 · **93/93 tests** (uændrede — B1 er databaselag, ingen ny frontend-logik ud over et nyt felt i `types.ts`) · build ✓.
+
+**FÆLDE fra planens del 5.1, endnu IKKE løst (hører til B2, ikke bygget her):** `lib/progressQueue.ts` er én IndexedDB-kø delt af hele enheden og stopper ved første fejl. Med rigtige barne-sessioner vil et profilskift med uafsendte poster i køen blokere permanent for den nye profil. Løsning (kø pr. `profile_id`) er B2's opgave.
+
+**Næste skridt:** **Leverance B2 — pin-login der udsteder en rigtig session.** Forudsætning: ejeren sætter `CHILD_AUTH_SERVICE_ROLE_KEY` og vi ende-til-ende-tester `provision-child-auth` først. Derefter: Edge Function `child-signin` (dyre-sekvens → bcrypt-verifikation → session via Admin-API), rate limiting (`pin_attempts`, stigende forsinkelse, ALDRIG lockout af barnet), enheds-lokal familie-roster i localStorage (kun `{profile_id, display_name, avatar}`, ALDRIG `pin_hash`), og fælde 5.1's kø-pr.-profil-fix. Se `plan-boernesession-og-dashboard.md` → Leverance B2.
+
+---
+
+**Tidligere status (2026-07-23, session 13 — Leverance 1.4: GDPR, forælderen kan slette sin egen konto, FULDT GENNEMFØRT.)**
 
 Barnets data kunne slettes med ét klik (Leverance D); forælderens egen konto kunne ikke — ingen DELETE-policy på `accounts`. Art. 17 gælder også den voksne.
 

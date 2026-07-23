@@ -79,6 +79,15 @@ export interface Profile {
   streak_count: number;
   /** Sidste dag barnet fuldførte noget (dato, ikke tidsstempel) — bruges kun af record_progress()'s streak-regel. */
   last_active_day: string | null;
+  /**
+   * Barnets EGEN auth.users-id (Leverance B1, plan-boernesession-og-dashboard.md).
+   * NULL indtil profilen er aktiveret via Edge Function provision-child-auth.
+   * Sættes UDELUKKENDE af service-rollen — aldrig skrivbart fra klienten
+   * (RLS: profiles_owner_all har ingen with_check der tillader det, og
+   * custom_access_token_hook er den eneste kilde til user_role='child').
+   * Selve pin-login der bruger dette til at udstede en session er B2.
+   */
+  auth_user_id: string | null;
   created_at: string;
   updated_at: string;
 }

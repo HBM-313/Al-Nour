@@ -261,3 +261,130 @@ overlay: (1) forklaring af konsekvenser, (2) adgangskode-genindtastning +
 endelig bekræftelse. Efter succes: `supabase.auth.signOut()` rydder
 klient-sessionen, og en rolig afsluttende skærm vises i stedet for straks
 at falde tilbage til login-formularen.
+
+---
+
+## 20260723_child_identity_b1 — Leverance B1: barnets identitet i databasen
+
+Se `plan-boernesession-og-dashboard.md`, del 3–4. Løser problemet at barnet
+i dag spiller INDE I forælderens session (dyre-pin var kun en UI-port, ikke
+en identitet). Valgt løsning: **mulighed A** — hver børneprofil kan få sin
+egen `auth.users`-række med en syntetisk e-mail
+(`c-<profil-uuid>@child.nour.invalid`, `.invalid` er RFC 2606-reserveret
+og ruter aldrig nogen steder) og en kryptografisk tilfældig adgangskode
+intet menneske nogensinde ser. Dette er KUN database-laget + hook + Edge
+Function til selve provisioneringen. Pin-login der udsteder en RIGTIG
+SESSION til barnet er Leverance B2 (næste session) — findes ikke endnu.
+
+**Skema-drift-tjek FØR migrationen (2026-07-23):** intet ændret siden
+`2ed0d1a` (Leverance 1.4). `auth_user_role()` bevist fail-closed for en
+bruger uden `accounts`-række: returnerer `'anon'`, ikke `null` og ikke en
+fejl (kørt direkte mod `custom_access_token_hook` med et opdigtet
+`user_id`). `content`/`letters`/`vocabulary`/`lessons`s offentlige
+læse-policies er alle rolle-uafhængige (`is_published = true` / `true`) —
+et barn får derfor automatisk samme offentlige læseadgang som enhver
+anden, uden ændringer.
+
+**Hvad migrationen gør:**
+
+1. `profiles.auth_user_id uuid unique references auth.users(id) on delete set null`
+   — nullable indtil profilen aktiveres. `on delete set null` (ikke cascade):
+   slettes auth-brugeren uden om den normale vej, mister profilen kun sit
+   auth-link (kan re-provisioneres) — den normale vej er omvendt (slet
+   `profiles` → trigger sletter auth-brugeren, se UDVIDELSESPUNKT nedenfor).
+
+2. `custom_access_token_hook` udvidet med en `child`-gren: er der INGEN
+   `accounts`-række for `event.user_id` (som hidtil gav `'anon'`), tjekkes nu
+   `profiles.auth_user_id = event.user_id`. Findes en match, sættes
+   `user_role: 'child'` + `profile_id: <uuid>` som claims. Er der en
+   `accounts`-række, er den stadig den der afgør rollen (uændret forrang) —
+   et barn har per definition ingen `accounts`-række, så rækkefølgen er
+   reelt ligegyldig i praksis, men bevarer det eksisterende flow urørt.
+   **Hård regel:** dette er den ENESTE kilde til `user_role='child'` —
+   klienten kan aldrig fremtvinge det, kun service-rollen (via
+   `provision_child_auth`) kan sætte `auth_user_id`.
+
+3. `protect_profile_child_columns()` + trigger
+   `trg_profiles_protect_child_columns` (BEFORE UPDATE, samme mønster som
+   `protect_account_role_and_id`): når `auth_user_role() = 'child'`, blokerer
+   triggeren enhver ændring af `id`, `owner_account_id`, `auth_user_id`,
+   `display_name`, `avatar`, `birth_year`, `pin_hash`, `current_level`,
+   `streak_count`, `last_active_day`. Kun `preferred_voice`,
+   `transliteration_enabled`, `ui_language` (og `updated_at`, sat af den
+   eksisterende `trg_profiles_updated_at`) er hvidlistede. RLS' `USING`/
+   `WITH CHECK` kan ikke sammenligne mod OLD-rækken direkte — deraf
+   trigger-mønstret. Bypass for `current_user = 'postgres'`: `record_progress()`
+   (SECURITY DEFINER, ejet af `postgres`) skal fortsat kunne skrive
+   streak/level på vegne af et barn.
+
+4. RLS (additiv, rører ikke `profiles_owner_all`/`progress_owner_all`):
+   `profiles_child_select_own` + `profiles_child_update_own` (begge
+   `auth_user_role() = 'child' and auth_user_id = auth.uid()` — bevidst
+   `auth.uid()`, den faktiske signerede bruger, IKKE `profile_id`-claimet;
+   claimet er kun til brug i frontend/UX, aldrig som autorisationskilde) og
+   `progress_child_select_own` (SELECT, samme mønster via join til
+   `profiles`). Bevidst INGEN insert/update/delete-policy for `child` på
+   `progress` — skrivning sker udelukkende via `record_progress()`,
+   default-deny gælder ellers.
+
+5. `record_progress()`: ejerskabstjekket (ét sted i funktionen) udvidet med
+   en tredje vej: `auth_user_role() = 'child' and auth_user_id = auth.uid()`,
+   ved siden af `owner_account_id = auth.uid()` og `auth_user_role() = 'admin'`.
+   Kirurgisk ændring af WHERE-klausulen — resten af funktionen (idempotens,
+   global streak) er uændret.
+
+**Bevist med rollback-markør-regressionstest mod live-DB, 0 rækker
+persisteret** (to engangs auth.users/profiles-testrækker "B1-Test-A/B",
+IKKE Ali/Zainab/test-foraelder@nour.test — de er urørte, verificeret
+separat efter testen): hook giver `child`+`profile_id` for et barn og
+`anon` for en ukendt bruger ✓ · barn A kan læse egen profil ✓ · barn A kan
+**ikke** læse søskendes profil (B) ✓ · barn A har **ingen** adgang til
+`accounts` ✓ · barn A kan **ikke** ændre `pin_hash` eller flytte
+`owner_account_id` (trigger blokerer) ✓ · barn A **kan** ændre
+`preferred_voice` (hvidlistet) ✓ · barn A kan gemme eget fremskridt via
+`record_progress` ✓ · barn A kan **ikke** gemme fremskridt på søskendes
+profil (B) ✓ · forælderens session kan stadig alt uændret (læse begge
+børn, opdatere `display_name`, kalde `record_progress`) — ingen regression
+✓. `ai_service`s nul-adgang til `profiles`/`accounts`/`progress` bevist
+separat via `has_table_privilege()` (ingen tabel-grants overhovedet,
+uafhængigt af RLS) — uændret af denne migration, da intet er grantet til
+`ai_service` her.
+
+**Edge Function `provision-child-auth`** (deployeret, version 1, aktiv):
+opretter selve `auth.users`-rækken + sætter `profiles.auth_user_id`.
+Kræver en gyldig forælder/admin-JWT (valideret via `auth.getUser()`, IKKE
+service-nøglen) og læser/verificerer ejerskab af profilen med KALDERENS
+JWT under RLS (`profiles_owner_all`) — ingen egen ejerskabs-logik i
+funktionen. Idempotent (allerede sat `auth_user_id` → no-op-svar).
+Kapløbs-værn: `update ... where auth_user_id is null`, og rydder op i den
+overflødige auth-bruger hvis en anden proces vandt kapløbet.
+**Kræver en Secret der endnu IKKE er sat:** `CHILD_AUTH_SERVICE_ROLE_KEY`
+(Supabase → Edge Functions → Secrets, samme værdi som Project Settings →
+API → service_role) — nødvendig fordi funktionen selv skal kalde
+Admin-API'et (`auth.admin.createUser`), og `SUPABASE_SERVICE_ROLE_KEY` ikke
+pålideligt er til stede som auto-env (kendt fund fra `generate-audio`).
+Funktionen prøver `SUPABASE_SERVICE_ROLE_KEY` først og falder tilbage til
+den eksplicitte secret. **Ikke ende-til-ende-testet med en rigtig
+forælder-session endnu** (kræver secreten sat + en ægte JWT — næste
+sessions første skridt, sammen med B2).
+
+**Ejer-beslutning (denne session):** eksisterende testprofiler (Ali,
+Zainab) provisioneres IKKE automatisk nu. De forbliver uden
+`auth_user_id` indtil de aktiveres — enten manuelt til test, eller først
+når B2 (rigtigt pin-login) rører dem. Ingen dataminimerings- eller
+sikkerhedsgevinst ved at provisionere før der er en session-udstedende
+mekanisme til at bruge identiteten til noget.
+
+**UDVIDELSESPUNKT for Leverance B3** (uændret fra `20260723_delete_own_account`,
+nu ét skridt tættere): en trigger på `profiles` DELETE skal slette den
+tilhørende barne-auth-bruger, så `delete_own_account()` og den eksisterende
+ét-kliks-barnesletning ikke efterlader forældreløse børne-auth-brugere.
+Findes stadig ikke — B1 opretter kun identiteten, B3 rydder den op igen.
+
+**FÆLDE fra planens del 5.1 (endnu ikke løst, hører til B2):**
+`lib/progressQueue.ts` er én IndexedDB-kø delt af hele enheden og stopper
+ved første fejl. Skifter enheden fra barn A til barn B med uafsendte poster
+i køen, vil A's poster blive afvist af `record_progress` under B's session
+og blokere køen permanent for B. Løsning (kø pr. `profile_id`) er en B2-opgave
+— IKKE bygget i B1, og ikke et problem endnu, da ingen barne-sessioner
+findes før B2.
