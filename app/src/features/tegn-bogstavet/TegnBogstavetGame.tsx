@@ -23,6 +23,7 @@ import { supabase } from "@/lib/supabase";
 import { preferredAudioId } from "@/lib/voicePref";
 import { createAudioPlayer, speak } from "@/lib/audio";
 import { saveRoundProgress } from "@/lib/progress";
+import { useT } from "@/lib/i18n";
 import type { AgeSkin, LessonStepParams, Letter, LetterForm } from "@/lib/types";
 import { FORM_LABEL_DA } from "@/features/lyt-og-find/engine";
 import { TraceCanvas } from "./TraceCanvas";
@@ -146,6 +147,7 @@ export function TegnBogstavetGame({
   step: lessonStep,
   onRoundComplete,
 }: TegnBogstavetGameProps) {
+  const t = useT("da");
   const tuning = SKIN_TUNING[skin];
 
   const [letters, setLetters] = useState<Letter[] | null>(null);
@@ -180,7 +182,7 @@ export function TegnBogstavetGame({
       const res = await supabase.from("letters").select("*").order("position");
       if (cancelled) return;
       if (res.error || !res.data?.length) {
-        setLoadError(res.error?.message ?? "Ingen bogstaver fundet.");
+        setLoadError(res.error?.message ?? t.tegnBogstavet.lettersNotFound);
         return;
       }
       // Stemmevalg: foretrukket spor vælges ved hentning
@@ -210,7 +212,7 @@ export function TegnBogstavetGame({
       cancelled = true;
       player.dispose();
     };
-  }, [player]);
+  }, [player, t]);
 
   const startRound = useCallback(() => {
     if (!letters) return;
@@ -334,7 +336,7 @@ export function TegnBogstavetGame({
     return (
       <Shell skin={skin}>
         <div className="py-16 text-center">
-          <p className="font-semibold text-danger">Noget gik galt</p>
+          <p className="font-semibold text-danger">{t.common.somethingWrong}</p>
           <p className="mt-1 text-sm text-ink-soft">{loadError}</p>
         </div>
       </Shell>
@@ -344,7 +346,7 @@ export function TegnBogstavetGame({
   if (!letters || !step) {
     return (
       <Shell skin={skin}>
-        <p className="py-16 text-center text-ink-soft">Henter bogstaver …</p>
+        <p className="py-16 text-center text-ink-soft">{t.tegnBogstavet.loadingLetters}</p>
       </Shell>
     );
   }
@@ -360,36 +362,32 @@ export function TegnBogstavetGame({
             className={`font-bold text-night ${skin === "soft" ? "text-3xl" : "text-2xl"}`}
             style={{ fontFamily: "var(--font-display)" }}
           >
-            {skin === "soft"
-              ? "Alle bogstaver tændt!"
-              : skin === "mid"
-                ? "Flot skrevet!"
-                : "Runde færdig"}
+            {t.tegnBogstavet.roundDoneHeading(skin)}
           </h2>
           {skin !== "soft" ? (
             <div className="flex items-center gap-4 text-ink">
               <span className="font-semibold tabular-nums">
-                {cleanCount}/{steps.length} rene streger
+                {t.tegnBogstavet.cleanStrokes(cleanCount, steps.length)}
               </span>
               <span
                 className="rounded-full px-3 py-1 font-bold text-white"
                 style={{ background: "var(--color-nour)" }}
               >
-                +{xp} XP
+                {t.tegnBogstavet.xpEarned(xp)}
               </span>
             </div>
           ) : null}
           {profileId && lessonId ? (
             <p className="flex items-center gap-1.5 text-sm text-ink-soft">
               {saveState === "saving" ? (
-                "Gemmer fremskridt …"
+                t.tegnBogstavet.savingProgress
               ) : saveState === "saved" ? (
                 <>
                   <Flame
                     className="size-4"
                     style={{ color: "var(--color-nour)" }}
                   />
-                  Fremskridt gemt
+                  {t.tegnBogstavet.progressSaved}
                 </>
               ) : saveState === "queued" ? (
                 <>
@@ -398,10 +396,10 @@ export function TegnBogstavetGame({
                     style={{ background: "var(--color-nour)" }}
                     aria-hidden
                   />
-                  Dit lys gemmes, når du er online igen
+                  {t.tegnBogstavet.progressQueued}
                 </>
               ) : saveState === "error" ? (
-                "Kunne ikke gemmes lige nu — prøver igen"
+                t.tegnBogstavet.progressError
               ) : null}
             </p>
           ) : null}
@@ -412,7 +410,7 @@ export function TegnBogstavetGame({
               className="flex items-center gap-2 rounded-(--radius-skin) px-6 py-3 font-bold text-white transition-transform active:scale-95"
               style={{ background: "var(--color-valley)" }}
             >
-              <RotateCcw className="size-5" /> Tegn igen
+              <RotateCcw className="size-5" /> {t.tegnBogstavet.traceAgain}
             </button>
             {onExit ? (
               <button
@@ -420,7 +418,7 @@ export function TegnBogstavetGame({
                 onClick={onExit}
                 className="rounded-(--radius-skin) bg-dawn-deep px-6 py-3 font-bold text-ink transition-transform active:scale-95"
               >
-                Tilbage
+                {t.common.back}
               </button>
             ) : null}
           </div>
@@ -443,7 +441,7 @@ export function TegnBogstavetGame({
             >
               {skin === "teen"
                 ? `${step.letter.name_da} — ${FORM_LABEL_DA[step.form]}`
-                : `Tegn ${step.letter.name_da}!`}
+                : t.tegnBogstavet.traceLetter(step.letter.name_da)}
             </p>
             <p className="truncate text-sm text-ink-soft">
               {step.letter.sound_hint_da}
@@ -453,7 +451,7 @@ export function TegnBogstavetGame({
             <button
               type="button"
               onClick={sayLetter}
-              aria-label="Hør bogstavet igen"
+              aria-label={t.tegnBogstavet.hearAgain}
               className="flex size-11 items-center justify-center rounded-full text-white transition-transform active:scale-95"
               style={{ background: "var(--color-valley)" }}
             >
@@ -496,12 +494,12 @@ export function TegnBogstavetGame({
         </div>
         {skin === "teen" ? (
           <p className="text-right text-xs tabular-nums text-ink-soft">
-            Præcision: {Math.round((1 - offRatio) * 100)} %
+            {t.tegnBogstavet.precision(Math.round((1 - offRatio) * 100))}
           </p>
         ) : null}
         {skin !== "teen" && offRatio > 0.5 && coverage < tuning.completion ? (
           <p className="text-center text-sm text-ink-soft">
-            Prøv at blive inde i bogstavet — så vokser lyset hurtigere ✨
+            {t.tegnBogstavet.stayInsideHint}
           </p>
         ) : null}
 
@@ -510,10 +508,10 @@ export function TegnBogstavetGame({
           <div className="flex flex-col items-center gap-2">
             <p className="text-center font-semibold text-ink">
               {skin === "soft"
-                ? `${step.letter.name_da} lyser nu! ⭐`
+                ? t.tegnBogstavet.stepDoneSoft(step.letter.name_da)
                 : isCleanTrace(coverage, offRatio, skin)
-                  ? `Ren streg — flot ${step.letter.name_da}!`
-                  : `${step.letter.name_da} er tændt!`}
+                  ? t.tegnBogstavet.stepDoneClean(step.letter.name_da)
+                  : t.tegnBogstavet.stepDoneDefault(step.letter.name_da)}
             </p>
             <button
               type="button"
@@ -521,7 +519,7 @@ export function TegnBogstavetGame({
               className="flex items-center gap-2 rounded-(--radius-skin) px-6 py-3 font-bold text-white transition-transform active:scale-95"
               style={{ background: "var(--color-night)" }}
             >
-              Videre <ArrowRight className="size-5" />
+              {t.tegnBogstavet.next} <ArrowRight className="size-5" />
             </button>
           </div>
         ) : null}

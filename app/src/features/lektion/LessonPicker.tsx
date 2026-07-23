@@ -13,6 +13,7 @@
 import { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { useT } from "@/lib/i18n";
 import type { Lesson } from "@/lib/types";
 
 export interface LessonPickerProps {
@@ -20,6 +21,7 @@ export interface LessonPickerProps {
 }
 
 export function LessonPicker({ onPick }: LessonPickerProps) {
+  const t = useT("da");
   const [lessons, setLessons] = useState<Lesson[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,13 +48,13 @@ export function LessonPicker({ onPick }: LessonPickerProps) {
   if (error) {
     return (
       <p className="text-center text-sm text-ink-soft">
-        Kunne ikke hente lektionerne: {error}
+        {t.lessonPicker.fetchError(error)}
       </p>
     );
   }
   if (!lessons) {
     return (
-      <p className="text-center text-sm text-ink-soft">Henter lektioner …</p>
+      <p className="text-center text-sm text-ink-soft">{t.lessonPicker.loading}</p>
     );
   }
 
@@ -91,7 +93,7 @@ export function LessonPicker({ onPick }: LessonPickerProps) {
                 className="absolute -top-2 end-3 flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold"
                 style={{ background: "var(--color-nour)", color: "#3d2a00" }}
               >
-                <Sparkles className="size-3" /> Anbefalet
+                <Sparkles className="size-3" /> {t.lessonPicker.recommended}
               </span>
             )}
           </button>

@@ -19,6 +19,7 @@
 
 import { useMemo } from "react";
 import type { AgeSkin } from "@/lib/types";
+import { useT } from "@/lib/i18n";
 import {
   ANIMAL_POOL,
   SKIN_PARAMS,
@@ -47,6 +48,7 @@ export interface PinLoginProps {
 }
 
 export function PinLogin({ skin, profiles, onLoggedIn }: PinLoginProps) {
+  const t = useT("da"); // voksnes/skærmens sprogvalg er udskudt — se useT.ts
   const {
     phase,
     activeProfile,
@@ -98,7 +100,7 @@ export function PinLogin({ skin, profiles, onLoggedIn }: PinLoginProps) {
             onClick={backToPicker}
             className="pin-link mb-4 text-sm font-semibold"
           >
-            ← Skift profil
+            {t.pinLogin.switchProfile}
           </button>
         ) : null}
 
@@ -139,12 +141,13 @@ function ProfilePicker({
   profiles: readonly PinLoginProfile[];
   onChoose: (profile: PinLoginProfile) => void;
 }) {
+  const t = useT("da");
   return (
     <div className="flex flex-col items-center gap-6 py-4 text-center">
       <h2
         className={`pin-title font-bold ${skin === "soft" ? "text-3xl" : "text-2xl"}`}
       >
-        Hvem er du?
+        {t.pinLogin.whoAreYou}
       </h2>
       <div
         className={`grid gap-5 ${
@@ -197,6 +200,7 @@ function PinPad({
   needsAdultHelp: boolean;
   onPressAnimal: (poolIndex: number) => void;
 }) {
+  const t = useT("da");
   const params = SKIN_PARAMS[skin];
   const animals = ANIMAL_POOL.slice(0, params.animalCount);
   // Antal lys-pladser vist: vi kender ikke den faktiske pin-længde (hashen
@@ -217,13 +221,13 @@ function PinPad({
           {profile.avatar ?? "🌟"}
         </span>
         <h2 className={`pin-title font-bold ${skin === "soft" ? "text-2xl" : "text-xl"}`}>
-          Hej {profile.display_name}! Vis din kode
+          {t.pinLogin.greeting(profile.display_name)}
         </h2>
       </div>
 
       <div
         className={`flex justify-center gap-2.5 ${status === "wrong" ? "pin-shake" : ""}`}
-        aria-label="Din kode"
+        aria-label={t.pinLogin.yourCode}
       >
         {Array.from({ length: slotCount }, (_, i) => {
           const filled = i < entered.length;
@@ -281,46 +285,44 @@ function FeedbackLine({
   needsAdultHelp: boolean;
   skin: AgeSkin;
 }) {
+  const t = useT("da");
   if (status === "rate_limited") {
     return (
       <p className="pin-feedback pin-feedback-help text-sm font-semibold">
-        {needsAdultHelp
-          ? `Vent lidt sammen med en voksen 🤝 (${waitSeconds}s)`
-          : `Vent lidt, og prøv igen … (${waitSeconds}s)`}
+        {needsAdultHelp ? t.pinLogin.waitWithAdult(waitSeconds) : t.pinLogin.waitAlone(waitSeconds)}
       </p>
     );
   }
   if (needsAdultHelp && status === "wrong") {
     return (
       <p className="pin-feedback pin-feedback-help text-sm font-semibold">
-        Prøv igen sammen med en voksen 🤝
+        {t.pinLogin.tryAgainWithAdult}
       </p>
     );
   }
   if (status === "wrong") {
     return (
       <p className="pin-feedback text-sm font-semibold">
-        {skin === "soft" ? "Prøv igen! 🌙" : "Ikke helt — prøv igen"}
+        {skin === "soft" ? t.pinLogin.wrongSoft : t.pinLogin.wrongOther}
       </p>
     );
   }
   if (status === "not_provisioned") {
     return (
       <p className="pin-feedback text-sm font-semibold">
-        Denne profil er ikke helt klar endnu. Bed en voksen om at aktivere adgang i
-        forældre-portalen.
+        {t.pinLogin.notProvisioned}
       </p>
     );
   }
   if (status === "network_error") {
     return (
       <p className="pin-feedback text-sm font-semibold">
-        Kunne ikke tjekke koden — prøv igen om lidt
+        {t.pinLogin.networkError}
       </p>
     );
   }
   if (status === "checking") {
-    return <p className="pin-feedback text-sm opacity-70">Tjekker …</p>;
+    return <p className="pin-feedback text-sm opacity-70">{t.pinLogin.checking}</p>;
   }
   return <p className="pin-feedback text-sm opacity-0 select-none">&nbsp;</p>;
 }
@@ -330,6 +332,7 @@ function FeedbackLine({
 // ----------------------------------------------------------------------------
 
 function Welcome({ skin, profile }: { skin: AgeSkin; profile: PinLoginProfile }) {
+  const t = useT("da");
   return (
     <div className="flex flex-col items-center gap-4 py-10 text-center">
       <span
@@ -341,7 +344,7 @@ function Welcome({ skin, profile }: { skin: AgeSkin; profile: PinLoginProfile })
         {profile.avatar ?? "🌟"}
       </span>
       <h2 className={`pin-title font-bold ${skin === "soft" ? "text-3xl" : "text-2xl"}`}>
-        Velkommen, {profile.display_name}! ✨
+        {t.pinLogin.welcome(profile.display_name)}
       </h2>
     </div>
   );

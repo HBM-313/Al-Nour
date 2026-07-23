@@ -39,7 +39,51 @@ Admin (mig) · Indholds-redaktør (kan ikke udgive aqidah) · Godkender (eneste 
 
 ## Hvor jeg er nu (opdater dette felt løbende)
 
-**Status (2026-07-23, session 17 — Leverance B4: skallen bygget om til to rigtige indgange. FULDT GENNEMFØRT, ingen migration (bekræftet ved skema-drift-tjek — ingen ændringer siden B3's `0dfdd4e`).)**
+**Status (2026-07-23, session 18 — i18n-lag (plan-platformsmodning.md §2.1) påbegyndt. Mekanik bygget + 3 skærme migreret. DELVIST GENNEMFØRT — bevidst tjekpunkt, resten fortsætter næste session.)**
+
+Ejeren valgte rækkefølgen Fejlrapport-knap → i18n → D-blokken. **Fejlrapport-knappen blev sat på PAUSE** efter at have afdækket et reelt arkitektur-hul: planen kræver knappen "i forælder- og lærertilstand", men der findes i dag intet sted hvor en almindelig forælder rent faktisk SER et enkelt indholds-element (ingen lærer-tilstand bygget endnu; Dashboardet viser kun fremskridts-tal, ikke ord/bogstaver/historier). `content_reports`-tabellen er i øvrigt allerede fuldt klar fra Fase 0 (RLS, status-enum `open/reviewed/resolved/dismissed`) — ingen migration nødvendig når vi tager den op igen. **Åben beslutning til ejeren:** knap kun i værkstederne (staff) / knyttet til Dashboardets "lektion X" uden at vise ordene / byg en minimal "Prøv selv"-visning først / andet.
+
+**i18n-mekanikken** (`src/lib/i18n/`): `da.ts` (dansk kilde-sandhed, ét navnerum pr. skærm + et lille `common`-navnerum til genbrugelige strenge som "Tilbage"/"Noget gik galt") · `ar.ts` (arabisk, typet som `Dictionary = typeof da` — TypeScript fejler ved manglende nøgle) · `useT(lang)` (letvægts, ingen ekstern afhængighed — returnerer HELE den typede ordbog, ikke dot-path-strenge) · `dirFor(lang)` (ltr/rtl til yderste container). **Ejer-beslutninger:** arabiske udkast skrives NU (Claude forslår, ejeren godkender ordlyden — samme mønster som samtykketeksten); voksnes (forælder/admin) sprogvalg er bevidst UDSKUDT (`accounts` har ingen `ui_language`-kolonne, kun `profiles` har det) — indtil videre kalder ALLE skærme `useT("da")` hardkodet, ingen reel sprogskift-UI er bygget endnu. Det er næste lags opgave, når der er flere skærme migreret.
+
+**Tre tekniske fælder fundet og rettet (vigtig læring til alle fremtidige sessioner):**
+1. **`as const` på `da.ts` frøs strengene til deres egne bogstavelige typer** (`"Hvem er du?"` som type, ikke `string`) — gjorde `ar.ts` umuligt at udfylde med arabisk tekst (typefejl). Løsning: INGEN `as const` på selve kilde-objektet. Nøgle-*formen* håndhæves stadig fint af `Dictionary`-typen alene.
+2. **Almindelig `tsc --noEmit` fangede IKKE ovenstående fejl — kun `npm run build` (som kører `tsc -b`) gjorde.** Samme mønster gentog sig med en literal-union-returtype-fejl i en betinget funktion (`roundDoneHeading`) — løst med eksplicit `: string`-returtype. **Konklusion: `tsc --noEmit` alene er ikke nok som sandhed for i18n-arbejde — kør altid `npm run build` før et skridt regnes for færdigt.**
+3. **`react-hooks/exhaustive-deps` (oxlint) fanger `t` som en overset closure-afhængighed**, når `t = useT("da")` bruges inde i en `useEffect` (fx en data-hentende `load()`-funktion). `t` er referentielt stabil pr. sprog (samme `da`/`ar`-objekt hver gang), så det er trygt at tilføje til dependency-arrayet uden ekstra gen-kørsler.
+4. (Mindre) Generisk `keyof`-indeksering i et `for`-loop i en test forvirrede TypeScript til `never` — løst med en simpel `Record<string, unknown>`-cast i selve testen (typesikkerheden håndhæves alligevel af `Dictionary` på `ar.ts`).
+
+**Migreret (verificeret grønt efter hver fil):** `features/pin-login/PinLogin.tsx` (bevis-skærm, 13 nøgler) · `features/lektion/LessonPicker.tsx` (3 nøgler) · `features/tegn-bogstavet/TegnBogstavetGame.tsx` (18 nøgler, inkl. `common`-navnerummet).
+
+**IKKE migreret endnu — omfang genoptalt PRÆCIST denne session** (kun rigtig JSX/UI-tekst talt med, kode-kommentarer udelukket — det oprindelige æøå-baserede skøn var for groft, flere danske ord som "Anbefalet"/"Tilbage" har ingen æøå og blev undertalt):
+
+| Fil | Ca. antal strenge |
+|---|---|
+| `features/historie-vaerksted/HistorieVaerksted.tsx` | **60** |
+| `features/app-shell/AppShell.tsx` | 22 |
+| `features/verdenskort/WorldMap.tsx` | 21 |
+| `features/parent-auth/ParentAuth.tsx` | 19 |
+| `features/dashboard/Dashboard.tsx` | 19 |
+| `features/opret-profil/OpretProfil.tsx` | 18 |
+| `features/vokab-vaerksted/VokabVaerksted.tsx` | 17 |
+| `features/lektion/LessonScreen.tsx` | 16 |
+| `features/match-par/MatchPairsGame.tsx` | 11 |
+| `features/consent/Consent.tsx` | 10 |
+| `features/lyt-og-find/ListenFindGame.tsx` | 9 |
+| `features/historiernes-bjerge/HistorierBjergeScreen.tsx` | 9 |
+| `components/error-boundary/ErrorScreen.tsx` | 7 |
+
+**Kræver INGEN i18n-arbejde** (tjekket — kun danske kode-kommentarer, ingen faktisk UI-tekst): `features/tegn-bogstavet/TraceCanvas.tsx`, `features/tegn-bogstavet/NourCompanion.tsx`, `components/error-boundary/ErrorBoundary.tsx`, `components/bilingual/BilingualText.tsx`.
+
+**Prioriteringsforslag til næste session:** børnevendte spil-/lektionsskærme først (`MatchPairsGame`, `ListenFindGame`, `HistorierBjergeScreen`, `LessonScreen`, `ErrorScreen`) — det er her sprogvalget faktisk får værdi når det senere kobles til `profiles.ui_language`. Voksenskærme (`AppShell`, `WorldMap` — delvist voksen/delvist barn, tjek pr. sektion —, `ParentAuth`, `Dashboard`, `OpretProfil`, værkstederne, `Consent`) har lavere hastværk, da der (bevidst) ingen sprogskift-mekanisme er for voksne endnu.
+
+**OBS content-integration-nuance opdaget i `TegnBogstavetGame`:** flere UI-strenge indlejrer indholds-felter (`step.letter.name_da`). Mønsteret der virker: `da.ts`/`ar.ts`-funktionerne tager selve navnet som PARAMETER (fx `traceLetter: (name: string) => ...`) — den kaldende komponent vælger `name_da` eller `name_ar` afhængig af sprog, i18n-laget ved intet om indholds-felter. Samme mønster skal bruges i `ListenFindGame`/`MatchPairsGame`/`HistorierBjergeScreen`.
+
+Build-kæde grøn ved tjekpunktet: `tsc --noEmit` 0 · `oxlint` 0/0 · **112/112 tests** (105 tidligere + 7 nye i18n-tests) · `npm run build` ✓.
+
+**Næste skridt:** fortsæt i18n-migreringen fil for fil (se tabel ovenfor), derefter D-blokken. Fejlrapport-knappens placering afventer stadig ejerens beslutning (se åben beslutning ovenfor).
+
+---
+
+
 
 B1–B3 byggede barnets rigtige identitet, session-udstedelse og livscyklus. B4 var sidste leverance i B-blokken: skallen startede stadig altid på forælder-login, og en side-genindlæsning midt i en barnesession endte tilbage på pin-skærmen (kendt B2-begrænsning). Løst ren frontend (ingen ny visuel komponent — `PinLogin`/`Picker`/`ChildMode` genbruges 1:1, kun *hvornår* de vises og *hvor data kommer fra* er ændret), derfor ingen Visualizer-demo denne gang (samme vurdering som B1–B3: logik/wiring, ikke ny UI).
 
