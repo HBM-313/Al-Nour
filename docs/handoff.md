@@ -39,7 +39,47 @@ Admin (mig) · Indholds-redaktør (kan ikke udgive aqidah) · Godkender (eneste 
 
 ## Hvor jeg er nu (opdater dette felt løbende)
 
-**Status (2026-07-23, session 18 — i18n-lag (plan-platformsmodning.md §2.1) påbegyndt. Mekanik bygget + 3 skærme migreret. DELVIST GENNEMFØRT — bevidst tjekpunkt, resten fortsætter næste session.)**
+**Status (2026-07-23, session 19 — i18n-lag (plan-platformsmodning.md §2.1) fortsat. 4 flere skærme migreret (7 i alt). DELVIST GENNEMFØRT — bevidst tjekpunkt, resten fortsætter næste session.)**
+
+Ejeren valgte at fortsætte i18n-migreringen (spil-/lektionsskærme først, jf. session 18's prioriteringsforslag), ét skridt ad gangen med byg-verifikation og godkendelse mellem hver fil. **Fejlrapport-knappen er fortsat sat på PAUSE** — samme åbne beslutning som session 18 (se historisk status nedenfor for detaljer): knap kun i værkstederne (staff) / knyttet til Dashboardets "lektion X" uden at vise ordene / byg en minimal "Prøv selv"-visning først / andet.
+
+**i18n-mekanikken er uændret** (`src/lib/i18n/`) — se session 18's status nedenfor for den fulde beskrivelse af `da.ts`/`ar.ts`/`useT`/`dirFor` og ejer-beslutningen om at voksnes sprogvalg er udskudt.
+
+**Fire tekniske fælder fra session 18 (stadig gældende, ingen nye denne session):** `as const` på `da.ts` frøs typerne · `tsc --noEmit` alene fangede ikke literal-union-fejl (kør altid `npm run build`) · `t` skal med i `useEffect`-dependency-arrays (oxlint) · `Record<string, unknown>`-cast i paritets-tests. Se session 18's status for detaljer.
+
+**Migreret denne session (verificeret grønt fil for fil, i den anbefalede rækkefølge):**
+- `features/match-par/MatchPairsGame.tsx` + `useMatchPairs.ts` (`matchPar`-navnerum: HUD, kort-aria-labels med parametriseret content-navn, fusha/hverdag-badge, sejrs-statistik pr. skind, gem-status, knapper)
+- `features/lyt-og-find/ListenFindGame.tsx` + `useListenFind.ts` (`lytOgFind`-navnerum: loading/fejl, spørgsmål-aria-label, TTS-hints, feedback efter svar, rundeafslutning, gem-status)
+- `features/historiernes-bjerge/HistorierBjergeScreen.tsx` + `engine.ts` (`historierBjerge`-navnerum: liste/tom-tilstand, kilde-verificeret-badge, "hvad husker du?"-quiz. `fetchStoriesForAge()` tager nu fejlbeskeden som PARAMETER fra kaldestedet, ikke `useT` direkte i en ikke-hook-funktion — samme mønster brugt i `useMatchPairs`/`useListenFind`/`useLesson` for deres fallback-fejlbeskeder)
+- `features/lektion/LessonScreen.tsx` + `useLesson.ts` (`lektion`-navnerum: hele rammen — intro/trin-header/pusterum/fejring, `Intro`/`Breather`/`Done`/`SaveHint`)
+
+**Bevidst IKKE migreret (dokumenteret gap, matcher session 18's præcedens):** `FORM_LABEL_DA` i `features/lyt-og-find/engine.ts` (delt konstant, bruges også af `TegnBogstavetGame.tsx`) er stadig hardkodet dansk — samme beslutning som session 18 traf for `TegnBogstavetGame`. Bilingvale FASTE region-/spil-overskrifter (fx "Match-par مُطَابَقَة", "Historiernes Bjerge جبال الحكايات") er bevidst IKKE oversat — de er tilsigtet altid tosprogede, uafhængigt af UI-sprogvalg, ikke almindeligt UI-chrome.
+
+**IKKE migreret endnu:**
+
+| Fil | Ca. antal strenge |
+|---|---|
+| `features/historie-vaerksted/HistorieVaerksted.tsx` | **60** |
+| `features/app-shell/AppShell.tsx` | 22 |
+| `features/verdenskort/WorldMap.tsx` | 21 |
+| `features/parent-auth/ParentAuth.tsx` | 19 |
+| `features/dashboard/Dashboard.tsx` | 19 |
+| `features/opret-profil/OpretProfil.tsx` | 18 |
+| `features/vokab-vaerksted/VokabVaerksted.tsx` | 17 |
+| `features/consent/Consent.tsx` | 10 |
+| `components/error-boundary/ErrorScreen.tsx` | 7 |
+
+**Kræver INGEN i18n-arbejde** (uændret fra session 18): `features/tegn-bogstavet/TraceCanvas.tsx`, `features/tegn-bogstavet/NourCompanion.tsx`, `components/error-boundary/ErrorBoundary.tsx`, `components/bilingual/BilingualText.tsx`.
+
+**Prioriteringsforslag til næste session:** `ErrorScreen.tsx` (7 strenge, lille — afslutter spil-/lektionsbatchen) er sidste børnevendte skærm. Derefter voksenskærme i vilkårlig rækkefølge (ingen sprogskift-UI for voksne endnu, så lavere hastværk) — `HistorieVaerksted.tsx` er klart størst (60) og bør nok tages for sig selv.
+
+Build-kæde grøn efter hver fil denne session: `tsc --noEmit` 0 · `oxlint` 0/0 · **112/112 tests** (uændret — i18n-paritetstesten dækker automatisk de nye navnerum via `ar.ts`'s `Dictionary`-typetjek, ingen nye testfiler nødvendige) · `npm run build` ✓. Pushet i én commit (`03413ba`).
+
+**Næste skridt:** `ErrorScreen.tsx`, derefter voksenskærmene. Fejlrapport-knappens placering afventer stadig ejerens beslutning (se åben beslutning ovenfor).
+
+---
+
+**Tidligere status (2026-07-23, session 18 — i18n-lag (plan-platformsmodning.md §2.1) påbegyndt. Mekanik bygget + 3 skærme migreret. DELVIST GENNEMFØRT.)**
 
 Ejeren valgte rækkefølgen Fejlrapport-knap → i18n → D-blokken. **Fejlrapport-knappen blev sat på PAUSE** efter at have afdækket et reelt arkitektur-hul: planen kræver knappen "i forælder- og lærertilstand", men der findes i dag intet sted hvor en almindelig forælder rent faktisk SER et enkelt indholds-element (ingen lærer-tilstand bygget endnu; Dashboardet viser kun fremskridts-tal, ikke ord/bogstaver/historier). `content_reports`-tabellen er i øvrigt allerede fuldt klar fra Fase 0 (RLS, status-enum `open/reviewed/resolved/dismissed`) — ingen migration nødvendig når vi tager den op igen. **Åben beslutning til ejeren:** knap kun i værkstederne (staff) / knyttet til Dashboardets "lektion X" uden at vise ordene / byg en minimal "Prøv selv"-visning først / andet.
 
@@ -53,33 +93,9 @@ Ejeren valgte rækkefølgen Fejlrapport-knap → i18n → D-blokken. **Fejlrappo
 
 **Migreret (verificeret grønt efter hver fil):** `features/pin-login/PinLogin.tsx` (bevis-skærm, 13 nøgler) · `features/lektion/LessonPicker.tsx` (3 nøgler) · `features/tegn-bogstavet/TegnBogstavetGame.tsx` (18 nøgler, inkl. `common`-navnerummet).
 
-**IKKE migreret endnu — omfang genoptalt PRÆCIST denne session** (kun rigtig JSX/UI-tekst talt med, kode-kommentarer udelukket — det oprindelige æøå-baserede skøn var for groft, flere danske ord som "Anbefalet"/"Tilbage" har ingen æøå og blev undertalt):
-
-| Fil | Ca. antal strenge |
-|---|---|
-| `features/historie-vaerksted/HistorieVaerksted.tsx` | **60** |
-| `features/app-shell/AppShell.tsx` | 22 |
-| `features/verdenskort/WorldMap.tsx` | 21 |
-| `features/parent-auth/ParentAuth.tsx` | 19 |
-| `features/dashboard/Dashboard.tsx` | 19 |
-| `features/opret-profil/OpretProfil.tsx` | 18 |
-| `features/vokab-vaerksted/VokabVaerksted.tsx` | 17 |
-| `features/lektion/LessonScreen.tsx` | 16 |
-| `features/match-par/MatchPairsGame.tsx` | 11 |
-| `features/consent/Consent.tsx` | 10 |
-| `features/lyt-og-find/ListenFindGame.tsx` | 9 |
-| `features/historiernes-bjerge/HistorierBjergeScreen.tsx` | 9 |
-| `components/error-boundary/ErrorScreen.tsx` | 7 |
-
-**Kræver INGEN i18n-arbejde** (tjekket — kun danske kode-kommentarer, ingen faktisk UI-tekst): `features/tegn-bogstavet/TraceCanvas.tsx`, `features/tegn-bogstavet/NourCompanion.tsx`, `components/error-boundary/ErrorBoundary.tsx`, `components/bilingual/BilingualText.tsx`.
-
-**Prioriteringsforslag til næste session:** børnevendte spil-/lektionsskærme først (`MatchPairsGame`, `ListenFindGame`, `HistorierBjergeScreen`, `LessonScreen`, `ErrorScreen`) — det er her sprogvalget faktisk får værdi når det senere kobles til `profiles.ui_language`. Voksenskærme (`AppShell`, `WorldMap` — delvist voksen/delvist barn, tjek pr. sektion —, `ParentAuth`, `Dashboard`, `OpretProfil`, værkstederne, `Consent`) har lavere hastværk, da der (bevidst) ingen sprogskift-mekanisme er for voksne endnu.
-
-**OBS content-integration-nuance opdaget i `TegnBogstavetGame`:** flere UI-strenge indlejrer indholds-felter (`step.letter.name_da`). Mønsteret der virker: `da.ts`/`ar.ts`-funktionerne tager selve navnet som PARAMETER (fx `traceLetter: (name: string) => ...`) — den kaldende komponent vælger `name_da` eller `name_ar` afhængig af sprog, i18n-laget ved intet om indholds-felter. Samme mønster skal bruges i `ListenFindGame`/`MatchPairsGame`/`HistorierBjergeScreen`.
+**OBS content-integration-nuance opdaget i `TegnBogstavetGame`:** flere UI-strenge indlejrer indholds-felter (`step.letter.name_da`). Mønsteret der virker: `da.ts`/`ar.ts`-funktionerne tager selve navnet som PARAMETER (fx `traceLetter: (name: string) => ...`) — den kaldende komponent vælger `name_da` eller `name_ar` afhængig af sprog, i18n-laget ved intet om indholds-felter. Samme mønster brugt i `ListenFindGame`/`MatchPairsGame`/`HistorierBjergeScreen` (session 19).
 
 Build-kæde grøn ved tjekpunktet: `tsc --noEmit` 0 · `oxlint` 0/0 · **112/112 tests** (105 tidligere + 7 nye i18n-tests) · `npm run build` ✓.
-
-**Næste skridt:** fortsæt i18n-migreringen fil for fil (se tabel ovenfor), derefter D-blokken. Fejlrapport-knappens placering afventer stadig ejerens beslutning (se åben beslutning ovenfor).
 
 ---
 
