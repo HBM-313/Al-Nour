@@ -10,6 +10,7 @@ import {
   deleteChildProfile,
   fetchChildren,
   fetchProgressSummary,
+  provisionChildAuth,
   type ProgressSummary,
 } from "./engine";
 
@@ -28,6 +29,8 @@ export interface DashboardState {
   deleting: boolean;
   /** Profil med åbent pin-overlay */
   pinTarget: Profile | null;
+  /** Profil-id der lige nu aktiverer sin adgang (Leverance B1-lukning) */
+  provisioningId: string | null;
   toast: string | null;
 }
 
@@ -42,6 +45,7 @@ export function useDashboard() {
     confirmDelete: null,
     deleting: false,
     pinTarget: null,
+    provisioningId: null,
     toast: null,
   });
 
@@ -115,6 +119,36 @@ export function useDashboard() {
     [showToast],
   );
 
+  /**
+   * Aktivér barnets egen identitet (lukker B1's åbne ende — se
+   * plan-boernesession-og-dashboard.md, del 4, note under B1/B2).
+   * Idempotent: kan trygt trykkes igen uden at gøre skade.
+   */
+  const activateAccess = useCallback(
+    async (child: Profile) => {
+      if (child.auth_user_id) return; // allerede aktiveret, knappen bør ikke vises
+      setState((s) => ({ ...s, provisioningId: child.id }));
+      const res = await provisionChildAuth(child.id);
+      setState((s) => ({ ...s, provisioningId: null }));
+      if (!res.ok) {
+        showToast(res.error);
+        return;
+      }
+      setState((s) => ({
+        ...s,
+        children: s.children.map((c) =>
+          c.id === child.id ? { ...c, auth_user_id: c.auth_user_id ?? "activated" } : c,
+        ),
+      }));
+      showToast(
+        res.alreadyProvisioned
+          ? `${child.display_name}s adgang var allerede aktiveret`
+          : `${child.display_name}s egen adgang er aktiveret 🔑`,
+      );
+    },
+    [showToast],
+  );
+
   const onPinSaved = useCallback(
     (profile: Profile) => {
       setState((s) => ({
@@ -129,5 +163,14 @@ export function useDashboard() {
     [showToast],
   );
 
-  return { state, patch, reload, toggleProgress, confirmAndDelete, onCreated, onPinSaved };
+  return {
+    state,
+    patch,
+    reload,
+    toggleProgress,
+    confirmAndDelete,
+    onCreated,
+    onPinSaved,
+    activateAccess,
+  };
 }

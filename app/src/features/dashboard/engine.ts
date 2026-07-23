@@ -126,6 +126,33 @@ export async function fetchProgressSummary(
 }
 
 /**
+ * Aktivér barnets egen identitet (Leverance B1/B2-forudsætning).
+ * Kalder Edge Function `provision-child-auth`, som opretter en
+ * `auth.users`-række med syntetisk e-mail og kobler den til profilen
+ * (`profiles.auth_user_id`). Forælderens JWT sendes automatisk med af
+ * `supabase.functions.invoke` — funktionen verificerer selv ejerskab via
+ * RLS (`profiles_owner_all`), ingen egen logik her.
+ *
+ * Idempotent: kaldes profilen igen efter den allerede er aktiveret,
+ * returneres blot `already_provisioned: true` — ingen fejl.
+ */
+export async function provisionChildAuth(
+  profileId: string,
+): Promise<{ ok: true; alreadyProvisioned: boolean } | { ok: false; error: string }> {
+  const { data, error } = await supabase.functions.invoke("provision-child-auth", {
+    body: { profile_id: profileId },
+  });
+  if (error) {
+    return { ok: false, error: "Adgang kunne ikke aktiveres. Tjek at du er logget ind, og prøv igen." };
+  }
+  const res = data as { success?: boolean; already_provisioned?: boolean; error?: string } | null;
+  if (!res?.success) {
+    return { ok: false, error: res?.error ?? "Uventet svar. Prøv igen." };
+  }
+  return { ok: true, alreadyProvisioned: Boolean(res.already_provisioned) };
+}
+
+/**
  * GDPR ét-kliks-sletning: sletter profilen og — via ON DELETE CASCADE —
  * alt fremskridt og klasse-medlemskab. Pin-hashen bor på selve rækken og
  * forsvinder med den. Kan ikke fortrydes; UI'et SKAL bekræfte først.

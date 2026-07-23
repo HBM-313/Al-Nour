@@ -19,7 +19,7 @@ export interface DashboardProps {
 }
 
 export function Dashboard({ account }: DashboardProps) {
-  const { state, patch, toggleProgress, confirmAndDelete, onCreated, onPinSaved } =
+  const { state, patch, toggleProgress, confirmAndDelete, onCreated, onPinSaved, activateAccess } =
     useDashboard();
 
   if (state.view === "create") {
@@ -68,9 +68,11 @@ export function Dashboard({ account }: DashboardProps) {
           child={c}
           open={state.openProgressId === c.id}
           summary={state.progress[c.id]}
+          activating={state.provisioningId === c.id}
           onToggleProgress={() => void toggleProgress(c)}
           onPin={() => patch({ pinTarget: c })}
           onDelete={() => patch({ confirmDelete: c })}
+          onActivateAccess={() => void activateAccess(c)}
         />
       ))}
 
@@ -116,16 +118,20 @@ function ChildCard({
   child,
   open,
   summary,
+  activating,
   onToggleProgress,
   onPin,
   onDelete,
+  onActivateAccess,
 }: {
   child: Profile;
   open: boolean;
   summary: ProgressSummary | "loading" | "error" | undefined;
+  activating: boolean;
   onToggleProgress: () => void;
   onPin: () => void;
   onDelete: () => void;
+  onActivateAccess: () => void;
 }) {
   return (
     <div className="db-card rounded-(--radius-skin) p-4">
@@ -147,6 +153,20 @@ function ChildCard({
             <span className="db-pill rounded-full px-2.5 py-0.5 text-[11px] font-semibold">
               {child.preferred_voice === "female" ? "🎀 Habibah" : "🎩 Ahmed"}
             </span>
+            {child.auth_user_id ? (
+              <span className="db-pill db-pill-gold rounded-full px-2.5 py-0.5 text-[11px] font-semibold">
+                👤 egen adgang
+              </span>
+            ) : (
+              <button
+                type="button"
+                disabled={activating}
+                onClick={onActivateAccess}
+                className="db-pill bg-transparent rounded-full px-2.5 py-0.5 text-[11px] font-semibold underline decoration-dotted disabled:opacity-60"
+              >
+                {activating ? "Aktiverer…" : "Aktivér egen adgang →"}
+              </button>
+            )}
           </div>
         </div>
       </div>
