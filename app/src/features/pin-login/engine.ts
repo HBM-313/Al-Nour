@@ -13,7 +13,43 @@
 
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import type { AgeSkin } from "@/lib/types";
+import type { RosterEntry } from "@/lib/childRoster";
+import type { AgeSkin, Profile } from "@/lib/types";
+
+// ----------------------------------------------------------------------------
+// PinLoginProfile — Leverance B4: picker/pin-pad/velkomst kender kun dette
+// lette format, uanset om kortene kommer fra forælderens RLS-hentede
+// `profiles`-liste (fuldt udstyret) eller enheds-roster'en (kun det denne
+// type kræver). `is_locked` erstatter et direkte blik på `pin_hash` — det
+// er stadig kun et tilstedeværelses-tjek, aldrig hashen selv.
+// ----------------------------------------------------------------------------
+
+export interface PinLoginProfile {
+  id: string;
+  display_name: string;
+  avatar: string | null;
+  is_locked: boolean;
+}
+
+export function pinLoginProfileFromProfile(
+  p: Pick<Profile, "id" | "display_name" | "avatar" | "pin_hash">,
+): PinLoginProfile {
+  return {
+    id: p.id,
+    display_name: p.display_name,
+    avatar: p.avatar,
+    is_locked: p.pin_hash !== null,
+  };
+}
+
+export function pinLoginProfileFromRoster(entry: RosterEntry): PinLoginProfile {
+  return {
+    id: entry.profileId,
+    display_name: entry.displayName,
+    avatar: entry.avatar,
+    is_locked: entry.hasPin,
+  };
+}
 
 /**
  * Den faste dyre-pool. REKKEFØLGEN ER KONTRAKT: pin gemmes som pool-INDEX

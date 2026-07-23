@@ -39,6 +39,31 @@ Admin (mig) · Indholds-redaktør (kan ikke udgive aqidah) · Godkender (eneste 
 
 ## Hvor jeg er nu (opdater dette felt løbende)
 
+**Status (2026-07-23, session 17 — Leverance B4: skallen bygget om til to rigtige indgange. FULDT GENNEMFØRT, ingen migration (bekræftet ved skema-drift-tjek — ingen ændringer siden B3's `0dfdd4e`).)**
+
+B1–B3 byggede barnets rigtige identitet, session-udstedelse og livscyklus. B4 var sidste leverance i B-blokken: skallen startede stadig altid på forælder-login, og en side-genindlæsning midt i en barnesession endte tilbage på pin-skærmen (kendt B2-begrænsning). Løst ren frontend (ingen ny visuel komponent — `PinLogin`/`Picker`/`ChildMode` genbruges 1:1, kun *hvornår* de vises og *hvor data kommer fra* er ændret), derfor ingen Visualizer-demo denne gang (samme vurdering som B1–B3: logik/wiring, ikke ny UI).
+
+**Boot omlagt til tre grene i `useAppShell.ts`** (samme `fetchOwnProfiles()`-kald virker for BÅDE forælder og barn — RLS afgør omfanget, ikke klienten):
+1. Session findes og matcher `profiles.auth_user_id` på en af de hentede rækker → **det ER barnets egen session** → genoptag direkte i `child`-tilstand, ingen picker, ingen pin. Ejer-beslutning denne session: mindst friktion (alternativet var at vise picker med kortet fremhævet). Løser B2's kendte reload-begrænsning.
+2. Session findes, matcher ingen profil → forælder/redaktør/godkender → uændret adfærd (picker med fuld liste).
+3. Ingen session, men enheds-roster'en (`lib/childRoster.ts`, bygget i B2, først nu taget i brug som picker-datakilde) har poster fra et tidligere login på DENNE enhed → picker bygget på roster-kortene. Ingen ny "barn"-knap på Landing nødvendig — en helt frisk enhed uden roster viser fortsat kun Landing, hvilket reelt ER svaret på "forælder eller barn" (et barn kan intet uden en forælder først, jf. planens del 5.2).
+
+**`RosterEntry` udvidet med `hasPin: boolean`** (lagernøgle bumpet `v1`→`v2`, bevidst ren afskæring uden migrering af gamle poster — roster'en er kun en bekvemmeligheds-cache). Ny fælles type `PinLoginProfile` (`features/pin-login/engine.ts`: `{id, display_name, avatar, is_locked}`) + to konverteringsfunktioner (`pinLoginProfileFromProfile`/`pinLoginProfileFromRoster`) — `PinLogin`/`usePinLogin` kender nu KUN dette lette format, uanset om kortene kom fra forælderens RLS-hentede liste eller roster'en. `useAppShell` eksponerer det færdig-udregnede `pickerProfiles` (forælder-liste hvis den findes, ellers roster-fallback, ellers `null` = genuint "henter").
+
+**`completeChildSignin` omlagt:** tager nu kun `profileId` (ikke et fuldt `Profile`-objekt) og henter den KANONISKE profil frisk under barnets egen, nu-bekræftede session efter `verifyOtp` — nødvendigt uanset kilde (roster-kort mangler fødselsår/stemmevalg/niveau), og retter samtidig enhver forældet cache gratis. `onChildLoggedIn` er nu det ENE sted `gatePassed` nulstilles for et barne-login (både frisk pin-login og genoptaget boot-session) — centraliseret fra tidligere kun at sidde i `completeChildSignin`.
+
+**"Skift bruger" fra en resumeret/roster-logget-ind barnesession:** `goTo("picker")` opdaget nu eksplicit at den afgående identitet var et barn (RLS kan kun vise dets egen række) → signOut FØRST, derefter picker bygget på roster'en (som kender søskende) i stedet for en gen-hentning der ville RLS-afvise og tømme listen. Uændret hvis en forælders session stadig er aktiv i fanen (søskende kendes allerede i React-state).
+
+**Roster-drift afbødet i `usePinLogin`:** sætter en forælder et pin på en profil barnet allerede har cachet som ulåst, viser roster'en `hasPin: false` indtil næste vellykkede login. Et tomt "ulåst"-forsøg der viser sig forkert falder nu tilbage til pin-skærmen (i stedet for et dødt "prøv igen" på en kode der aldrig blev tastet) — dækker både `wrong` og det sjældnere `rate_limited`-tilfælde.
+
+**IKKE bygget (kendt, lavt-risiko, dokumenteret i koden):** ingen ny test-infrastruktur for selve React-hooken (`useAppShell`/`usePinLogin`) — projektet har ingen `@testing-library/react` endnu, og al eksisterende testdækning er på rene logik-moduler (`engine.ts`-filer, `childRoster.ts` osv.), samme grænse som hidtil. `childRoster.test.ts` udvidet (10 tests, inkl. bevidst v1→v2-afskæring).
+
+Build-kæde grøn: `tsc --noEmit` 0 · `oxlint` 0/0 · **105/105 tests** (104 tidligere + 1 ny `childRoster`-test for v1-afskæringen) · build ✓.
+
+**Næste skridt:** B-blokken (plan-boernesession-og-dashboard.md) er nu FULDT GENNEMFØRT (B1→B4). Næste er D-blokken (forældre-dashboardet — item-statistik, læringstal, "her kæmper barnet") eller tilbage til `plan-platformsmodning.md`s resterende Fase 2/3-punkter — ejerens valg.
+
+---
+
 **Status (2026-07-23, session 16 — Leverance B2: barnets pin udsteder nu en RIGTIG session. FULDT GENNEMFØRT og pushet.)**
 
 B1 (session 14–15) byggede identiteten (`profiles.auth_user_id`, `child`-rolle via access-token-hooket, RLS) og lukkede den ende-til-ende (session 15: "Aktivér egen adgang"-knappen i dashboardet, Ali/Zainab begge aktiverede). Denne session tog identiteten i BRUG: dyre-pinnen er ikke længere kun en UI-port — en bestået pin (eller en ulåst profil) udsteder nu barnets EGEN, rigtige Supabase-session.

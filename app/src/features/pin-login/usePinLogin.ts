@@ -5,12 +5,13 @@
  * — plan-boernesession-og-dashboard.md del 4):
  *   1. picker  — vælg hvilket barn (avatar-cirkler)
  *   2. pin     — dyre-grid, fylder lys-pladser op idet barnet trykker
- *   3. welcome — kort bekræftelse, derefter onLoggedIn(profile, session)
+ *   3. welcome — kort bekræftelse, derefter onLoggedIn(profileId, session)
  *
- * Profil UDEN pin_hash logger direkte ind (trin "pin" springes helt over)
- * — pin er en valgfri lås forælderen kan slå til. Klienten kender dette
- * fra den RLS-hentede profil (`profile.pin_hash`), IKKE fra en gættelig
- * server-oracle.
+ * Ulåst profil (`is_locked: false`) logger direkte ind (trin "pin"
+ * springes helt over) — pin er en valgfri lås forælderen kan slå til.
+ * Klienten kender dette fra `PinLoginProfile.is_locked`, som enten kommer
+ * fra den RLS-hentede profil (`pin_hash !== null`) eller fra enheds-
+ * roster'en (Leverance B4) — aldrig fra en gættelig server-oracle.
  *
  * DEBOUNCE, IKKE "tjek ved hvert tryk" (ændret i B2): før B2 var der intet
  * rate limit, så koden kunne trygt spørge serveren ved HVER ny længde
@@ -26,10 +27,10 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Profile } from "@/lib/types";
 import {
   attemptChildSignin,
   type ChildSigninCredentials,
+  type PinLoginProfile,
 } from "./engine";
 
 const MIN_PIN_LEN = 3;
@@ -48,21 +49,26 @@ export type PinLoginStatus =
 
 export interface UsePinLoginArgs {
   /**
-   * Kaldes når pin'en er bekræftet af serveren. Selve session-skiftet
-   * (signOut af forælderen → verifyOtp som barnet) ejes af app-skallen,
-   * IKKE af denne hook — den returnerer om skiftet lykkedes, så vi kan
-   * vise en fejl i stedet for at gå videre til "welcome" hvis det fejlede
-   * (sjældent: fx tabt netværk i det præcise øjeblik).
+   * Kaldes når pin'en er bekræftet af serveren, med profilens id (IKKE det
+   * fulde objekt — app-skallen henter den kanoniske profil frisk under
+   * barnets egen session bagefter, se useAppShell.completeChildSignin;
+   * det er nødvendigt uanset kilde, men især når kortet kom fra
+   * enheds-roster'en, som ikke kender fx fødselsår eller stemmevalg).
+   * Selve session-skiftet (signOut af forælderen → verifyOtp som barnet)
+   * ejes af app-skallen, IKKE af denne hook — den returnerer om skiftet
+   * lykkedes, så vi kan vise en fejl i stedet for at gå videre til
+   * "welcome" hvis det fejlede (sjældent: fx tabt netværk i det præcise
+   * øjeblik).
    */
   onLoggedIn: (
-    profile: Profile,
+    profileId: string,
     credentials: ChildSigninCredentials,
   ) => Promise<boolean>;
 }
 
 export function usePinLogin({ onLoggedIn }: UsePinLoginArgs) {
   const [phase, setPhase] = useState<PinLoginPhase>("picker");
-  const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
+  const [activeProfile, setActiveProfile] = useState<PinLoginProfile | null>(null);
   const [entered, setEntered] = useState<string[]>([]);
   const [status, setStatus] = useState<PinLoginStatus>("idle");
   const [waitSeconds, setWaitSeconds] = useState(0);
@@ -95,12 +101,12 @@ export function usePinLogin({ onLoggedIn }: UsePinLoginArgs) {
 
   /** Kør selve serverkaldet og reager på resultatet. */
   const runAttempt = useCallback(
-    async (profile: Profile, sequence: readonly string[]) => {
+    async (profile: PinLoginProfile, sequence: readonly string[]) => {
       setStatus("checking");
       const result = await attemptChildSignin(profile.id, sequence);
 
       if (result.status === "ok") {
-        const loggedIn = await onLoggedIn(profile, result);
+        const loggedIn = await onLoggedIn(profile.id, result);
         if (!loggedIn) {
           // Sjælden race: pin var korrekt, men selve session-skiftet
           // fejlede (fx netværk droppet mellem de to trin). Fail-closed,
@@ -123,6 +129,21 @@ export function usePinLogin({ onLoggedIn }: UsePinLoginArgs) {
         setStatus("network_error");
         setEntered([]);
         return;
+      }
+
+      if (sequence.length === 0) {
+        // Roster'en (Leverance B4) troede profilen var ulåst, men
+        // serveren siger noget andet — en forælder har sat et pin siden
+        // sidste login på denne enhed. Vis pin-skærmen (vi er stadig i
+        // "picker"-fasen her, hvor feedback slet ikke ville være synlig)
+        // fremfor et dødt "prøv igen" på en kode der aldrig blev tastet.
+        setPhase("pin");
+        if (result.status === "wrong") {
+          setStatus("idle");
+          return;
+        }
+        // "rate_limited": fald igennem til den almindelige håndtering
+        // nedenfor, nu synlig i pin-skærmen i stedet for profilvælgeren.
       }
 
       // "wrong" eller "rate_limited"
@@ -155,7 +176,7 @@ export function usePinLogin({ onLoggedIn }: UsePinLoginArgs) {
   );
 
   const chooseProfile = useCallback(
-    (profile: Profile) => {
+    (profile: PinLoginProfile) => {
       clearTimers();
       setActiveProfile(profile);
       setEntered([]);
@@ -163,10 +184,10 @@ export function usePinLogin({ onLoggedIn }: UsePinLoginArgs) {
       setWaitSeconds(0);
       setAskAdult(false);
 
-      if (!profile.pin_hash) {
-        // Ulåst profil (kendt fra den RLS-hentede profil, ikke gættet) —
-        // log direkte ind. Sekvensen er tom; serveren ignorerer den, da
-        // der ikke er noget pin at matche mod.
+      if (!profile.is_locked) {
+        // Ulåst profil (kendt fra den RLS-hentede profil eller roster'en,
+        // ikke gættet) — log direkte ind. Sekvensen er tom; serveren
+        // ignorerer den, da der ikke er noget pin at matche mod.
         void runAttempt(profile, []);
         return;
       }

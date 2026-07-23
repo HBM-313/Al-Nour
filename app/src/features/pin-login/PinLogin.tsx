@@ -18,21 +18,30 @@
  */
 
 import { useMemo } from "react";
-import type { AgeSkin, Profile } from "@/lib/types";
-import { ANIMAL_POOL, SKIN_PARAMS, type ChildSigninCredentials } from "./engine";
+import type { AgeSkin } from "@/lib/types";
+import {
+  ANIMAL_POOL,
+  SKIN_PARAMS,
+  type ChildSigninCredentials,
+  type PinLoginProfile,
+} from "./engine";
 import { usePinLogin, type PinLoginStatus } from "./usePinLogin";
 import "./pin-login.css";
 
 export interface PinLoginProps {
   skin: AgeSkin;
-  profiles: readonly Profile[];
   /**
-   * Kaldes når pin'en er bekræftet. Ejeren (app-skallen) skifter selve
-   * Supabase-sessionen fra forælder til barn og returnerer om det lykkedes
-   * (Leverance B2) — se useAppShell.completeChildSignin.
+   * Kortene picker'en viser — enten forælderens fulde profilliste (RLS)
+   * eller enheds-roster'en, uden forskel for denne komponent (Leverance B4).
+   */
+  profiles: readonly PinLoginProfile[];
+  /**
+   * Kaldes når pin'en er bekræftet, med profilens id. Ejeren (app-skallen)
+   * skifter selve Supabase-sessionen fra forælder til barn og returnerer
+   * om det lykkedes (Leverance B2) — se useAppShell.completeChildSignin.
    */
   onLoggedIn: (
-    profile: Profile,
+    profileId: string,
     credentials: ChildSigninCredentials,
   ) => Promise<boolean>;
 }
@@ -127,8 +136,8 @@ function ProfilePicker({
   onChoose,
 }: {
   skin: AgeSkin;
-  profiles: readonly Profile[];
-  onChoose: (profile: Profile) => void;
+  profiles: readonly PinLoginProfile[];
+  onChoose: (profile: PinLoginProfile) => void;
 }) {
   return (
     <div className="flex flex-col items-center gap-6 py-4 text-center">
@@ -181,7 +190,7 @@ function PinPad({
   onPressAnimal,
 }: {
   skin: AgeSkin;
-  profile: Profile;
+  profile: PinLoginProfile;
   entered: readonly string[];
   status: PinLoginStatus;
   waitSeconds: number;
@@ -320,7 +329,7 @@ function FeedbackLine({
 // Velkomst
 // ----------------------------------------------------------------------------
 
-function Welcome({ skin, profile }: { skin: AgeSkin; profile: Profile }) {
+function Welcome({ skin, profile }: { skin: AgeSkin; profile: PinLoginProfile }) {
   return (
     <div className="flex flex-col items-center gap-4 py-10 text-center">
       <span

@@ -17,7 +17,11 @@
 
 import { useMemo, useState } from "react";
 import { ParentAuth } from "@/features/parent-auth";
-import { PinLogin, type ChildSigninCredentials } from "@/features/pin-login";
+import {
+  PinLogin,
+  type ChildSigninCredentials,
+  type PinLoginProfile,
+} from "@/features/pin-login";
 import { WorldMap } from "@/features/verdenskort/WorldMap";
 import { LessonScreen } from "@/features/lektion/LessonScreen";
 import { HistorierBjergeScreen } from "@/features/historiernes-bjerge";
@@ -62,7 +66,7 @@ export function AppShell() {
 
         {shell.view === "picker" && (
           <Picker
-            profiles={shell.profiles}
+            profiles={shell.pickerProfiles}
             onLoggedIn={shell.completeChildSignin}
             onParentGate={() => shell.goTo("parent_gate")}
           />
@@ -151,9 +155,9 @@ function Picker({
   onLoggedIn,
   onParentGate,
 }: {
-  profiles: Profile[] | null;
+  profiles: PinLoginProfile[] | null;
   onLoggedIn: (
-    profile: Profile,
+    profileId: string,
     credentials: ChildSigninCredentials,
   ) => Promise<boolean>;
   onParentGate: () => void;

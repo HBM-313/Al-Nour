@@ -2,33 +2,47 @@
  * useAppShell — appens øverste state-maskine (ejer-godkendt demo
  * nour-app-skal-demo.html, milepælen "Barnets rejse → profilen").
  *
- * Delt-enhed-modellen (arkitektur-faktum fra RLS): PROFILLISTEN kræver
- * fortsat forælderens Supabase-session at HENTE (`owner_account_id =
- * auth.uid()`) — barnets indgang forudsætter derfor at forælderen har
- * logget ind på enheden mindst én gang i denne app-session. MEN siden
- * Leverance B2 er dyre-pinnen ikke længere kun en UI-port: en bestået pin
- * (eller en ulåst profil) udsteder nu barnets EGEN, rigtige Supabase-
- * session (se `completeChildSignin`) — RLS'en fra B1 (`profiles_child_
- * select_own` m.fl.) er det der reelt beskytter søskende fra hinanden,
- * ikke længere kun UI'et.
+ * Leverance B4 (plan-boernesession-og-dashboard.md del 4): skallen har to
+ * RIGTIGE indgange, ikke længere kun én vej gennem forælderens session:
  *
- * To identiteter, aldrig begge aktive samtidig (plan-boernesession-og-
- * dashboard.md del 7, spørgsmål 2): et barne-login signer eksplicit
- * forælderen HELT ud først. Den allerede hentede profilliste bevares i
- * React-state hen over skiftet (se `goTo("picker")`), så søskende kan
- * skifte mellem hinanden uden at en voksen skal logge ind igen — en
- * gen-hentning under et barns session ville alligevel fejle (RLS viser
- * kun barnet selv) og tømme listen for de andre. Fuld "bootstrap picker
- * uden nogensinde at have haft en forælder-session" (enheds-roster) er
- * Leverance B4, ikke denne.
+ *   1. Session findes og er et BARNS EGEN (kendes ved at et af de
+ *      hentede profil-rækker har `auth_user_id === session.user.id`,
+ *      jf. RLS `profiles_child_select_own`) → genoptag direkte i
+ *      "child"-tilstand. Løser B2's kendte begrænsning: en side-
+ *      genindlæsning midt i en barnesession endte hidtil på pin-skærmen.
+ *      Ejer-beslutning (denne session): mindst friktion — INGEN pin
+ *      genindtastes ved en gyldig, ikke-udløbet session.
+ *   2. Session findes og er FORÆLDERENS (ingen af profilerne matcher) →
+ *      uændret adfærd: picker med den fulde profilliste.
+ *   3. Ingen session, men enheds-roster'en (lib/childRoster.ts) husker
+ *      børn fra et tidligere login på DENNE enhed → picker bygget på
+ *      roster-kortene (kun {profileId, displayName, avatar, hasPin} —
+ *      ALDRIG forælderens data). Samme pin-flow som ellers.
+ *   4. Ingen session, tom roster (helt frisk enhed) → Landing. Et barn
+ *      har reelt intet at gøre her uden en forælder først (del 5.2) —
+ *      "Log ind som forælder" ER svaret på "er du forælder eller barn"
+ *      i det tilfælde.
+ *
+ * Uanset hvilken vej et barn logger ind ad, henter `completeChildSignin`
+ * den KANONISKE profil frisk under barnets egen, nu bekræftede session
+ * (samme RLS, samme `fetchOwnProfiles()`) — nødvendigt fordi et
+ * roster-kort ikke kender fødselsår/stemmevalg/niveau, og fordi det
+ * retter enhver forældet cache uden ekstra kode.
+ *
+ * To identiteter, aldrig begge aktive samtidig (plan del 7, spørgsmål 2):
+ * et barne-login signer eksplicit forælderen HELT ud først, og et skift
+ * VÆK fra en barnesession (fx "Skift bruger") signer barnet ud igen FØR
+ * picker'en vises — en barnesession kan (RLS) kun se sig selv, så
+ * søskende-kortene skal komme fra roster'en, ikke fra en gen-hentning
+ * under den forkerte identitet.
  *
  * Visninger:
  *   loading      — boot: supabase.auth.getSession()
- *   landing      — ingen session: "Log ind som forælder" / "Prøv uden konto"
+ *   landing      — ingen session, tom roster: "Log ind som forælder" / "Prøv uden konto"
  *   parent       — forældre-området (ParentAuth: login → samtykke → dashboard)
  *   picker       — børne-indgangen (PinLogin: profilvælger → dyre-pin)
  *   parent_gate  — fuld reautentificering (e-mail+adgangskode) fra picker
- *                  → parent. IKKE længere kun "genindtast kodeord for den
+ *                  → parent. IKKE kun "genindtast kodeord for den
  *                  allerede indloggede" (B2): den aktive session kan være
  *                  et BARNS, så porten skal kunne skifte identitet helt.
  *                  Barnet må aldrig kunne nå slette-knapperne.
@@ -36,13 +50,18 @@
  *   guest        — prøve-indgang: lokal-gem + venlig "gem dit lys"-opfordring
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { setVoicePref } from "@/lib/voicePref";
 import { startSyncEngine } from "@/lib/progressQueue";
-import { rememberChildInRoster } from "@/lib/childRoster";
+import { getChildRoster, rememberChildInRoster } from "@/lib/childRoster";
 import type { Profile } from "@/lib/types";
-import type { ChildSigninCredentials } from "@/features/pin-login";
+import {
+  pinLoginProfileFromProfile,
+  pinLoginProfileFromRoster,
+  type ChildSigninCredentials,
+  type PinLoginProfile,
+} from "@/features/pin-login";
 import {
   checkGuestMigration,
   fetchOwnProfiles,
@@ -61,6 +80,12 @@ export type ShellView =
 export function useAppShell() {
   const [view, setView] = useState<ShellView>("loading");
   const [profiles, setProfiles] = useState<Profile[] | null>(null);
+  // Sat NÅR og KUN når vi bevidst viser picker uden en forælder-session
+  // (Leverance B4, gren 3 ovenfor) — holdt adskilt fra `profiles` for at
+  // undgå at overloade "null" med to betydninger ("henter stadig" vs.
+  // "her er roster-kortene"). Ryddes så snart en rigtig profilliste
+  // hentes, så en senere forælder-session altid vinder.
+  const [rosterFallback, setRosterFallback] = useState<PinLoginProfile[] | null>(null);
   const [activeChild, setActiveChild] = useState<Profile | null>(null);
   const [migrationOffer, setMigrationOffer] = useState<{
     profile: Profile;
@@ -80,21 +105,83 @@ export function useAppShell() {
   const authTransitionInFlight = useRef(false);
 
   const loadProfiles = useCallback(async () => {
-    setProfiles(await fetchOwnProfiles());
+    const own = await fetchOwnProfiles();
+    setProfiles(own);
+    if (own !== null) setRosterFallback(null);
+  }, []);
+
+  /** Barnet har bestået dyre-pinnen (eller profilen er ulåst) — ELLER en gyldig egen session blev genoptaget ved boot. */
+  const onChildLoggedIn = useCallback((profile: Profile) => {
+    // SIKKERHEDSKRITISK: den aktive identitet er nu barnets, ikke
+    // forælderens (uanset om vi kom hertil via et frisk pin-login eller
+    // en genoptaget session ved boot). En tidligere bestået forældre-port
+    // gjaldt en anden identitet — den må IKKE overleve, ellers kunne
+    // barnet gå picker → "🔒 Forælder" → parent_gate og springe lige ind
+    // i dashboardet uden kodeord.
+    gatePassed.current = false;
+    setActiveChild(profile);
+    // Stemmen følger profilen (ejer-godkendt): skriv ind i det eksisterende
+    // voicePref-lager, så alle spil forbliver urørte.
+    setVoicePref(profile.preferred_voice === "male" ? "male" : "female");
+    // Enheds-lokal roster: husk/opdatér barnet ved HVERT login (frisk
+    // hasPin retter enhver forældet cache automatisk) — grundlaget for
+    // Leverance B4's roster-drevne picker.
+    rememberChildInRoster({
+      profileId: profile.id,
+      displayName: profile.display_name,
+      avatar: profile.avatar,
+      hasPin: profile.pin_hash !== null,
+    });
+
+    void checkGuestMigration(profile.id).then((check) => {
+      if (check.shouldOffer) {
+        setMigrationOffer({ profile, lessonCount: check.guestLessonCount });
+      } else {
+        setView("child");
+      }
+    });
   }, []);
 
   // Boot + reaktion på login/logout (fx "log ud" inde i dashboardet).
   useEffect(() => {
     let cancelled = false;
 
-    void supabase.auth.getSession().then(({ data }) => {
+    void supabase.auth.getSession().then(async ({ data }) => {
       if (cancelled) return;
-      if (data.session) {
-        void loadProfiles();
-        setView("picker");
-      } else {
-        setView("landing");
+      const session = data.session;
+
+      if (!session) {
+        // Gren 3/4: ingen session — roster'en (tidligere login på DENNE
+        // enhed) afgør om vi kan vise picker uden en forælder, eller om
+        // det må være Landing (frisk enhed, del 5.2).
+        const roster = getChildRoster();
+        if (roster.length > 0) {
+          setRosterFallback(roster.map(pinLoginProfileFromRoster));
+          setView("picker");
+        } else {
+          setView("landing");
+        }
+        return;
       }
+
+      // Gren 1/2: en session findes. Samme kald (`fetchOwnProfiles`)
+      // virker for BÅDE en forælder (alle egne børn, `profiles_owner_all`)
+      // OG et barn (kun sig selv, `profiles_child_select_own`) — RLS
+      // afgør omfanget, ikke klienten.
+      const own = await fetchOwnProfiles();
+      if (cancelled) return;
+      setProfiles(own);
+      if (own !== null) setRosterFallback(null);
+
+      const ownChild = own?.find((p) => p.auth_user_id === session.user.id) ?? null;
+      if (ownChild) {
+        // Gren 1: denne session ER barnets egen — genoptag direkte,
+        // ingen picker, ingen pin (ejer-beslutning: mindst friktion).
+        onChildLoggedIn(ownChild);
+        return;
+      }
+      // Gren 2: forælder/redaktør/godkender-session — uændret adfærd.
+      setView("picker");
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
@@ -118,46 +205,29 @@ export function useAppShell() {
       cancelled = true;
       sub.subscription.unsubscribe();
     };
-  }, [loadProfiles]);
+  }, [loadProfiles, onChildLoggedIn]);
 
   // Leverance 1.1: tøm den offline-kø der måtte være liggende fra sidste
   // session (app-start), og igen hver gang enheden bliver online. Billigt
   // no-op når køen er tom — kører derfor uafhængigt af login-status.
   useEffect(() => startSyncEngine(), []);
 
-  /** Barnet har bestået dyre-pinnen (eller profilen er ulåst). */
-  const onChildLoggedIn = useCallback((profile: Profile) => {
-    setActiveChild(profile);
-    // Stemmen følger profilen (ejer-godkendt): skriv ind i det eksisterende
-    // voicePref-lager, så alle spil forbliver urørte.
-    setVoicePref(profile.preferred_voice === "male" ? "male" : "female");
-    // Enheds-lokal roster (Leverance B2-infrastruktur, fuldt taget i brug
-    // først i B4): husk barnet, så "Glem denne enhed" har noget at rydde,
-    // og så B4 kan starte herfra uden en ny dataindsamling.
-    rememberChildInRoster({
-      profileId: profile.id,
-      displayName: profile.display_name,
-      avatar: profile.avatar,
-    });
-
-    void checkGuestMigration(profile.id).then((check) => {
-      if (check.shouldOffer) {
-        setMigrationOffer({ profile, lessonCount: check.guestLessonCount });
-      } else {
-        setView("child");
-      }
-    });
-  }, []);
-
   /**
-   * Leverance B2: pin'en er bekræftet af serveren (child-signin). Skift
-   * den AKTIVE Supabase-session fra forælderens til barnets EGEN — signOut
-   * FØRST (eksplicit, jf. planens del 7 spørgsmål 2: "log helt ud"), derefter
-   * verifyOtp med engangs-tokenet. Fail-closed ved fejl: ingen session er
-   * bedre end en forkert én.
+   * Leverance B2 (udvidet i B4): pin'en er bekræftet af serveren
+   * (child-signin). Skift den AKTIVE Supabase-session fra forælderens
+   * (eller ingen) til barnets EGEN — signOut FØRST (eksplicit, jf. planens
+   * del 7 spørgsmål 2: "log helt ud"), derefter verifyOtp med engangs-
+   * tokenet. Fail-closed ved fejl: ingen session er bedre end en forkert
+   * én.
+   *
+   * `profileId` er alt vi får ind (ikke et fuldt Profile-objekt) — kortet
+   * kan have kommet fra enten forælderens fulde liste ELLER enheds-
+   * roster'en (Leverance B4), som kun kender {id, navn, avatar, hasPin}.
+   * Vi henter derfor den KANONISKE profil frisk under barnets egen,
+   * nu-bekræftede session, uanset kilde.
    */
   const completeChildSignin = useCallback(
-    async (profile: Profile, credentials: ChildSigninCredentials) => {
+    async (profileId: string, credentials: ChildSigninCredentials) => {
       authTransitionInFlight.current = true;
       let ok = false;
       try {
@@ -182,13 +252,23 @@ export function useAppShell() {
         return false;
       }
 
-      // SIKKERHEDSKRITISK: den aktive identitet er nu barnets, ikke
-      // forælderens. En tidligere bestået forældre-port (`gatePassed`)
-      // gjaldt forælderens session — den må IKKE overleve identitetsskiftet,
-      // ellers kunne barnet gå picker → "🔒 Forælder" → parent_gate og
-      // springe lige ind i dashboardet uden kodeord.
-      gatePassed.current = false;
-      onChildLoggedIn(profile);
+      const freshProfiles = await fetchOwnProfiles();
+      const own = freshProfiles?.find((p) => p.id === profileId) ?? null;
+      if (!own) {
+        // Uventet: pin'en var korrekt, men profilen kunne ikke genfindes
+        // under barnets egen session (fx slettet i mellemtiden af en
+        // forælder). Fail-closed frem for at gå videre med ufuldstændige
+        // data.
+        await supabase.auth.signOut();
+        setProfiles(null);
+        setActiveChild(null);
+        setView("landing");
+        return false;
+      }
+
+      setProfiles(freshProfiles);
+      setRosterFallback(null);
+      onChildLoggedIn(own);
       return true;
     },
     [onChildLoggedIn],
@@ -251,25 +331,46 @@ export function useAppShell() {
   const goTo = useCallback(
     (target: Exclude<ShellView, "loading">) => {
       if (target === "parent_gate") setGateStatus("idle");
+
       if (target === "picker") {
+        const wasChild = activeChild !== null;
         setActiveChild(null);
+
+        if (wasChild) {
+          // Barnets egen session kan (RLS) kun se sig selv — for at vise
+          // søskende igen skal identiteten skiftes helt væk først, og
+          // roster'en (enheds-cache, Leverance B4) tager over som
+          // datakilde for kortene, uafhængigt af hvad der lige var aktivt.
+          authTransitionInFlight.current = true;
+          void supabase.auth.signOut().finally(() => {
+            authTransitionInFlight.current = false;
+            setProfiles(null);
+            const roster = getChildRoster();
+            setRosterFallback(roster.length > 0 ? roster.map(pinLoginProfileFromRoster) : null);
+            setView("picker");
+          });
+          return;
+        }
+
         if (profiles !== null) {
-          // Familiens profilliste er allerede hentet under forælderens
-          // session tidligere i DENNE app-session. Et barns egen session
-          // (Leverance B2) har ikke RLS-adgang til at gen-hente den — og
-          // gør heller ikke behov for det: listen er stadig gyldig, indtil
-          // en forælder rent faktisk logger ind igen. Gen-hentning her
-          // ville vise en tom liste for de øvrige søskende. Gå derfor
-          // direkte til profilvælgeren, så børn kan skifte uden en voksen.
+          // Forælderens session er stadig aktiv i denne fane — søskende
+          // kendes allerede, ingen gen-hentning nødvendig.
           setView("picker");
           return;
         }
-        // Ingen kendt liste endnu (frisk app-start uden aktiv session):
-        // børne-indgangen kræver en forælder-session (delt-enhed-modellen).
-        // Uden session: forsiden — aldrig en tom, vildledende profilvælger.
+
+        // Ingen kendt liste, og ingen barne-session at rydde: tjek om en
+        // forælder-session findes (uændret adfærd); ellers falder vi
+        // tilbage på enheds-roster'en (B4), og kun i sidste ende Landing.
         void supabase.auth.getSession().then(({ data }) => {
           if (data.session) {
             void loadProfiles();
+            setView("picker");
+            return;
+          }
+          const roster = getChildRoster();
+          if (roster.length > 0) {
+            setRosterFallback(roster.map(pinLoginProfileFromRoster));
             setView("picker");
           } else {
             setView("landing");
@@ -277,6 +378,7 @@ export function useAppShell() {
         });
         return;
       }
+
       // Fra picker mod forældre-området: spring porten over hvis den
       // allerede er passeret i denne session.
       if (target === "parent_gate" && gatePassed.current) {
@@ -285,12 +387,21 @@ export function useAppShell() {
       }
       setView(target);
     },
-    [loadProfiles, profiles],
+    [loadProfiles, profiles, activeChild],
   );
+
+  // Det picker'en reelt viser: forælderens fulde liste (mappet til det
+  // lette PinLogin-format) hvis den findes, ellers roster-fallbacken
+  // (Leverance B4), ellers intet endnu (genuint "henter …").
+  const pickerProfiles = useMemo<PinLoginProfile[] | null>(() => {
+    if (profiles !== null) return profiles.map(pinLoginProfileFromProfile);
+    return rosterFallback;
+  }, [profiles, rosterFallback]);
 
   return {
     view,
     profiles,
+    pickerProfiles,
     activeChild,
     migrationOffer,
     gateStatus,
