@@ -21,6 +21,7 @@ import { ListenFindGame } from "@/features/lyt-og-find/ListenFindGame";
 import { TegnBogstavetGame } from "@/features/tegn-bogstavet/TegnBogstavetGame";
 import { MatchPairsGame } from "@/features/match-par/MatchPairsGame";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { useT, type Dictionary } from "@/lib/i18n";
 import { useLesson } from "./useLesson";
 import "./lektion.css";
 
@@ -47,6 +48,7 @@ export function LessonScreen({
   onExit,
 }: LessonScreenProps) {
   const lesson = useLesson({ lessonId, skin, profileId });
+  const t = useT("da");
 
   const stars = useMemo(
     () =>
@@ -103,7 +105,7 @@ export function LessonScreen({
             className="me-auto text-base font-bold sm:text-lg"
             style={{ color: "#f4ecd8", fontFamily: "var(--font-display)" }}
           >
-            {lesson.lesson?.title_da ?? "Lektion"}{" "}
+            {lesson.lesson?.title_da ?? t.lektion.fallbackTitle}{" "}
             {lesson.lesson?.title_ar && (
               <span
                 dir="rtl"
@@ -120,7 +122,7 @@ export function LessonScreen({
             className="rounded-full px-3 py-1 text-sm font-semibold"
             style={{ background: "rgba(255,255,255,0.1)", color: "#dbe4f2" }}
           >
-            Til kortet
+            {t.lektion.backToMap}
           </button>
         </div>
 
@@ -132,7 +134,7 @@ export function LessonScreen({
             aria-valuenow={lit}
             aria-valuemin={0}
             aria-valuemax={total}
-            aria-label={`Trin ${lit} af ${total} tændt`}
+            aria-label={t.lektion.stepsLit(lit, total)}
           >
             {lesson.steps.map((s, i) => (
               <span key={s.id} className="flex items-center gap-2">
@@ -156,14 +158,14 @@ export function LessonScreen({
         {/* Faser */}
         {lesson.loadState.status === "loading" && (
           <p className="py-16 text-center" style={{ color: "#b9c6da" }}>
-            Tænder lanterner …
+            {t.lektion.loadingLanterns}
           </p>
         )}
 
         {lesson.loadState.status === "error" && (
           <div className="py-16 text-center">
             <p className="font-semibold" style={{ color: "#f09595" }}>
-              Noget gik galt
+              {t.common.somethingWrong}
             </p>
             <p className="mt-1 text-sm" style={{ color: "#b9c6da" }}>
               {lesson.loadState.message}
@@ -172,7 +174,7 @@ export function LessonScreen({
         )}
 
         {lesson.loadState.status === "ready" && lesson.phase === "intro" && (
-          <Intro lesson={lesson} skin={skin} />
+          <Intro lesson={lesson} skin={skin} t={t} />
         )}
 
         {lesson.loadState.status === "ready" &&
@@ -184,8 +186,7 @@ export function LessonScreen({
                 className="mb-2 text-center text-sm font-semibold"
                 style={{ color: "#ffe3a1" }}
               >
-                Trin {lesson.stepIndex + 1} af {total} ·{" "}
-                {lesson.currentStep.title_da}
+                {t.lektion.stepOf(lesson.stepIndex + 1, total, lesson.currentStep.title_da)}
               </p>
               {lesson.currentStep.game_type === "lyt_og_find" && (
                 <ErrorBoundary
@@ -238,11 +239,11 @@ export function LessonScreen({
 
         {lesson.loadState.status === "ready" &&
           lesson.phase === "breather" && (
-            <Breather lesson={lesson} skin={skin} onExit={onExit} />
+            <Breather lesson={lesson} skin={skin} onExit={onExit} t={t} />
           )}
 
         {lesson.loadState.status === "ready" && lesson.phase === "done" && (
-          <Done lesson={lesson} skin={skin} onExit={onExit} />
+          <Done lesson={lesson} skin={skin} onExit={onExit} t={t} />
         )}
       </div>
     </div>
@@ -255,7 +256,7 @@ export function LessonScreen({
 
 type LessonState = ReturnType<typeof useLesson>;
 
-function Intro({ lesson, skin }: { lesson: LessonState; skin: AgeSkin }) {
+function Intro({ lesson, skin, t }: { lesson: LessonState; skin: AgeSkin; t: Dictionary }) {
   return (
     <div className="lk-fade py-6 text-center">
       {lesson.lesson?.title_ar && (
@@ -273,9 +274,9 @@ function Intro({ lesson, skin }: { lesson: LessonState; skin: AgeSkin }) {
         </p>
       )}
       <p className="mt-3 text-sm" style={{ color: "#b9c6da" }}>
-        {lesson.steps.length} trin · stigende sværhedsgrad
+        {t.lektion.introStepsCount(lesson.steps.length)}
         <br />
-        Du kan stoppe når som helst — alt gemmes
+        {t.lektion.introStopAnytime}
       </p>
       <div className="mt-5 flex flex-col items-center gap-2">
         <button
@@ -284,8 +285,8 @@ function Intro({ lesson, skin }: { lesson: LessonState; skin: AgeSkin }) {
           style={{ background: "var(--color-nour)", color: "#3d2a00" }}
         >
           {lesson.canResume
-            ? `Fortsæt hvor du slap · trin ${lesson.resumeStep + 1} ✦`
-            : "Start lektionen ✦"}
+            ? t.lektion.resumeAt(lesson.resumeStep + 1)
+            : t.lektion.startLesson}
         </button>
         {lesson.canResume && (
           <button
@@ -293,13 +294,13 @@ function Intro({ lesson, skin }: { lesson: LessonState; skin: AgeSkin }) {
             className="rounded-full px-5 py-2 text-sm font-semibold"
             style={{ background: "rgba(255,255,255,0.1)", color: "#dbe4f2" }}
           >
-            Start forfra
+            {t.lektion.startOver}
           </button>
         )}
       </div>
       {skin === "soft" && (
         <p className="mt-4 text-xs" style={{ color: "#8fa4c4" }}>
-          Korte, blide trin — i barnets tempo
+          {t.lektion.softIntroHint}
         </p>
       )}
     </div>
@@ -310,10 +311,12 @@ function Breather({
   lesson,
   skin,
   onExit,
+  t,
 }: {
   lesson: LessonState;
   skin: AgeSkin;
   onExit: () => void;
+  t: Dictionary;
 }) {
   const nextStep = lesson.steps[lesson.stepIndex + 1];
   return (
@@ -325,34 +328,34 @@ function Breather({
         className="mt-2 text-base font-bold"
         style={{ color: "#ffe3a1", fontFamily: "var(--font-display)" }}
       >
-        Trin {lesson.stepIndex + 1} af {lesson.steps.length} tændt ✦
+        {t.lektion.stepLitOf(lesson.stepIndex + 1, lesson.steps.length)}
       </p>
       {skin !== "soft" && lesson.sessionXp > 0 && (
         <p className="mt-1 text-sm font-semibold" style={{ color: "#ffe3a1" }}>
-          ★ {lesson.sessionXp} XP i denne session
+          {t.lektion.xpThisSession(lesson.sessionXp)}
         </p>
       )}
       {nextStep && (
         <p className="mt-2 text-sm" style={{ color: "#b9c6da" }}>
-          Næste:{" "}
+          {t.lektion.nextLabel}{" "}
           <b style={{ color: "#dbe4f2" }}>{nextStep.title_da}</b>
         </p>
       )}
-      <SaveHint lesson={lesson} />
+      <SaveHint lesson={lesson} t={t} />
       <div className="mt-4 flex flex-wrap justify-center gap-2">
         <button
           onClick={lesson.continueToNext}
           className="flex items-center gap-2 rounded-full px-6 py-3 text-base font-bold transition-transform active:scale-95"
           style={{ background: "var(--color-nour)", color: "#3d2a00" }}
         >
-          Videre <ArrowRight className="size-4" />
+          {t.lektion.next} <ArrowRight className="size-4" />
         </button>
         <button
           onClick={onExit}
           className="rounded-full px-5 py-3 text-sm font-semibold"
           style={{ background: "rgba(255,255,255,0.1)", color: "#dbe4f2" }}
         >
-          Stop her — alt er gemt
+          {t.lektion.stopHereSaved}
         </button>
       </div>
     </div>
@@ -363,10 +366,12 @@ function Done({
   lesson,
   skin,
   onExit,
+  t,
 }: {
   lesson: LessonState;
   skin: AgeSkin;
   onExit: () => void;
+  t: Dictionary;
 }) {
   return (
     <div className="lk-fade py-6 text-center">
@@ -381,12 +386,12 @@ function Done({
           fontFamily: "var(--font-display)",
         }}
       >
-        Lektionen lyser! ✦
+        {t.lektion.lessonGlows}
       </p>
       <p className="mt-2 text-sm" style={{ color: "#cdd8ea" }}>
-        Alle {lesson.steps.length} trin gennemført
+        {t.lektion.allStepsDone(lesson.steps.length)}
         {skin !== "soft" && lesson.sessionXp > 0 && (
-          <> · ★ {lesson.sessionXp} XP</>
+          <>{t.lektion.xpSuffix(lesson.sessionXp)}</>
         )}
         <br />
         {lesson.lesson?.title_ar && (
@@ -394,35 +399,35 @@ function Done({
             {lesson.lesson.title_ar}
           </span>
         )}{" "}
-        er dine nu — dalen har fået mere lys.
+        {t.lektion.yoursNow}
       </p>
-      <SaveHint lesson={lesson} />
+      <SaveHint lesson={lesson} t={t} />
       <div className="mt-4 flex flex-wrap justify-center gap-2">
         <button
           onClick={onExit}
           className="flex items-center gap-2 rounded-full px-6 py-3 text-base font-bold transition-transform active:scale-95"
           style={{ background: "var(--color-nour)", color: "#3d2a00" }}
         >
-          Til kortet <ArrowRight className="size-4" />
+          {t.lektion.backToMap} <ArrowRight className="size-4" />
         </button>
         <button
           onClick={lesson.restart}
           className="flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold"
           style={{ background: "rgba(255,255,255,0.1)", color: "#dbe4f2" }}
         >
-          <RotateCcw className="size-4" /> Spil igen
+          <RotateCcw className="size-4" /> {t.lektion.playAgain}
         </button>
       </div>
     </div>
   );
 }
 
-function SaveHint({ lesson }: { lesson: LessonState }) {
+function SaveHint({ lesson, t }: { lesson: LessonState; t: Dictionary }) {
   if (lesson.saveState === "idle") return null;
   return (
     <p className="mt-1 flex items-center gap-1.5 text-xs" style={{ color: "#8fa4c4" }}>
-      {lesson.saveState === "saving" && "Gemmer fremskridt …"}
-      {lesson.saveState === "saved" && "Fremskridt gemt ✓"}
+      {lesson.saveState === "saving" && t.lektion.savingProgress}
+      {lesson.saveState === "saved" && t.lektion.progressSaved}
       {lesson.saveState === "queued" && (
         <>
           <span
@@ -430,10 +435,10 @@ function SaveHint({ lesson }: { lesson: LessonState }) {
             style={{ background: "var(--color-nour)" }}
             aria-hidden
           />
-          Dit lys gemmes, når du er online igen
+          {t.lektion.progressQueued}
         </>
       )}
-      {lesson.saveState === "error" && "Kunne ikke gemmes lige nu — prøver igen"}
+      {lesson.saveState === "error" && t.lektion.progressError}
     </p>
   );
 }

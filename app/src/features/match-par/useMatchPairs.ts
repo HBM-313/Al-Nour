@@ -21,6 +21,7 @@ import { preferredAudioId } from "@/lib/voicePref";
 import type { AgeSkin, LessonStepParams, Letter, VocabularyWord } from "@/lib/types";
 import { canSpeak, createAudioPlayer, speak, stopSpeaking } from "@/lib/audio";
 import { saveRoundProgress } from "@/lib/progress";
+import { useT } from "@/lib/i18n";
 import {
   SKIN_CONFIG,
   buildDeck,
@@ -66,6 +67,7 @@ export interface UseMatchPairsOptions {
 export function useMatchPairs(options: UseMatchPairsOptions) {
   const { skin, level, category, profileId, lessonId, step, onRoundComplete } = options;
   const cfg = SKIN_CONFIG[skin];
+  const t = useT("da");
 
   const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
   const [deck, setDeck] = useState<PairCard[]>([]);
@@ -179,9 +181,7 @@ export function useMatchPairs(options: UseMatchPairsOptions) {
       if (vocabRes.error || !vocabRes.data || vocabRes.data.length < 2) {
         setLoadState({
           status: "error",
-          message:
-            vocabRes.error?.message ??
-            "For få ord i databasen til at bygge par.",
+          message: vocabRes.error?.message ?? t.matchPar.tooFewWords,
         });
         return;
       }
@@ -236,7 +236,7 @@ export function useMatchPairs(options: UseMatchPairsOptions) {
       player.dispose();
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [level, player]);
+  }, [level, player, t]);
 
   // Byg (ny) runde når data er klar eller skind/kategori skifter
   useEffect(() => {

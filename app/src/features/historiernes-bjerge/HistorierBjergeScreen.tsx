@@ -13,6 +13,7 @@
 import { useEffect, useState } from "react";
 import type { AgeSkin, Content } from "@/lib/types";
 import { bodyForSkin, quizForSkin } from "@/lib/types";
+import { useT, type Dictionary } from "@/lib/i18n";
 import { ageForFetch, fetchStoriesForAge } from "./engine";
 import "./historiernes-bjerge.css";
 
@@ -31,12 +32,13 @@ export function HistorierBjergeScreen({
   const [error, setError] = useState<string | null>(null);
   const [stories, setStories] = useState<Content[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const t = useT("da");
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetchStoriesForAge(ageForFetch(skin, birthYear)).then((res) => {
+    fetchStoriesForAge(ageForFetch(skin, birthYear), t.historierBjerge.fetchError).then((res) => {
       if (cancelled) return;
       if (!res.ok) {
         setError(res.error);
@@ -71,6 +73,7 @@ export function HistorierBjergeScreen({
             story={selected}
             skin={skin}
             onBack={() => setSelectedId(null)}
+            t={t}
           />
         ) : (
           <StoryList
@@ -78,6 +81,7 @@ export function HistorierBjergeScreen({
             error={error}
             stories={stories}
             onOpen={setSelectedId}
+            t={t}
           />
         )}
 
@@ -85,7 +89,7 @@ export function HistorierBjergeScreen({
           className="hb-mountain-soft block mx-auto mt-7 font-[family-name:var(--font-display)] font-bold text-sm bg-transparent border-0 cursor-pointer"
           onClick={selected ? () => setSelectedId(null) : onExit}
         >
-          ← {selected ? "Til fortællingerne" : "Tilbage til kortet"}
+          ← {selected ? t.historierBjerge.backToStories : t.historierBjerge.backToMap}
         </button>
       </div>
     </div>
@@ -101,16 +105,18 @@ function StoryList({
   error,
   stories,
   onOpen,
+  t,
 }: {
   loading: boolean;
   error: string | null;
   stories: Content[];
   onOpen: (id: string) => void;
+  t: Dictionary;
 }) {
   if (loading) {
     return (
       <div className="hb-card p-8 text-center text-[var(--color-ink-soft)]">
-        Henter fortællinger …
+        {t.historierBjerge.loadingStories}
       </div>
     );
   }
@@ -129,8 +135,7 @@ function StoryList({
           ✨
         </p>
         <p className="text-[var(--color-ink-soft)] leading-relaxed max-w-[26rem] mx-auto">
-          Historiernes Bjerge venter stadig på sin første fortælling. Kom
-          snart tilbage — lyset er ved at blive tændt.
+          {t.historierBjerge.emptyStateText}
         </p>
       </div>
     );
@@ -167,10 +172,12 @@ function StoryList({
 function StoryView({
   story,
   skin,
+  t,
 }: {
   story: Content;
   skin: AgeSkin;
   onBack: () => void;
+  t: Dictionary;
 }) {
   const bodyText = bodyForSkin(story, skin);
 
@@ -179,7 +186,7 @@ function StoryView({
       <LightScene />
       <div className="hb-card p-6">
         <span className="hb-verified-bg inline-flex items-center gap-1.5 text-[var(--color-verified)] font-extrabold text-xs rounded-full px-3 py-1.5 mb-4">
-          <CheckIcon /> Kilde-verificeret
+          <CheckIcon /> {t.historierBjerge.sourceVerified}
         </span>
 
         <h2 className="font-[family-name:var(--font-display)] font-bold text-[1.2em] text-[var(--color-ink)] mb-1">
@@ -192,7 +199,7 @@ function StoryView({
         )}
         {story.source_reference && (
           <p className="hb-source text-xs text-[var(--color-ink-soft)] pb-4 mb-4">
-            Kilde: {story.source_reference}
+            {t.historierBjerge.sourceLabel(story.source_reference)}
           </p>
         )}
 
@@ -202,7 +209,7 @@ function StoryView({
 
         {(() => {
           const quiz = quizForSkin(story, skin);
-          return quiz && quiz.length > 0 ? <Quiz questions={quiz} skin={skin} /> : null;
+          return quiz && quiz.length > 0 ? <Quiz questions={quiz} skin={skin} t={t} /> : null;
         })()}
       </div>
     </div>
@@ -279,21 +286,21 @@ interface QuizAnswerState {
 function Quiz({
   questions,
   skin,
+  t,
 }: {
   questions: NonNullable<Content["quiz_da"]>;
   skin: AgeSkin;
+  t: Dictionary;
 }) {
   const [answers, setAnswers] = useState<Record<number, QuizAnswerState>>({});
 
   return (
     <div className="hb-quiz mt-8 pt-6">
       <h3 className="font-[family-name:var(--font-display)] font-bold text-[1.1em] text-[var(--color-ink)] mb-1">
-        Hvad husker du?
+        {t.historierBjerge.quizHeading}
       </h3>
       <p className="text-sm text-[var(--color-ink-soft)] mb-5">
-        {skin === "soft"
-          ? "Prøv at trykke — der er ikke noget forkert svar her."
-          : "Vælg det du husker fra fortællingen."}
+        {skin === "soft" ? t.historierBjerge.quizIntroSoft : t.historierBjerge.quizIntroOther}
       </p>
       {questions.map((q, qi) => {
         const picked = answers[qi];
@@ -339,10 +346,10 @@ function Quiz({
                 }
               >
                 {skin === "soft"
-                  ? "Godt tænkt! ✨"
+                  ? t.historierBjerge.quizFeedbackSoft
                   : questions[qi].options[picked.pickedIndex]?.correct
-                    ? "Ja, sådan var det! 🌟"
-                    : "Tæt på — det rigtige svar er fremhævet ovenfor."}
+                    ? t.historierBjerge.quizFeedbackCorrect
+                    : t.historierBjerge.quizFeedbackWrong}
               </p>
             )}
           </div>

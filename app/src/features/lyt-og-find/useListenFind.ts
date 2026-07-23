@@ -21,6 +21,7 @@ import type { AgeSkin, LessonStepParams, Letter, VocabularyWord } from "@/lib/ty
 import { buildRound, buildStepRound, type Question } from "./engine";
 import { canSpeak, createAudioPlayer, speakArabic, stopSpeaking } from "@/lib/audio";
 import { saveRoundProgress } from "@/lib/progress";
+import { useT } from "@/lib/i18n";
 
 export type LoadState =
   | { status: "loading" }
@@ -56,6 +57,7 @@ const XP_RETRY = 5;
 
 export function useListenFind(options: UseListenFindOptions) {
   const { skin, level, profileId, lessonId, step, onRoundComplete } = options;
+  const t = useT("da");
 
   const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -120,8 +122,7 @@ export function useListenFind(options: UseListenFindOptions) {
       if (lettersRes.error || !lettersRes.data?.length) {
         setLoadState({
           status: "error",
-          message:
-            lettersRes.error?.message ?? "Ingen bogstaver fundet i databasen.",
+          message: lettersRes.error?.message ?? t.lytOgFind.noLettersFound,
         });
         return;
       }
@@ -165,7 +166,7 @@ export function useListenFind(options: UseListenFindOptions) {
       cancelled = true;
       player.dispose();
     };
-  }, [level, player]);
+  }, [level, player, t]);
 
   // Byg (ny) runde når data er klar eller skind skifter
   useEffect(() => {

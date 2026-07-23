@@ -78,6 +78,103 @@ export const da = {
     stepDoneDefault: (name: string) => `${name} er tændt!`,
     next: "Videre",
   },
+
+  matchPar: {
+    lightInValley: "Lys i dalen",
+    loadingLanterns: "Tænder lanterner …",
+    /** Fallback når fejlbeskeden fra Supabase mangler (fx for få ord i databasen). */
+    tooFewWords: "For få ord i databasen til at bygge par.",
+    arabicCardLabel: "Arabisk kort",
+    danishCardLabel: (word: string) => `Dansk kort: ${word}`,
+    registerFusha: "fusha",
+    registerEveryday: "hverdag",
+    valleyGlows: "Dalen lyser! ✦",
+    statsSoft: (totalPairs: number) => `Alle ${totalPairs} lanterner er tændt`,
+    statsMid: (totalPairs: number, xp: number, bestCombo: number) =>
+      `${totalPairs} par · ${xp} XP · bedste stime ${bestCombo}`,
+    statsTeen: (totalPairs: number, moves: number, precision: number, xp: number) =>
+      `${totalPairs} par på ${moves} træk · præcision ${precision}% · ${xp} XP`,
+    savingProgress: "Gemmer fremskridt …",
+    progressSaved: "Fremskridt gemt ✓",
+    progressQueued: "Dit lys gemmes, når du er online igen",
+    progressError: "Kunne ikke gemmes lige nu — prøver igen",
+    newGame: "Nyt spil",
+    playAgain: "Spil igen",
+  },
+
+  lytOgFind: {
+    loadingLetters: "Henter bogstaver …",
+    /** Fallback når fejlbeskeden fra Supabase mangler. */
+    noLettersFound: "Ingen bogstaver fundet i databasen.",
+    /** aria-label på fremskridts-prikkerne (soft/mid). */
+    questionOf: (current: number, total: number) => `Spørgsmål ${current} af ${total}`,
+    hearAgain: "Hør lyden igen",
+    syntheticVoiceNotice: "Syntetisk stemme — udskiftes med rigtig lyd senere",
+    audioNotRecorded: "Lyd ikke optaget endnu",
+    feedbackSoft: "Flot fundet! ⭐",
+    feedbackMid: (danish: string) => `Det var ${danish} — flot klaret!`,
+    feedbackTeen: (danish: string) => `Rigtigt svar: ${danish}`,
+    next: "Videre",
+    roundDoneHeading: (skin: "soft" | "mid" | "teen"): string =>
+      skin === "soft" ? "Landet fik mere lys!" : skin === "mid" ? "Godt klaret!" : "Runde færdig",
+    correctFirstTry: (correct: number, total: number) => `${correct}/${total} rigtige i første forsøg`,
+    xpEarned: (xp: number) => `+${xp} XP`,
+    savingProgress: "Gemmer fremskridt …",
+    progressSaved: "Fremskridt gemt",
+    progressQueued: "Dit lys gemmes, når du er online igen",
+    progressError: "Kunne ikke gemmes lige nu — prøver igen",
+    playAgain: "Spil igen",
+  },
+
+  historierBjerge: {
+    backToStories: "Til fortællingerne",
+    backToMap: "Tilbage til kortet",
+    loadingStories: "Henter fortællinger …",
+    /** Fejlbesked fra engine.ts's fetchStoriesForAge (parametriseret, ikke useT direkte i en ikke-hook-funktion). */
+    fetchError: "Fortællingerne kunne ikke hentes lige nu. Prøv igen.",
+    emptyStateText:
+      "Historiernes Bjerge venter stadig på sin første fortælling. Kom snart tilbage — lyset er ved at blive tændt.",
+    sourceVerified: "Kilde-verificeret",
+    sourceLabel: (ref: string) => `Kilde: ${ref}`,
+    quizHeading: "Hvad husker du?",
+    quizIntroSoft: "Prøv at trykke — der er ikke noget forkert svar her.",
+    quizIntroOther: "Vælg det du husker fra fortællingen.",
+    quizFeedbackSoft: "Godt tænkt! ✨",
+    quizFeedbackCorrect: "Ja, sådan var det! 🌟",
+    quizFeedbackWrong: "Tæt på — det rigtige svar er fremhævet ovenfor.",
+  },
+
+  lektion: {
+    fallbackTitle: "Lektion",
+    backToMap: "Til kortet",
+    stepsLit: (lit: number, total: number) => `Trin ${lit} af ${total} tændt`,
+    loadingLanterns: "Tænder lanterner …",
+    /** Fallback-fejlbeskeder når Supabase intet returnerer. */
+    lessonNotFound: "Lektionen blev ikke fundet.",
+    lessonHasNoSteps: "Lektionen har ingen trin endnu.",
+    stepOf: (current: number, total: number, title: string) =>
+      `Trin ${current} af ${total} · ${title}`,
+    introStepsCount: (count: number) => `${count} trin · stigende sværhedsgrad`,
+    introStopAnytime: "Du kan stoppe når som helst — alt gemmes",
+    resumeAt: (step: number) => `Fortsæt hvor du slap · trin ${step} ✦`,
+    startLesson: "Start lektionen ✦",
+    startOver: "Start forfra",
+    softIntroHint: "Korte, blide trin — i barnets tempo",
+    stepLitOf: (current: number, total: number) => `Trin ${current} af ${total} tændt ✦`,
+    xpThisSession: (xp: number) => `★ ${xp} XP i denne session`,
+    nextLabel: "Næste:",
+    next: "Videre",
+    stopHereSaved: "Stop her — alt er gemt",
+    lessonGlows: "Lektionen lyser! ✦",
+    allStepsDone: (total: number) => `Alle ${total} trin gennemført`,
+    xpSuffix: (xp: number) => ` · ★ ${xp} XP`,
+    yoursNow: "er dine nu — dalen har fået mere lys.",
+    playAgain: "Spil igen",
+    savingProgress: "Gemmer fremskridt …",
+    progressSaved: "Fremskridt gemt ✓",
+    progressQueued: "Dit lys gemmes, når du er online igen",
+    progressError: "Kunne ikke gemmes lige nu — prøver igen",
+  },
 };
 
 export type Dictionary = typeof da;

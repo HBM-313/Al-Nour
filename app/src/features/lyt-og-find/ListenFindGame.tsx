@@ -16,6 +16,7 @@
 import { Volume2, Flame, Star, RotateCcw, ArrowRight } from "lucide-react";
 import type { AgeSkin, LessonStepParams } from "@/lib/types";
 import { ArabicBlock } from "@/components/bilingual/BilingualText";
+import { useT, type Dictionary } from "@/lib/i18n";
 import { FORM_LABEL_DA, type Choice, type Question } from "./engine";
 import { useListenFind } from "./useListenFind";
 
@@ -45,12 +46,13 @@ export function ListenFindGame({
   lessonId,
   onExit,
 }: ListenFindGameProps) {
+  const t = useT("da");
   const game = useListenFind({ skin, level, profileId, lessonId , step, onRoundComplete });
 
   if (game.loadState.status === "loading") {
     return (
       <Shell skin={skin}>
-        <p className="py-16 text-center text-ink-soft">Henter bogstaver …</p>
+        <p className="py-16 text-center text-ink-soft">{t.lytOgFind.loadingLetters}</p>
       </Shell>
     );
   }
@@ -59,7 +61,7 @@ export function ListenFindGame({
     return (
       <Shell skin={skin}>
         <div className="py-16 text-center">
-          <p className="font-semibold text-danger">Noget gik galt</p>
+          <p className="font-semibold text-danger">{t.common.somethingWrong}</p>
           <p className="mt-1 text-sm text-ink-soft">
             {game.loadState.message}
           </p>
@@ -80,6 +82,7 @@ export function ListenFindGame({
           savingEnabled={Boolean(profileId && lessonId)}
           onRestart={game.restart}
           onExit={onExit}
+          t={t}
         />
       </Shell>
     );
@@ -94,12 +97,14 @@ export function ListenFindGame({
           skin={skin}
           total={game.questions.length}
           index={game.index}
+          t={t}
         />
         <Prompt
           skin={skin}
           question={game.current}
           ttsUnavailable={game.ttsUnavailable}
           onPlay={() => void game.playPrompt(true)}
+          t={t}
         />
         <ChoiceGrid
           skin={skin}
@@ -110,7 +115,7 @@ export function ListenFindGame({
           onChoose={(id) => game.answer(id)}
         />
         {game.answered ? (
-          <AfterAnswer skin={skin} question={game.current} onNext={game.next} />
+          <AfterAnswer skin={skin} question={game.current} onNext={game.next} t={t} />
         ) : null}
       </div>
     </Shell>
@@ -141,10 +146,12 @@ function ProgressDots({
   skin,
   total,
   index,
+  t,
 }: {
   skin: AgeSkin;
   total: number;
   index: number;
+  t: Dictionary;
 }) {
   if (skin === "teen") {
     return (
@@ -167,7 +174,7 @@ function ProgressDots({
 
   // soft/mid: hvert klaret spørgsmål tænder et lys
   return (
-    <div className="flex justify-center gap-2" aria-label={`Spørgsmål ${index + 1} af ${total}`}>
+    <div className="flex justify-center gap-2" aria-label={t.lytOgFind.questionOf(index + 1, total)}>
       {Array.from({ length: total }, (_, i) => (
         <span
           key={i}
@@ -200,11 +207,13 @@ function Prompt({
   question,
   ttsUnavailable,
   onPlay,
+  t,
 }: {
   skin: AgeSkin;
   question: Question;
   ttsUnavailable: boolean;
   onPlay: () => void;
+  t: Dictionary;
 }) {
   const usesTts =
     question.audioUrl === null &&
@@ -227,7 +236,7 @@ function Prompt({
         <button
           type="button"
           onClick={onPlay}
-          aria-label="Hør lyden igen"
+          aria-label={t.lytOgFind.hearAgain}
           className={`flex items-center justify-center rounded-full text-white shadow-md transition-transform active:scale-95 ${
             skin === "soft" ? "size-28" : skin === "mid" ? "size-20" : "size-16"
           }`}
@@ -239,7 +248,7 @@ function Prompt({
 
       {usesTts && skin !== "soft" ? (
         <p className="text-xs text-ink-soft">
-          Syntetisk stemme — udskiftes med rigtig lyd senere
+          {t.lytOgFind.syntheticVoiceNotice}
         </p>
       ) : null}
 
@@ -249,7 +258,7 @@ function Prompt({
           style={{ background: "var(--color-dawn-deep)" }}
         >
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">
-            Lyd ikke optaget endnu
+            {t.lytOgFind.audioNotRecorded}
           </p>
           <p className="mt-1 text-2xl font-bold text-ink">
             {question.fallback.titleDa}
@@ -391,22 +400,22 @@ function AfterAnswer({
   skin,
   question,
   onNext,
+  t,
 }: {
   skin: AgeSkin;
   question: Question;
   onNext: () => void;
+  t: Dictionary;
 }) {
   const correct = question.choices.find((c) => c.isCorrect);
   return (
     <div className="flex flex-col items-center gap-3">
       <p className="text-center font-semibold text-ink">
         {skin === "soft"
-          ? "Flot fundet! ⭐"
+          ? t.lytOgFind.feedbackSoft
           : skin === "mid"
-            ? `Det var ${correct?.danish} — ${
-                correct ? "flot klaret!" : ""
-              }`
-            : `Rigtigt svar: ${correct?.danish}`}
+            ? t.lytOgFind.feedbackMid(correct?.danish ?? "")
+            : t.lytOgFind.feedbackTeen(correct?.danish ?? "")}
       </p>
       <button
         type="button"
@@ -414,7 +423,7 @@ function AfterAnswer({
         className="flex items-center gap-2 rounded-(--radius-skin) px-6 py-3 font-bold text-white transition-transform active:scale-95"
         style={{ background: "var(--color-night)" }}
       >
-        Videre <ArrowRight className="size-5" />
+        {t.lytOgFind.next} <ArrowRight className="size-5" />
       </button>
     </div>
   );
@@ -433,6 +442,7 @@ function RoundDone({
   savingEnabled,
   onRestart,
   onExit,
+  t,
 }: {
   skin: AgeSkin;
   xp: number;
@@ -442,6 +452,7 @@ function RoundDone({
   savingEnabled: boolean;
   onRestart: () => void;
   onExit?: () => void;
+  t: Dictionary;
 }) {
   return (
     <div className="flex flex-col items-center gap-4 py-8 text-center">
@@ -461,23 +472,19 @@ function RoundDone({
         className={`font-bold text-night ${skin === "soft" ? "text-3xl" : "text-2xl"}`}
         style={{ fontFamily: "var(--font-display)" }}
       >
-        {skin === "soft"
-          ? "Landet fik mere lys!"
-          : skin === "mid"
-            ? "Godt klaret!"
-            : "Runde færdig"}
+        {t.lytOgFind.roundDoneHeading(skin)}
       </h2>
 
       {skin !== "soft" ? (
         <div className="flex items-center gap-4 text-ink">
           <span className="font-semibold tabular-nums">
-            {correctCount}/{total} rigtige i første forsøg
+            {t.lytOgFind.correctFirstTry(correctCount, total)}
           </span>
           <span
             className="flex items-center gap-1 rounded-full px-3 py-1 font-bold text-white"
             style={{ background: "var(--color-nour)" }}
           >
-            +{xp} XP
+            {t.lytOgFind.xpEarned(xp)}
           </span>
         </div>
       ) : null}
@@ -485,11 +492,11 @@ function RoundDone({
       {savingEnabled ? (
         <p className="flex items-center gap-1.5 text-sm text-ink-soft">
           {saveState === "saving" ? (
-            "Gemmer fremskridt …"
+            t.lytOgFind.savingProgress
           ) : saveState === "saved" ? (
             <>
               <Flame className="size-4" style={{ color: "var(--color-nour)" }} />
-              Fremskridt gemt
+              {t.lytOgFind.progressSaved}
             </>
           ) : saveState === "queued" ? (
             <>
@@ -498,10 +505,10 @@ function RoundDone({
                 style={{ background: "var(--color-nour)" }}
                 aria-hidden
               />
-              Dit lys gemmes, når du er online igen
+              {t.lytOgFind.progressQueued}
             </>
           ) : saveState === "error" ? (
-            "Kunne ikke gemmes lige nu — prøver igen"
+            t.lytOgFind.progressError
           ) : null}
         </p>
       ) : null}
@@ -513,7 +520,7 @@ function RoundDone({
           className="flex items-center gap-2 rounded-(--radius-skin) px-6 py-3 font-bold text-white transition-transform active:scale-95"
           style={{ background: "var(--color-valley)" }}
         >
-          <RotateCcw className="size-5" /> Spil igen
+          <RotateCcw className="size-5" /> {t.lytOgFind.playAgain}
         </button>
         {onExit ? (
           <button
@@ -521,7 +528,7 @@ function RoundDone({
             onClick={onExit}
             className="rounded-(--radius-skin) bg-dawn-deep px-6 py-3 font-bold text-ink transition-transform active:scale-95"
           >
-            Tilbage
+            {t.common.back}
           </button>
         ) : null}
       </div>

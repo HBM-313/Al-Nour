@@ -26,6 +26,7 @@ export function ageForFetch(skin: AgeSkin, birthYear?: number): number {
 
 export async function fetchStoriesForAge(
   age: number,
+  fetchErrorMessage: string,
 ): Promise<{ ok: true; stories: Content[] } | { ok: false; error: string }> {
   const { data, error } = await supabase
     .from("content")
@@ -38,7 +39,7 @@ export async function fetchStoriesForAge(
     .gte("max_age", age)
     .order("created_at", { ascending: true });
   if (error) {
-    return { ok: false, error: "Fortællingerne kunne ikke hentes lige nu. Prøv igen." };
+    return { ok: false, error: fetchErrorMessage };
   }
   return { ok: true, stories: (data ?? []) as Content[] };
 }

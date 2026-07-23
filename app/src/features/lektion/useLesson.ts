@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { saveStepProgress } from "@/lib/progress";
+import { useT } from "@/lib/i18n";
 import {
   getLocalProgress,
   saveLocalStepProgress,
@@ -50,6 +51,7 @@ export interface UseLessonOptions {
 
 export function useLesson(options: UseLessonOptions) {
   const { lessonId, skin, profileId } = options;
+  const t = useT("da");
 
   const [loadState, setLoadState] = useState<LessonLoadState>({
     status: "loading",
@@ -88,14 +90,14 @@ export function useLesson(options: UseLessonOptions) {
       if (lessonRes.error || !lessonRes.data) {
         setLoadState({
           status: "error",
-          message: lessonRes.error?.message ?? "Lektionen blev ikke fundet.",
+          message: lessonRes.error?.message ?? t.lektion.lessonNotFound,
         });
         return;
       }
       if (stepsRes.error || !stepsRes.data || stepsRes.data.length === 0) {
         setLoadState({
           status: "error",
-          message: stepsRes.error?.message ?? "Lektionen har ingen trin endnu.",
+          message: stepsRes.error?.message ?? t.lektion.lessonHasNoSteps,
         });
         return;
       }
@@ -135,7 +137,7 @@ export function useLesson(options: UseLessonOptions) {
     return () => {
       cancelled = true;
     };
-  }, [lessonId, profileId, skin]);
+  }, [lessonId, profileId, skin, t]);
 
   // Skind-skift midt i en session: genfiltrér trinlisten
   useEffect(() => {

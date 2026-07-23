@@ -23,6 +23,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { ArrowRight, Flame, RotateCcw, Star } from "lucide-react";
 import type { AgeSkin, LessonStepParams, VocabularyWord } from "@/lib/types";
+import { useT, type Dictionary } from "@/lib/i18n";
 import { type PairCard } from "./engine";
 import { useMatchPairs } from "./useMatchPairs";
 import "./match-par.css";
@@ -82,6 +83,7 @@ export function MatchPairsGame({
   step,
   onRoundComplete,
 }: MatchPairsGameProps) {
+  const t = useT("da");
   const game = useMatchPairs({
     skin,
     level,
@@ -349,14 +351,14 @@ export function MatchPairsGame({
               className="rounded-full px-3 py-1 text-sm font-semibold"
               style={{ background: "rgba(255,255,255,0.1)", color: "#dbe4f2" }}
             >
-              Tilbage
+              {t.common.back}
             </button>
           )}
         </div>
 
         <div className="mb-3 flex items-center gap-3 text-xs sm:text-sm" style={{ color: "#b9c6da" }}>
           <span className="shrink-0 font-semibold" style={{ color: "#ffe3a1" }}>
-            Lys i dalen
+            {t.matchPar.lightInValley}
           </span>
           <div
             className="h-2 flex-1 overflow-hidden rounded-full"
@@ -365,7 +367,7 @@ export function MatchPairsGame({
             aria-valuenow={Math.round(lightRatio * 100)}
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-label="Lys i dalen"
+            aria-label={t.matchPar.lightInValley}
           >
             <i className="mp-meter-fill" style={{ width: `${lightRatio * 100}%` }} />
           </div>
@@ -375,14 +377,14 @@ export function MatchPairsGame({
         {/* Indhold */}
         {game.loadState.status === "loading" && (
           <p className="py-16 text-center" style={{ color: "#b9c6da" }}>
-            Tænder lanterner …
+            {t.matchPar.loadingLanterns}
           </p>
         )}
 
         {game.loadState.status === "error" && (
           <div className="py-16 text-center">
             <p className="font-semibold" style={{ color: "#f09595" }}>
-              Noget gik galt
+              {t.common.somethingWrong}
             </p>
             <p className="mt-1 text-sm" style={{ color: "#b9c6da" }}>
               {game.loadState.message}
@@ -416,6 +418,7 @@ export function MatchPairsGame({
                       if (el) cardRefs.current.set(card.key, el);
                       else cardRefs.current.delete(card.key);
                     }}
+                    t={t}
                   />
                 ))}
               </div>
@@ -433,6 +436,7 @@ export function MatchPairsGame({
                   precision={precision}
                   savingEnabled={Boolean(profileId && lessonId)}
                   onExit={onExit}
+                  t={t}
                 />
               )}
             </div>
@@ -443,7 +447,7 @@ export function MatchPairsGame({
                 className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-transform active:scale-95"
                 style={{ background: "rgba(255,255,255,0.1)", color: "#dbe4f2" }}
               >
-                <RotateCcw className="size-4" /> Nyt spil
+                <RotateCcw className="size-4" /> {t.matchPar.newGame}
               </button>
             </div>
           </>
@@ -515,6 +519,7 @@ function Card({
   imageUrl,
   onTap,
   refFn,
+  t,
 }: {
   card: PairCard;
   skin: AgeSkin;
@@ -525,13 +530,14 @@ function Card({
   imageUrl: string | null;
   onTap: () => void;
   refFn: (el: HTMLButtonElement | null) => void;
+  t: Dictionary;
 }) {
   const minHeight = skin === "soft" ? "7rem" : skin === "mid" ? "5.75rem" : "5.25rem";
 
   const label =
     card.side === "ar"
-      ? "Arabisk kort"
-      : `Dansk kort: ${card.word.word_da}`;
+      ? t.matchPar.arabicCardLabel
+      : t.matchPar.danishCardLabel(card.word.word_da);
 
   return (
     <button
@@ -553,6 +559,7 @@ function Card({
               card={card}
               skin={skin}
               showTransliteration={showTransliteration}
+              t={t}
             />
           )}
         </span>
@@ -596,10 +603,12 @@ function ArabicFace({
   card,
   skin,
   showTransliteration,
+  t,
 }: {
   card: PairCard;
   skin: AgeSkin;
   showTransliteration: boolean;
+  t: Dictionary;
 }) {
   return (
     <>
@@ -624,7 +633,9 @@ function ArabicFace({
             border: "1px solid rgba(120, 200, 165, 0.4)",
           }}
         >
-          {card.word.register === "fusha" ? "fusha" : "hverdag"}
+          {card.word.register === "fusha"
+            ? t.matchPar.registerFusha
+            : t.matchPar.registerEveryday}
         </span>
       )}
     </>
@@ -641,19 +652,21 @@ function RoundDone({
   precision,
   savingEnabled,
   onExit,
+  t,
 }: {
   skin: AgeSkin;
   game: Game;
   precision: number;
   savingEnabled: boolean;
   onExit?: () => void;
+  t: Dictionary;
 }) {
   const stats =
     skin === "soft"
-      ? `Alle ${game.totalPairs} lanterner er tændt`
+      ? t.matchPar.statsSoft(game.totalPairs)
       : skin === "mid"
-        ? `${game.totalPairs} par · ${game.xp} XP · bedste stime ${game.bestCombo}`
-        : `${game.totalPairs} par på ${game.moves} træk · præcision ${precision}% · ${game.xp} XP`;
+        ? t.matchPar.statsMid(game.totalPairs, game.xp, game.bestCombo)
+        : t.matchPar.statsTeen(game.totalPairs, game.moves, precision, game.xp);
 
   return (
     <div
@@ -669,15 +682,15 @@ function RoundDone({
             fontFamily: "var(--font-display)",
           }}
         >
-          Dalen lyser! ✦
+          {t.matchPar.valleyGlows}
         </p>
         <p className="mt-2 text-sm" style={{ color: "#cdd8ea" }}>
           {stats}
         </p>
         {savingEnabled && (
           <p className="mt-1 flex items-center justify-center gap-1.5 text-xs" style={{ color: "#8fa4c4" }}>
-            {game.saveState === "saving" && "Gemmer fremskridt …"}
-            {game.saveState === "saved" && "Fremskridt gemt ✓"}
+            {game.saveState === "saving" && t.matchPar.savingProgress}
+            {game.saveState === "saved" && t.matchPar.progressSaved}
             {game.saveState === "queued" && (
               <>
                 <span
@@ -685,10 +698,10 @@ function RoundDone({
                   style={{ background: "var(--color-nour)" }}
                   aria-hidden
                 />
-                Dit lys gemmes, når du er online igen
+                {t.matchPar.progressQueued}
               </>
             )}
-            {game.saveState === "error" && "Kunne ikke gemmes lige nu — prøver igen"}
+            {game.saveState === "error" && t.matchPar.progressError}
           </p>
         )}
         <div className="mt-4 flex justify-center gap-2">
@@ -697,7 +710,7 @@ function RoundDone({
             className="flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold transition-transform active:scale-95"
             style={{ background: "var(--color-nour)", color: "#3d2a00" }}
           >
-            Spil igen <ArrowRight className="size-4" />
+            {t.matchPar.playAgain} <ArrowRight className="size-4" />
           </button>
           {onExit && (
             <button
@@ -705,7 +718,7 @@ function RoundDone({
               className="rounded-full px-5 py-2.5 text-sm font-semibold"
               style={{ background: "rgba(255,255,255,0.12)", color: "#dbe4f2" }}
             >
-              Tilbage
+              {t.common.back}
             </button>
           )}
         </div>
