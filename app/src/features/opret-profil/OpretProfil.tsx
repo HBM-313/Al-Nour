@@ -9,6 +9,7 @@
 import { useId } from "react";
 import type { Account, Profile } from "@/lib/types";
 import { ANIMAL_POOL } from "@/features/pin-login";
+import { useT, type Dictionary } from "@/lib/i18n";
 import { ageOf, AVATAR_POOL, birthYearOptions, PIN_MAX, PIN_MIN } from "./engine";
 import { useOpretProfil } from "./useOpretProfil";
 import "./opret-profil.css";
@@ -34,6 +35,7 @@ export function OpretProfil({ account, onCreated }: OpretProfilProps) {
     reset,
   } = useOpretProfil(account.id, onCreated);
   const nameId = useId();
+  const t = useT("da");
 
   const stepIndex =
     state.step === "saving" || state.step === "done"
@@ -46,8 +48,8 @@ export function OpretProfil({ account, onCreated }: OpretProfilProps) {
         <div className="op-lamp text-3xl" aria-hidden>
           🏮
         </div>
-        <h2 className="op-title mt-1 text-xl font-bold">Opret barneprofil</h2>
-        <p className="op-sub mt-1 text-sm">{subtitleFor(state.step, state.name)}</p>
+        <h2 className="op-title mt-1 text-xl font-bold">{t.opretProfil.heading}</h2>
+        <p className="op-sub mt-1 text-sm">{subtitleFor(state.step, state.name, t)}</p>
       </header>
 
       <div className="mb-4 flex justify-center gap-1.5" aria-hidden>
@@ -66,6 +68,7 @@ export function OpretProfil({ account, onCreated }: OpretProfilProps) {
           complete={aboutComplete}
           onPatch={patch}
           onNext={() => patch({ step: "pin", pin: [], pinConfirm: [] })}
+          t={t}
         />
       )}
 
@@ -78,6 +81,7 @@ export function OpretProfil({ account, onCreated }: OpretProfilProps) {
           onClear={() => patch({ pin: [] })}
           onNext={() => patch({ step: "confirm", pinConfirm: [] })}
           onSkip={() => patch({ step: "summary", pin: [], pinConfirm: [] })}
+          t={t}
         />
       )}
 
@@ -91,6 +95,7 @@ export function OpretProfil({ account, onCreated }: OpretProfilProps) {
           onRetry={() => patch({ pinConfirm: [] })}
           onNext={() => patch({ step: "summary" })}
           onBack={() => patch({ step: "pin", pin: [], pinConfirm: [] })}
+          t={t}
         />
       )}
 
@@ -100,6 +105,7 @@ export function OpretProfil({ account, onCreated }: OpretProfilProps) {
           saving={state.step === "saving"}
           onCreate={() => void create()}
           onBack={() => patch({ step: "about", error: null })}
+          t={t}
         />
       )}
 
@@ -109,23 +115,24 @@ export function OpretProfil({ account, onCreated }: OpretProfilProps) {
           hadPin={state.pin.length >= PIN_MIN}
           pinWarning={state.pinWarning}
           onAgain={reset}
+          t={t}
         />
       )}
     </div>
   );
 }
 
-function subtitleFor(step: string, name: string): string {
+function subtitleFor(step: string, name: string, t: Dictionary): string {
   switch (step) {
     case "about":
-      return "Fortæl os lidt om dit barn";
+      return t.opretProfil.subtitleAbout;
     case "pin":
-      return `Dyre-kode til ${name} (valgfrit)`;
+      return t.opretProfil.subtitlePin(name);
     case "confirm":
-      return "Vælg de samme dyr igen";
+      return t.opretProfil.subtitleConfirm;
     case "summary":
     case "saving":
-      return "Tjek at alt passer";
+      return t.opretProfil.subtitleSummary;
     default:
       return "";
   }
@@ -144,6 +151,7 @@ function StepAbout({
   complete,
   onPatch,
   onNext,
+  t,
 }: {
   nameId: string;
   name: string;
@@ -153,25 +161,26 @@ function StepAbout({
   complete: boolean;
   onPatch: (p: { name?: string; birthYear?: number; avatar?: string; voice?: "female" | "male" }) => void;
   onNext: () => void;
+  t: Dictionary;
 }) {
   const years = birthYearOptions();
   return (
     <div className="flex flex-col gap-2">
       <label htmlFor={nameId} className="op-label">
-        Kaldenavn
+        {t.opretProfil.nicknameLabel}
       </label>
       <input
         id={nameId}
         type="text"
         maxLength={30}
         autoComplete="off"
-        placeholder="fx Ali eller Zainab"
+        placeholder={t.opretProfil.nicknamePlaceholder}
         value={name}
         onChange={(e) => onPatch({ name: e.target.value })}
         className="op-input w-full rounded-xl px-4 py-3.5 text-base"
       />
 
-      <span className="op-label mt-3">Fødselsår</span>
+      <span className="op-label mt-3">{t.opretProfil.birthYearLabel}</span>
       <div className="grid grid-cols-4 gap-2">
         {years.map((y) => (
           <button
@@ -181,20 +190,22 @@ function StepAbout({
             className={`op-chip rounded-xl px-1 py-2.5 text-sm font-semibold ${birthYear === y ? "op-sel" : ""}`}
           >
             {y}
-            <small className="op-chip-small block text-[11px] font-normal">{ageOf(y)} år</small>
+            <small className="op-chip-small block text-[11px] font-normal">
+              {t.opretProfil.ageSuffix(ageOf(y))}
+            </small>
           </button>
         ))}
       </div>
 
       <span className="op-label mt-3">
-        Avatar <b className="op-label-note">· kan skiftes senere</b>
+        {t.opretProfil.avatarLabel} <b className="op-label-note">{t.opretProfil.avatarNote}</b>
       </span>
       <div className="grid grid-cols-4 gap-2">
         {AVATAR_POOL.map((e, i) => (
           <button
             key={e}
             type="button"
-            aria-label={`Avatar ${i + 1}`}
+            aria-label={t.opretProfil.avatarAriaLabel(i + 1)}
             onClick={() => onPatch({ avatar: e })}
             className={`op-chip rounded-xl py-3 text-3xl leading-none ${avatar === e ? "op-sel" : ""}`}
           >
@@ -203,32 +214,33 @@ function StepAbout({
         ))}
       </div>
 
-      <span className="op-label mt-3">Oplæser-stemme</span>
+      <span className="op-label mt-3">{t.opretProfil.voiceLabel}</span>
       <div className="grid grid-cols-2 gap-2">
         <button
           type="button"
           onClick={() => onPatch({ voice: "female" })}
           className={`op-chip rounded-xl px-2 py-3 text-base font-semibold ${voice === "female" ? "op-sel" : ""}`}
         >
-          🎀 Habibah
-          <small className="op-chip-small block text-[11px] font-normal">kvindestemme</small>
+          {t.opretProfil.voiceFemale}
+          <small className="op-chip-small block text-[11px] font-normal">
+            {t.opretProfil.voiceFemaleSub}
+          </small>
         </button>
         <button
           type="button"
           onClick={() => onPatch({ voice: "male" })}
           className={`op-chip rounded-xl px-2 py-3 text-base font-semibold ${voice === "male" ? "op-sel" : ""}`}
         >
-          🎩 Ahmed
-          <small className="op-chip-small block text-[11px] font-normal">mandestemme</small>
+          {t.opretProfil.voiceMale}
+          <small className="op-chip-small block text-[11px] font-normal">
+            {t.opretProfil.voiceMaleSub}
+          </small>
         </button>
       </div>
 
       <div className="op-privacy mt-3 flex items-start gap-2 rounded-xl px-3 py-2.5 text-xs leading-relaxed">
         <span aria-hidden>🔒</span>
-        <span>
-          Vi gemmer kun kaldenavn, fødselsår og avatar — aldrig fulde navne, adresser eller
-          e-mails på børn.
-        </span>
+        <span>{t.opretProfil.privacyNote}</span>
       </div>
 
       <button
@@ -237,7 +249,7 @@ function StepAbout({
         onClick={onNext}
         className="op-btn-gold mt-3 w-full rounded-2xl py-3.5 text-base font-bold"
       >
-        Videre
+        {t.opretProfil.next}
       </button>
     </div>
   );
@@ -250,9 +262,11 @@ function StepAbout({
 function AnimalPicker({
   seq,
   onTap,
+  t,
 }: {
   seq: readonly string[];
   onTap: (poolIndex: number) => void;
+  t: Dictionary;
 }) {
   const full = seq.length >= PIN_MAX;
   return (
@@ -274,7 +288,7 @@ function AnimalPicker({
           <button
             key={a}
             type="button"
-            aria-label={`Dyr ${i + 1}`}
+            aria-label={t.opretProfil.animalAriaLabel(i + 1)}
             disabled={full}
             onClick={() => onTap(i)}
             className="op-chip rounded-xl pb-1.5 pt-3 text-center text-[32px] leading-tight disabled:opacity-40"
@@ -300,6 +314,7 @@ function StepPin({
   onClear,
   onNext,
   onSkip,
+  t,
 }: {
   name: string;
   pin: readonly string[];
@@ -308,12 +323,13 @@ function StepPin({
   onClear: () => void;
   onNext: () => void;
   onSkip: () => void;
+  t: Dictionary;
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <AnimalPicker seq={pin} onTap={onTap} />
+      <AnimalPicker seq={pin} onTap={onTap} t={t} />
       <p className="op-hint mt-2 text-center text-sm">
-        Tryk på {PIN_MIN}–{PIN_MAX} dyr i den rækkefølge, der skal være {name}s kode.
+        {t.opretProfil.pinHint(PIN_MIN, PIN_MAX, name)}
       </p>
       <button
         type="button"
@@ -321,7 +337,7 @@ function StepPin({
         onClick={onClear}
         className="op-btn-ghost mt-1 w-full rounded-2xl py-3 text-sm font-semibold"
       >
-        Ryd
+        {t.opretProfil.clear}
       </button>
       <button
         type="button"
@@ -329,14 +345,14 @@ function StepPin({
         onClick={onNext}
         className="op-btn-gold w-full rounded-2xl py-3.5 text-base font-bold"
       >
-        Videre — bekræft koden
+        {t.opretProfil.nextConfirmCode}
       </button>
       <button
         type="button"
         onClick={onSkip}
         className="op-btn-ghost w-full rounded-2xl py-3 text-sm font-semibold"
       >
-        Spring over — ingen kode nu
+        {t.opretProfil.skipNoPin}
       </button>
     </div>
   );
@@ -355,6 +371,7 @@ function StepConfirm({
   onRetry,
   onNext,
   onBack,
+  t,
 }: {
   pinLength: number;
   seq: readonly string[];
@@ -364,19 +381,20 @@ function StepConfirm({
   onRetry: () => void;
   onNext: () => void;
   onBack: () => void;
+  t: Dictionary;
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <AnimalPicker seq={seq} onTap={onTap} />
+      <AnimalPicker seq={seq} onTap={onTap} t={t} />
       <p
         className={`op-hint mt-2 text-center text-sm ${mismatch ? "op-hint-warn" : match ? "op-hint-ok" : ""}`}
         role="status"
       >
         {mismatch
-          ? "Hov — det var ikke helt de samme dyr. Prøv igen 💛"
+          ? t.opretProfil.confirmMismatch
           : match
-            ? "Perfekt — koden passer! ✨"
-            : `Bekræft koden ved at trykke på de samme ${pinLength} dyr i samme rækkefølge.`}
+            ? t.opretProfil.confirmMatch
+            : t.opretProfil.confirmHint(pinLength)}
       </p>
       {mismatch && (
         <button
@@ -384,7 +402,7 @@ function StepConfirm({
           onClick={onRetry}
           className="op-btn-ghost mt-1 w-full rounded-2xl py-3 text-sm font-semibold"
         >
-          Prøv igen
+          {t.opretProfil.tryAgain}
         </button>
       )}
       <button
@@ -393,14 +411,14 @@ function StepConfirm({
         onClick={onNext}
         className="op-btn-gold w-full rounded-2xl py-3.5 text-base font-bold"
       >
-        Videre
+        {t.opretProfil.next}
       </button>
       <button
         type="button"
         onClick={onBack}
         className="op-btn-ghost w-full rounded-2xl py-3 text-sm font-semibold"
       >
-        Tilbage — vælg ny kode
+        {t.opretProfil.backChooseNewCode}
       </button>
     </div>
   );
@@ -415,22 +433,34 @@ function StepSummary({
   saving,
   onCreate,
   onBack,
+  t,
 }: {
   state: ReturnType<typeof useOpretProfil>["state"];
   saving: boolean;
   onCreate: () => void;
   onBack: () => void;
+  t: Dictionary;
 }) {
   const hasPin = state.pin.length >= PIN_MIN;
   return (
     <div className="flex flex-col gap-1">
-      <SumRow k="Kaldenavn" v={state.name.trim()} />
-      <SumRow k="Fødselsår" v={`${state.birthYear} · ${state.birthYear ? ageOf(state.birthYear) : ""} år`} />
-      <SumRow k="Avatar" v={<span className="text-2xl leading-none">{state.avatar}</span>} />
-      <SumRow k="Stemme" v={state.voice === "female" ? "🎀 Habibah" : "🎩 Ahmed"} />
+      <SumRow k={t.opretProfil.sumNickname} v={state.name.trim()} />
       <SumRow
-        k="Dyre-kode"
-        v={hasPin ? state.pin.map((i) => ANIMAL_POOL[Number(i)]).join(" ") : "Ingen (kan tilføjes senere)"}
+        k={t.opretProfil.sumBirthYear}
+        v={state.birthYear ? t.opretProfil.sumBirthYearValue(state.birthYear, ageOf(state.birthYear)) : ""}
+      />
+      <SumRow k={t.opretProfil.sumAvatar} v={<span className="text-2xl leading-none">{state.avatar}</span>} />
+      <SumRow
+        k={t.opretProfil.sumVoice}
+        v={state.voice === "female" ? t.opretProfil.voiceFemale : t.opretProfil.voiceMale}
+      />
+      <SumRow
+        k={t.opretProfil.sumPin}
+        v={
+          hasPin
+            ? state.pin.map((i) => ANIMAL_POOL[Number(i)]).join(" ")
+            : t.opretProfil.sumPinNone
+        }
       />
 
       {state.error && (
@@ -445,7 +475,7 @@ function StepSummary({
         onClick={onCreate}
         className="op-btn-gold mt-3 w-full rounded-2xl py-3.5 text-base font-bold"
       >
-        {saving ? "Opretter…" : "Opret profil"}
+        {saving ? t.opretProfil.creating : t.opretProfil.createProfile}
       </button>
       <button
         type="button"
@@ -453,7 +483,7 @@ function StepSummary({
         onClick={onBack}
         className="op-btn-ghost w-full rounded-2xl py-3 text-sm font-semibold"
       >
-        Tilbage og ret
+        {t.opretProfil.backAndEdit}
       </button>
     </div>
   );
@@ -477,23 +507,25 @@ function StepDone({
   hadPin,
   pinWarning,
   onAgain,
+  t,
 }: {
   profile: Profile;
   hadPin: boolean;
   pinWarning: string | null;
   onAgain: () => void;
+  t: Dictionary;
 }) {
+  const withPin = hadPin && !pinWarning;
   return (
     <div className="flex flex-col items-center gap-3 py-4 text-center">
       <div className="op-halo flex size-24 items-center justify-center rounded-full text-5xl" aria-hidden>
         {profile.avatar}
       </div>
-      <h3 className="op-title text-lg font-bold">{profile.display_name}s lanterne er tændt! 🏮</h3>
+      <h3 className="op-title text-lg font-bold">{t.opretProfil.lanternLit(profile.display_name)}</h3>
       <p className="op-sub text-sm leading-relaxed">
-        Profilen er oprettet{hadPin && !pinWarning ? " med dyre-kode" : ""}.
+        {t.opretProfil.profileCreatedSentence(withPin)}
         <br />
-        {profile.display_name} kan nu logge ind fra børne-skærmen
-        {hadPin && !pinWarning ? " med sin kode" : ""}.
+        {t.opretProfil.canLoginSentence(profile.display_name, withPin)}
       </p>
       {pinWarning && (
         <p className="op-hint-warn text-sm" role="alert">
@@ -505,7 +537,7 @@ function StepDone({
         onClick={onAgain}
         className="op-btn-gold mt-2 w-full rounded-2xl py-3.5 text-base font-bold"
       >
-        Opret endnu en profil
+        {t.opretProfil.createAnother}
       </button>
     </div>
   );

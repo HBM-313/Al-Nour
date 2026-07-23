@@ -70,6 +70,17 @@ export type CreateResult =
   | { ok: true; profile: Profile; pinWarning?: string }
   | { ok: false; error: string };
 
+/** Oversatte fejlbeskeder — kaldestedet (useOpretProfil.ts) leverer dem fra useT("da"). */
+export interface OpretProfilMessages {
+  emptyName: string;
+  pinSaveFailed: string;
+  errorGeneric: string;
+  errorRls: string;
+  errorBirthYear: string;
+  errorNetwork: string;
+  errorFallback: string;
+}
+
 /**
  * Opret profilen og sæt derefter evt. pin. To trin fordi pin-hashing bor i
  * databasen (set_child_pin) og aldrig må efterlignes client-side.
@@ -82,9 +93,10 @@ export type CreateResult =
 export async function createChildProfile(
   ownerAccountId: string,
   input: NewChildProfile,
+  messages: OpretProfilMessages,
 ): Promise<CreateResult> {
   const displayName = input.displayName.trim();
-  if (!displayName) return { ok: false, error: "Skriv et kaldenavn først." };
+  if (!displayName) return { ok: false, error: messages.emptyName };
 
   const { data, error } = await supabase
     .from("profiles")
@@ -99,7 +111,7 @@ export async function createChildProfile(
     .single();
 
   if (error || !data) {
-    return { ok: false, error: translateInsertError(error?.message) };
+    return { ok: false, error: translateInsertError(error?.message, messages) };
   }
   const profile = data as Profile;
 
@@ -109,8 +121,7 @@ export async function createChildProfile(
       return {
         ok: true,
         profile,
-        pinWarning:
-          "Profilen er oprettet, men dyre-koden kunne ikke gemmes. Prøv at sætte den igen fra forældre-oversigten.",
+        pinWarning: messages.pinSaveFailed,
       };
     }
     // Afspejl at pin nu er sat, uden ekstra fetch (hashen sendes aldrig til klienten).
@@ -120,18 +131,18 @@ export async function createChildProfile(
   return { ok: true, profile };
 }
 
-/** Oversæt de mest sandsynlige Postgres/RLS-fejl til forældre-venligt dansk. */
-function translateInsertError(message?: string): string {
-  if (!message) return "Noget gik galt. Tjek din forbindelse og prøv igen.";
+/** Oversæt de mest sandsynlige Postgres/RLS-fejl til forældre-venligt sprog. */
+function translateInsertError(message: string | undefined, messages: OpretProfilMessages): string {
+  if (!message) return messages.errorGeneric;
   const m = message.toLowerCase();
   if (m.includes("row-level security")) {
-    return "Du har ikke adgang til at oprette denne profil. Log ud og ind igen, og prøv så.";
+    return messages.errorRls;
   }
   if (m.includes("birth_year")) {
-    return "Fødselsåret ligger uden for det tilladte interval.";
+    return messages.errorBirthYear;
   }
   if (m.includes("fetch") || m.includes("network")) {
-    return "Ingen forbindelse. Tjek internettet og prøv igen.";
+    return messages.errorNetwork;
   }
-  return "Profilen kunne ikke oprettes. Prøv igen om lidt.";
+  return messages.errorFallback;
 }

@@ -6,6 +6,7 @@
 
 import { useCallback, useState } from "react";
 import type { Account } from "@/lib/types";
+import { useT } from "@/lib/i18n";
 import { giveConsent } from "./engine";
 
 export type ConsentPhase = "idle" | "submitting" | "error";
@@ -17,6 +18,7 @@ export interface UseConsentArgs {
 export function useConsent({ onConsented }: UseConsentArgs = {}) {
   const [phase, setPhase] = useState<ConsentPhase>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const t = useT("da");
 
   const submit = useCallback(
     async (accountId: string) => {
@@ -26,13 +28,13 @@ export function useConsent({ onConsented }: UseConsentArgs = {}) {
       const updated = await giveConsent(accountId);
       if (!updated) {
         setPhase("error");
-        setErrorMessage("Kunne ikke registrere samtykket. Tjek din forbindelse og prøv igen.");
+        setErrorMessage(t.consent.submitError);
         return;
       }
       setPhase("idle");
       onConsented?.(updated);
     },
-    [onConsented],
+    [onConsented, t],
   );
 
   return { phase, errorMessage, submit };

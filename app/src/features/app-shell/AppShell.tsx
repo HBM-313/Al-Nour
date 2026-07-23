@@ -26,29 +26,31 @@ import { WorldMap } from "@/features/verdenskort/WorldMap";
 import { LessonScreen } from "@/features/lektion/LessonScreen";
 import { HistorierBjergeScreen } from "@/features/historiernes-bjerge";
 import { ageSkinForBirthYear, type AgeSkin, type Profile } from "@/lib/types";
+import { useT, type Dictionary } from "@/lib/i18n";
 import { useAppShell } from "./useAppShell";
 import "./app-shell.css";
 
-const VOICE_LABEL: Record<string, string> = {
-  female: "🔊 Habibah ♀",
-  male: "🔊 Ahmed ♂",
-};
+function voiceLabel(pref: string | null | undefined, t: Dictionary): string {
+  return pref === "male" ? t.appShell.voiceLabelMale : t.appShell.voiceLabelFemale;
+}
 
 export function AppShell() {
   const shell = useAppShell();
+  const t = useT("da");
 
   return (
     <div className="shell-scene">
       <ShellStars />
       <div className="shell-app">
         {shell.view === "loading" && (
-          <p className="shell-hint shell-center">Tænder lanternerne …</p>
+          <p className="shell-hint shell-center">{t.appShell.loadingLanterns}</p>
         )}
 
         {shell.view === "landing" && (
           <Landing
             onParent={() => shell.goTo("parent")}
             onGuest={() => shell.goTo("guest")}
+            t={t}
           />
         )}
 
@@ -58,7 +60,7 @@ export function AppShell() {
               className="shell-back"
               onClick={() => shell.goTo("picker")}
             >
-              ‹ Til børne-indgangen
+              {t.appShell.backToChildEntry}
             </button>
             <ParentAuth />
           </div>
@@ -69,6 +71,7 @@ export function AppShell() {
             profiles={shell.pickerProfiles}
             onLoggedIn={shell.completeChildSignin}
             onParentGate={() => shell.goTo("parent_gate")}
+            t={t}
           />
         )}
 
@@ -77,6 +80,7 @@ export function AppShell() {
             status={shell.gateStatus}
             onSubmit={(email, pw) => void shell.submitGate(email, pw)}
             onBack={() => shell.goTo("picker")}
+            t={t}
           />
         )}
 
@@ -84,6 +88,7 @@ export function AppShell() {
           <ChildMode
             profile={shell.activeChild}
             onSwitchUser={() => shell.goTo("picker")}
+            t={t}
           />
         )}
 
@@ -91,6 +96,7 @@ export function AppShell() {
           <GuestMode
             onCreateAccount={() => shell.goTo("parent")}
             onBack={() => shell.goTo("landing")}
+            t={t}
           />
         )}
       </div>
@@ -101,6 +107,7 @@ export function AppShell() {
           lessonCount={shell.migrationOffer.lessonCount}
           onAccept={() => void shell.acceptMigration()}
           onDecline={shell.declineMigration}
+          t={t}
         />
       )}
     </div>
@@ -114,9 +121,11 @@ export function AppShell() {
 function Landing({
   onParent,
   onGuest,
+  t,
 }: {
   onParent: () => void;
   onGuest: () => void;
+  t: Dictionary;
 }) {
   return (
     <div className="shell-screen">
@@ -128,19 +137,16 @@ function Landing({
         <p className="shell-title-ar" dir="rtl" lang="ar">
           نور
         </p>
-        <p className="shell-sub">Lær arabisk — og lad lyset vokse</p>
+        <p className="shell-sub">{t.appShell.tagline}</p>
       </div>
       <div className="shell-stack">
         <button className="shell-btn shell-btn-gold" onClick={onParent}>
-          Log ind som forælder
+          {t.appShell.parentLoginLabel}
         </button>
         <button className="shell-btn shell-btn-ghost" onClick={onGuest}>
-          Prøv uden konto
+          {t.appShell.tryWithoutAccount}
         </button>
-        <p className="shell-hint shell-center">
-          Uden konto gemmes fremskridt kun på denne enhed. En forælder-konto
-          gemmer barnets lys sikkert.
-        </p>
+        <p className="shell-hint shell-center">{t.appShell.guestHint}</p>
       </div>
     </div>
   );
@@ -154,6 +160,7 @@ function Picker({
   profiles,
   onLoggedIn,
   onParentGate,
+  t,
 }: {
   profiles: PinLoginProfile[] | null;
   onLoggedIn: (
@@ -161,27 +168,25 @@ function Picker({
     credentials: ChildSigninCredentials,
   ) => Promise<boolean>;
   onParentGate: () => void;
+  t: Dictionary;
 }) {
   return (
     <div className="shell-screen">
       {profiles === null ? (
         <p className="shell-hint shell-center" style={{ marginTop: 48 }}>
-          Henter profiler …
+          {t.appShell.loadingProfiles}
         </p>
       ) : profiles.length === 0 ? (
         <div className="shell-card" style={{ marginTop: 40 }}>
-          <h3>Ingen børneprofiler endnu</h3>
-          <p>
-            Åbn forældre-området for at oprette den første profil — så tændes
-            barnets egen lanterne.
-          </p>
+          <h3>{t.appShell.noProfilesHeading}</h3>
+          <p>{t.appShell.noProfilesText}</p>
         </div>
       ) : (
         <PinLogin skin="mid" profiles={profiles} onLoggedIn={onLoggedIn} />
       )}
       <div className="shell-parent-link">
         <button className="shell-btn-quiet" onClick={onParentGate}>
-          🔒 Forældre
+          {t.appShell.parentLockButton}
         </button>
       </div>
     </div>
@@ -196,10 +201,12 @@ function ParentGate({
   status,
   onSubmit,
   onBack,
+  t,
 }: {
   status: "idle" | "checking" | "wrong";
   onSubmit: (email: string, password: string) => void;
   onBack: () => void;
+  t: Dictionary;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -210,21 +217,18 @@ function ParentGate({
     <div className="shell-screen">
       <div className="shell-topbar">
         <button className="shell-back" onClick={onBack}>
-          ‹ Tilbage
+          {t.appShell.back}
         </button>
-        <span className="shell-topbar-title">Kun for voksne</span>
+        <span className="shell-topbar-title">{t.appShell.adultsOnly}</span>
         <span className="shell-topbar-spacer" />
       </div>
       <div className="shell-card">
-        <h3>Log ind som forælder</h3>
-        <p>
-          Indtast din e-mail og adgangskode for at åbne forældre-området. Her kan
-          man oprette og slette børneprofiler.
-        </p>
+        <h3>{t.appShell.parentLoginLabel}</h3>
+        <p>{t.appShell.parentGateIntro}</p>
         <input
           type="email"
           className="shell-input"
-          placeholder="E-mail"
+          placeholder={t.appShell.emailPlaceholder}
           autoComplete="username"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -235,7 +239,7 @@ function ParentGate({
         <input
           type="password"
           className="shell-input"
-          placeholder="Adgangskode"
+          placeholder={t.appShell.passwordPlaceholder}
           autoComplete="current-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -244,7 +248,7 @@ function ParentGate({
           }}
         />
         <p className="shell-field-err" role="alert">
-          {status === "wrong" ? "Forkert e-mail eller adgangskode. Prøv igen." : ""}
+          {status === "wrong" ? t.appShell.wrongCredentials : ""}
         </p>
       </div>
       <div className="shell-stack">
@@ -253,7 +257,7 @@ function ParentGate({
           disabled={!canSubmit}
           onClick={() => onSubmit(email, password)}
         >
-          {checking ? "Tjekker …" : "Åbn forældre-området"}
+          {checking ? t.appShell.checking : t.appShell.openParentArea}
         </button>
       </div>
     </div>
@@ -267,9 +271,11 @@ function ParentGate({
 function ChildMode({
   profile,
   onSwitchUser,
+  t,
 }: {
   profile: Profile;
   onSwitchUser: () => void;
+  t: Dictionary;
 }) {
   const skin: AgeSkin = ageSkinForBirthYear(profile.birth_year);
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
@@ -283,10 +289,7 @@ function ChildMode({
           {profile.avatar ?? "🏮"}
         </span>
         <span className="shell-who">{profile.display_name}</span>
-        <span className="shell-voice-pill">
-          {VOICE_LABEL[profile.preferred_voice ?? "female"] ??
-            VOICE_LABEL.female}
-        </span>
+        <span className="shell-voice-pill">{voiceLabel(profile.preferred_voice, t)}</span>
       </div>
 
       {activeLessonId ? (
@@ -318,7 +321,7 @@ function ChildMode({
           />
           <div className="shell-stack">
             <button className="shell-btn shell-btn-ghost" onClick={onSwitchUser}>
-              Skift bruger
+              {t.appShell.switchUser}
             </button>
           </div>
         </>
@@ -334,9 +337,11 @@ function ChildMode({
 function GuestMode({
   onCreateAccount,
   onBack,
+  t,
 }: {
   onCreateAccount: () => void;
   onBack: () => void;
+  t: Dictionary;
 }) {
   const [skin, setSkin] = useState<AgeSkin>("mid");
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
@@ -350,12 +355,11 @@ function GuestMode({
           🏮
         </span>
         <span className="shell-guest-text">
-          <b>Gem dit lys.</b> Lige nu husker kun denne enhed dit fremskridt.
-          Bed en voksen oprette en gratis forælder-konto — så følger lyset med
-          dig.
+          <b>{t.appShell.guestBannerBold}</b>
+          {t.appShell.guestBannerText}
         </span>
         <button className="shell-guest-cta" onClick={onCreateAccount}>
-          Opret →
+          {t.appShell.guestCreateCta}
         </button>
       </div>
 
@@ -374,7 +378,7 @@ function GuestMode({
         <HistorierBjergeScreen skin={skin} onExit={() => setShowHistorier(false)} />
       ) : (
         <>
-          <div className="shell-skin-row" role="group" aria-label="Alder">
+          <div className="shell-skin-row" role="group" aria-label={t.appShell.ageGroupAriaLabel}>
             {(["soft", "mid", "teen"] as const).map((s) => (
               <button
                 key={s}
@@ -393,7 +397,7 @@ function GuestMode({
           />
           <div className="shell-stack">
             <button className="shell-btn-quiet" onClick={onBack}>
-              ‹ Til forsiden
+              {t.appShell.backToLanding}
             </button>
           </div>
         </>
@@ -411,34 +415,33 @@ function MigrationSheet({
   lessonCount,
   onAccept,
   onDecline,
+  t,
 }: {
   name: string;
   lessonCount: number;
   onAccept: () => void;
   onDecline: () => void;
+  t: Dictionary;
 }) {
   return (
     <div className="shell-overlay" role="dialog" aria-modal="true">
       <div className="shell-sheet">
-        <h3>🏮 Der er lys gemt på denne enhed</h3>
+        <h3>{t.appShell.migrationHeading}</h3>
         <p>
-          Nogen har spillet som gæst her og samlet lys i{" "}
-          <b>
-            {lessonCount} lektion{lessonCount === 1 ? "" : "er"}
-          </b>
-          . Skal <b>{name}</b> tage det med ind på sin profil?
+          {t.appShell.migrationIntro}{" "}
+          <b>{t.appShell.migrationLessonPhrase(lessonCount)}</b>
+          {t.appShell.migrationQuestionLead} <b>{name}</b> {t.appShell.migrationQuestionTail}
         </p>
         <div className="shell-stack" style={{ paddingTop: 0 }}>
           <button className="shell-btn shell-btn-gold" onClick={onAccept}>
-            Ja — tag lyset med ✨
+            {t.appShell.migrationAccept}
           </button>
           <button className="shell-btn-quiet" onClick={onDecline}>
-            Nej, det var ikke mig
+            {t.appShell.migrationDecline}
           </button>
         </div>
         <p className="shell-hint" style={{ marginTop: 10 }}>
-          Vælger du nej, bliver gæste-lyset på enheden og kan tages med af en
-          anden profil senere.
+          {t.appShell.migrationHint}
         </p>
       </div>
     </div>

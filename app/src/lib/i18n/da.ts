@@ -175,6 +175,169 @@ export const da = {
     progressQueued: "Dit lys gemmes, når du er online igen",
     progressError: "Kunne ikke gemmes lige nu — prøver igen",
   },
+
+  errorScreen: {
+    copy: {
+      soft: {
+        title: "Uh oh! Lyset blinkede 🏮",
+        body: "Det var ikke dig. Tryk på det store lys for at prøve igen.",
+        cta: "Prøv igen ✨",
+        exit: null as string | null,
+      },
+      mid: {
+        title: "Der gik noget galt for et øjeblik",
+        body: "Det er ikke din skyld. Dit fremskridt er gemt — prøv igen.",
+        cta: "Prøv igen",
+        exit: "Tilbage til kortet" as string | null,
+      },
+      teen: {
+        title: "Uventet fejl",
+        body: "Der opstod en teknisk fejl. Du kan roligt prøve igen — dit fremskridt er gemt undervejs.",
+        cta: "Prøv igen",
+        exit: "Tilbage til kortet" as string | null,
+      },
+    },
+  },
+
+  /**
+   * Samtykketeksten er ejer-godkendt på dansk (2026-07-19, plan-samtykke-flow.md).
+   * Den arabiske oversættelse er et UDKAST (ligesom resten af ar.ts) og bør
+   * have samme to-trins godkendelse som originalen: ejerens ordlyd-godkendelse
+   * OG juridisk gennemsyn før offentlig lancering — Claude er ikke jurist.
+   */
+  consent: {
+    heading: "Samtykke til Nour",
+    subheading: "Før vi opretter din første børneprofil, skal vi lige have din tilladelse.",
+    whatWeStoreHeading: "Det vi gemmer om dit barn",
+    storeNickname: "Kaldenavn (ikke fulde navn)",
+    storeBirthYear: "Fødselsår (kun til rette indholdsniveau)",
+    storeAvatar: "Valgt avatar",
+    storeProgress: "Fremskridt i lektionerne",
+    neverAskText:
+      "Vi beder aldrig om adresse, telefonnummer, billeder eller e-mail på barnet. Barnet opretter aldrig selv en konto.",
+    legalBasisHeading: "Retsgrundlag",
+    legalBasisText:
+      "Vi behandler oplysningerne, fordi du som forælder giver samtykke. Du kan altid trække det tilbage.",
+    whereDataLivesHeading: "Hvor data ligger",
+    whereDataLivesText: "Hos Supabase i EU (Frankfurt). Ingen data forlader EU.",
+    noAdsHeading: "Ingen reklamer, intet sporing",
+    noAdsText: "Nour viser aldrig reklamer og sporer ikke dit barns adfærd til markedsføring.",
+    rightsHeading: "Dine rettigheder",
+    rightsText:
+      "Du kan altid se, rette eller slette dit barns profil. Sletning fjerner al data permanent med ét klik — kan ikke fortrydes.",
+    legalWarning:
+      "⚠️ Dette er et udkast udarbejdet ud fra projektets principper — ikke juridisk rådgivning. Bør gennemgås juridisk før offentlig lancering.",
+    versionLabel: (version: string) => `Version: ${version}`,
+    checkboxLabel:
+      "Jeg er barnets forælder eller værge, og jeg giver samtykke som beskrevet ovenfor.",
+    registering: "Registrerer …",
+    submitButton: "Jeg giver samtykke og fortsætter",
+    submitError: "Kunne ikke registrere samtykket. Tjek din forbindelse og prøv igen.",
+  },
+
+  opretProfil: {
+    heading: "Opret barneprofil",
+    subtitleAbout: "Fortæl os lidt om dit barn",
+    subtitlePin: (name: string) => `Dyre-kode til ${name} (valgfrit)`,
+    subtitleConfirm: "Vælg de samme dyr igen",
+    subtitleSummary: "Tjek at alt passer",
+    nicknameLabel: "Kaldenavn",
+    nicknamePlaceholder: "fx Ali eller Zainab",
+    birthYearLabel: "Fødselsår",
+    ageSuffix: (age: number) => `${age} år`,
+    avatarLabel: "Avatar",
+    avatarNote: "· kan skiftes senere",
+    avatarAriaLabel: (n: number) => `Avatar ${n}`,
+    voiceLabel: "Oplæser-stemme",
+    voiceFemale: "🎀 Habibah",
+    voiceFemaleSub: "kvindestemme",
+    voiceMale: "🎩 Ahmed",
+    voiceMaleSub: "mandestemme",
+    privacyNote:
+      "Vi gemmer kun kaldenavn, fødselsår og avatar — aldrig fulde navne, adresser eller e-mails på børn.",
+    next: "Videre",
+    animalAriaLabel: (n: number) => `Dyr ${n}`,
+    pinHint: (min: number, max: number, name: string) =>
+      `Tryk på ${min}–${max} dyr i den rækkefølge, der skal være ${name}s kode.`,
+    clear: "Ryd",
+    nextConfirmCode: "Videre — bekræft koden",
+    skipNoPin: "Spring over — ingen kode nu",
+    confirmMismatch: "Hov — det var ikke helt de samme dyr. Prøv igen 💛",
+    confirmMatch: "Perfekt — koden passer! ✨",
+    confirmHint: (length: number) =>
+      `Bekræft koden ved at trykke på de samme ${length} dyr i samme rækkefølge.`,
+    tryAgain: "Prøv igen",
+    backChooseNewCode: "Tilbage — vælg ny kode",
+    sumNickname: "Kaldenavn",
+    sumBirthYear: "Fødselsår",
+    sumAvatar: "Avatar",
+    sumVoice: "Stemme",
+    sumPin: "Dyre-kode",
+    sumBirthYearValue: (year: number, age: number) => `${year} · ${age} år`,
+    sumPinNone: "Ingen (kan tilføjes senere)",
+    creating: "Opretter…",
+    createProfile: "Opret profil",
+    backAndEdit: "Tilbage og ret",
+    lanternLit: (name: string) => `${name}s lanterne er tændt! 🏮`,
+    profileCreatedSentence: (withPin: boolean): string =>
+      withPin ? "Profilen er oprettet med dyre-kode." : "Profilen er oprettet.",
+    canLoginSentence: (name: string, withPin: boolean) =>
+      withPin
+        ? `${name} kan nu logge ind fra børne-skærmen med sin kode.`
+        : `${name} kan nu logge ind fra børne-skærmen.`,
+    createAnother: "Opret endnu en profil",
+    /** Fejlbeskeder fra engine.ts (parametriseret, ikke useT direkte i ikke-hook-funktioner). */
+    errorEmptyName: "Skriv et kaldenavn først.",
+    pinSaveFailed:
+      "Profilen er oprettet, men dyre-koden kunne ikke gemmes. Prøv at sætte den igen fra forældre-oversigten.",
+    errorGeneric: "Noget gik galt. Tjek din forbindelse og prøv igen.",
+    errorRls: "Du har ikke adgang til at oprette denne profil. Log ud og ind igen, og prøv så.",
+    errorBirthYear: "Fødselsåret ligger uden for det tilladte interval.",
+    errorNetwork: "Ingen forbindelse. Tjek internettet og prøv igen.",
+    errorFallback: "Profilen kunne ikke oprettes. Prøv igen om lidt.",
+  },
+
+  appShell: {
+    voiceLabelFemale: "🔊 Habibah ♀",
+    voiceLabelMale: "🔊 Ahmed ♂",
+    loadingLanterns: "Tænder lanternerne …",
+    backToChildEntry: "‹ Til børne-indgangen",
+    loadingProfiles: "Henter profiler …",
+    noProfilesHeading: "Ingen børneprofiler endnu",
+    noProfilesText:
+      "Åbn forældre-området for at oprette den første profil — så tændes barnets egen lanterne.",
+    parentLockButton: "🔒 Forældre",
+    back: "‹ Tilbage",
+    adultsOnly: "Kun for voksne",
+    parentLoginLabel: "Log ind som forælder",
+    parentGateIntro:
+      "Indtast din e-mail og adgangskode for at åbne forældre-området. Her kan man oprette og slette børneprofiler.",
+    emailPlaceholder: "E-mail",
+    passwordPlaceholder: "Adgangskode",
+    wrongCredentials: "Forkert e-mail eller adgangskode. Prøv igen.",
+    checking: "Tjekker …",
+    openParentArea: "Åbn forældre-området",
+    tagline: "Lær arabisk — og lad lyset vokse",
+    tryWithoutAccount: "Prøv uden konto",
+    guestHint:
+      "Uden konto gemmes fremskridt kun på denne enhed. En forælder-konto gemmer barnets lys sikkert.",
+    switchUser: "Skift bruger",
+    guestBannerBold: "Gem dit lys.",
+    guestBannerText:
+      " Lige nu husker kun denne enhed dit fremskridt. Bed en voksen oprette en gratis forælder-konto — så følger lyset med dig.",
+    guestCreateCta: "Opret →",
+    ageGroupAriaLabel: "Alder",
+    backToLanding: "‹ Til forsiden",
+    migrationHeading: "🏮 Der er lys gemt på denne enhed",
+    migrationIntro: "Nogen har spillet som gæst her og samlet lys i",
+    migrationLessonPhrase: (count: number) => `${count} lektion${count === 1 ? "" : "er"}`,
+    migrationQuestionLead: ". Skal",
+    migrationQuestionTail: "tage det med ind på sin profil?",
+    migrationAccept: "Ja — tag lyset med ✨",
+    migrationDecline: "Nej, det var ikke mig",
+    migrationHint:
+      "Vælger du nej, bliver gæste-lyset på enheden og kan tages med af en anden profil senere.",
+  },
 };
 
 export type Dictionary = typeof da;

@@ -11,35 +11,8 @@
  */
 
 import type { AgeSkin } from "@/lib/types";
+import { useT } from "@/lib/i18n";
 import "./error-boundary.css";
-
-interface SkinCopy {
-  title: string;
-  body: string;
-  cta: string;
-  exit: string | null;
-}
-
-const COPY: Record<AgeSkin, SkinCopy> = {
-  soft: {
-    title: "Uh oh! Lyset blinkede 🏮",
-    body: "Det var ikke dig. Tryk på det store lys for at prøve igen.",
-    cta: "Prøv igen ✨",
-    exit: null,
-  },
-  mid: {
-    title: "Der gik noget galt for et øjeblik",
-    body: "Det er ikke din skyld. Dit fremskridt er gemt — prøv igen.",
-    cta: "Prøv igen",
-    exit: "Tilbage til kortet",
-  },
-  teen: {
-    title: "Uventet fejl",
-    body: "Der opstod en teknisk fejl. Du kan roligt prøve igen — dit fremskridt er gemt undervejs.",
-    cta: "Prøv igen",
-    exit: "Tilbage til kortet",
-  },
-};
 
 export interface ErrorScreenProps {
   scope: "app" | "game";
@@ -49,7 +22,8 @@ export interface ErrorScreenProps {
 }
 
 export function ErrorScreen({ scope, skin, onRetry, onExit }: ErrorScreenProps) {
-  const c = COPY[skin];
+  const t = useT("da");
+  const c = t.errorScreen.copy[skin];
 
   if (scope === "app") {
     return (

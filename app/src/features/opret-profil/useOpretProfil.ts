@@ -6,6 +6,7 @@
 
 import { useCallback, useState } from "react";
 import type { Profile, VoicePref } from "@/lib/types";
+import { useT } from "@/lib/i18n";
 import { createChildProfile, PIN_MAX, PIN_MIN } from "./engine";
 
 export type OpretStep = "about" | "pin" | "confirm" | "summary" | "saving" | "done";
@@ -39,6 +40,7 @@ const INITIAL: OpretState = {
 
 export function useOpretProfil(ownerAccountId: string, onCreated?: (p: Profile) => void) {
   const [state, setState] = useState<OpretState>(INITIAL);
+  const t = useT("da");
 
   const patch = useCallback((p: Partial<OpretState>) => {
     setState((s) => ({ ...s, ...p }));
@@ -62,13 +64,25 @@ export function useOpretProfil(ownerAccountId: string, onCreated?: (p: Profile) 
 
   const create = useCallback(async () => {
     setState((s) => ({ ...s, step: "saving", error: null }));
-    const result = await createChildProfile(ownerAccountId, {
-      displayName: state.name,
-      birthYear: state.birthYear ?? 0,
-      avatar: state.avatar ?? "",
-      preferredVoice: state.voice,
-      pinSequence: state.pin,
-    });
+    const result = await createChildProfile(
+      ownerAccountId,
+      {
+        displayName: state.name,
+        birthYear: state.birthYear ?? 0,
+        avatar: state.avatar ?? "",
+        preferredVoice: state.voice,
+        pinSequence: state.pin,
+      },
+      {
+        emptyName: t.opretProfil.errorEmptyName,
+        pinSaveFailed: t.opretProfil.pinSaveFailed,
+        errorGeneric: t.opretProfil.errorGeneric,
+        errorRls: t.opretProfil.errorRls,
+        errorBirthYear: t.opretProfil.errorBirthYear,
+        errorNetwork: t.opretProfil.errorNetwork,
+        errorFallback: t.opretProfil.errorFallback,
+      },
+    );
     if (!result.ok) {
       setState((s) => ({ ...s, step: "summary", error: result.error }));
       return;
@@ -80,7 +94,7 @@ export function useOpretProfil(ownerAccountId: string, onCreated?: (p: Profile) 
       pinWarning: result.pinWarning ?? null,
     }));
     onCreated?.(result.profile);
-  }, [ownerAccountId, state.name, state.birthYear, state.avatar, state.voice, state.pin, onCreated]);
+  }, [ownerAccountId, state.name, state.birthYear, state.avatar, state.voice, state.pin, onCreated, t]);
 
   const reset = useCallback(() => setState(INITIAL), []);
 
