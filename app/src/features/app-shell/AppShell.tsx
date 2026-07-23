@@ -17,7 +17,7 @@
 
 import { useMemo, useState } from "react";
 import { ParentAuth } from "@/features/parent-auth";
-import { PinLogin } from "@/features/pin-login";
+import { PinLogin, type ChildSigninCredentials } from "@/features/pin-login";
 import { WorldMap } from "@/features/verdenskort/WorldMap";
 import { LessonScreen } from "@/features/lektion/LessonScreen";
 import { HistorierBjergeScreen } from "@/features/historiernes-bjerge";
@@ -63,7 +63,7 @@ export function AppShell() {
         {shell.view === "picker" && (
           <Picker
             profiles={shell.profiles}
-            onLoggedIn={shell.onChildLoggedIn}
+            onLoggedIn={shell.completeChildSignin}
             onParentGate={() => shell.goTo("parent_gate")}
           />
         )}
@@ -71,7 +71,7 @@ export function AppShell() {
         {shell.view === "parent_gate" && (
           <ParentGate
             status={shell.gateStatus}
-            onSubmit={(pw) => void shell.submitGate(pw)}
+            onSubmit={(email, pw) => void shell.submitGate(email, pw)}
             onBack={() => shell.goTo("picker")}
           />
         )}
@@ -152,7 +152,10 @@ function Picker({
   onParentGate,
 }: {
   profiles: Profile[] | null;
-  onLoggedIn: (profile: Profile) => void;
+  onLoggedIn: (
+    profile: Profile,
+    credentials: ChildSigninCredentials,
+  ) => Promise<boolean>;
   onParentGate: () => void;
 }) {
   return (
@@ -191,11 +194,13 @@ function ParentGate({
   onBack,
 }: {
   status: "idle" | "checking" | "wrong";
-  onSubmit: (password: string) => void;
+  onSubmit: (email: string, password: string) => void;
   onBack: () => void;
 }) {
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const checking = status === "checking";
+  const canSubmit = email.trim().length > 0 && password.length > 0 && !checking;
 
   return (
     <div className="shell-screen">
@@ -207,11 +212,22 @@ function ParentGate({
         <span className="shell-topbar-spacer" />
       </div>
       <div className="shell-card">
-        <h3>Bekræft at du er forælder</h3>
+        <h3>Log ind som forælder</h3>
         <p>
-          Indtast din adgangskode for at åbne forældre-området. Her kan man
-          oprette og slette børneprofiler.
+          Indtast din e-mail og adgangskode for at åbne forældre-området. Her kan
+          man oprette og slette børneprofiler.
         </p>
+        <input
+          type="email"
+          className="shell-input"
+          placeholder="E-mail"
+          autoComplete="username"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && canSubmit) onSubmit(email, password);
+          }}
+        />
         <input
           type="password"
           className="shell-input"
@@ -220,18 +236,18 @@ function ParentGate({
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && password && !checking) onSubmit(password);
+            if (e.key === "Enter" && canSubmit) onSubmit(email, password);
           }}
         />
         <p className="shell-field-err" role="alert">
-          {status === "wrong" ? "Forkert adgangskode. Prøv igen." : ""}
+          {status === "wrong" ? "Forkert e-mail eller adgangskode. Prøv igen." : ""}
         </p>
       </div>
       <div className="shell-stack">
         <button
           className="shell-btn shell-btn-gold"
-          disabled={!password || checking}
-          onClick={() => onSubmit(password)}
+          disabled={!canSubmit}
+          onClick={() => onSubmit(email, password)}
         >
           {checking ? "Tjekker …" : "Åbn forældre-området"}
         </button>

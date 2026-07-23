@@ -179,6 +179,66 @@ describe("Rækkefølge (FIFO) — forudsigelig konfliktløsning", () => {
   });
 });
 
+describe("Kø PR. PROFIL (fælde 5.1) — et profilskift må ikke blokere den nye profil", () => {
+  it("Alis fejlende poster blokerer IKKE Zainabs poster i samme flush", async () => {
+    const attempted: string[] = [];
+    const sender: RecordProgressSender = vi.fn().mockImplementation(async (entry) => {
+      attempted.push(entry.eventId);
+      // Ali er "logget ud" — hans resterende poster afvises nu af serveren
+      // (forkert/udløbet session), ligesom efter et rigtigt profilskift.
+      if (entry.profileId === "profile-ali") {
+        return { error: { message: "not authorized" } };
+      }
+      return { error: null };
+    });
+
+    // Ali har to poster i køen, kun den første når at blive forsøgt sendt
+    // før profilskiftet (offline hele vejen, lægges bare i køen).
+    await enqueueAndSend(makeEntry({ eventId: "ali-1", profileId: "profile-ali" }), failSender);
+    await enqueueAndSend(makeEntry({ eventId: "ali-2", profileId: "profile-ali" }), failSender);
+    // Zainab logger ind på samme enhed og spiller også offline et øjeblik.
+    await enqueueAndSend(makeEntry({ eventId: "zainab-1", profileId: "profile-zainab" }), failSender);
+    await enqueueAndSend(makeEntry({ eventId: "zainab-2", profileId: "profile-zainab" }), failSender);
+    expect(await getPendingCount()).toBe(4);
+
+    const { flushed, remaining } = await flushQueue(sender);
+
+    // Ali: "ali-1" forsøgt og fejler → "ali-2" forsøges ALDRIG (rækkefølge
+    // bevaret inden for Ali). Zainab: begge poster sendes uforstyrret,
+    // UANSET at Ali fejlede.
+    expect(attempted).toEqual(["ali-1", "zainab-1", "zainab-2"]);
+    expect(flushed).toBe(2);
+    expect(remaining).toBe(2);
+    expect(await getPendingCount()).toBe(2);
+
+    const stillQueued = await getPendingCount();
+    expect(stillQueued).toBe(2); // begge er Alis ("ali-1" forsøgt igen næste gang, "ali-2" ventede aldrig)
+  });
+
+  it("rækkefølgen inden for én profil er stadig strengt FIFO, uændret af grupperingen", async () => {
+    const attempted: string[] = [];
+    const sender: RecordProgressSender = vi.fn().mockImplementation(async (entry) => {
+      attempted.push(entry.eventId);
+      return { error: null };
+    });
+
+    // Flettet rækkefølge i selve køen (Ali, Zainab, Ali, Zainab) — men hver
+    // profils INTERNE rækkefølge skal stadig respekteres ved afsendelse.
+    await enqueueAndSend(makeEntry({ eventId: "ali-a", profileId: "profile-ali", currentStep: 1 }), failSender);
+    await enqueueAndSend(makeEntry({ eventId: "zainab-a", profileId: "profile-zainab", currentStep: 1 }), failSender);
+    await enqueueAndSend(makeEntry({ eventId: "ali-b", profileId: "profile-ali", currentStep: 2 }), failSender);
+    await enqueueAndSend(makeEntry({ eventId: "zainab-b", profileId: "profile-zainab", currentStep: 2 }), failSender);
+
+    await flushQueue(sender);
+
+    const aliOrder = attempted.filter((id) => id.startsWith("ali"));
+    const zainabOrder = attempted.filter((id) => id.startsWith("zainab"));
+    expect(aliOrder).toEqual(["ali-a", "ali-b"]);
+    expect(zainabOrder).toEqual(["zainab-a", "zainab-b"]);
+    expect(await getPendingCount()).toBe(0);
+  });
+});
+
 describe("startSyncEngine", () => {
   it("tømmer køen med det samme og igen ved hvert 'online'-event", async () => {
     const sender = vi.fn().mockResolvedValue({ error: null });

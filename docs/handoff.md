@@ -39,6 +39,44 @@ Admin (mig) · Indholds-redaktør (kan ikke udgive aqidah) · Godkender (eneste 
 
 ## Hvor jeg er nu (opdater dette felt løbende)
 
+**Status (2026-07-23, session 16 — Leverance B2: barnets pin udsteder nu en RIGTIG session. FULDT GENNEMFØRT og pushet.)**
+
+B1 (session 14–15) byggede identiteten (`profiles.auth_user_id`, `child`-rolle via access-token-hooket, RLS) og lukkede den ende-til-ende (session 15: "Aktivér egen adgang"-knappen i dashboardet, Ali/Zainab begge aktiverede). Denne session tog identiteten i BRUG: dyre-pinnen er ikke længere kun en UI-port — en bestået pin (eller en ulåst profil) udsteder nu barnets EGEN, rigtige Supabase-session.
+
+**Database (migration `20260723_child_signin_rate_limit_b2.sql`, live):** ny tabel `pin_attempts` + atomisk `attempt_child_pin()` (SECURITY DEFINER, samme mønster som `record_progress()`) — rate-tjek + pin-verifikation + forsøgs-registrering i ét kald. Stigende forsinkelse (0/0/5/15/30/60 sek. efter 1.–6.+ fejl), ALDRIG lockout. To reelle bugs fanget af regressionstesten selv og rettet FØR migrationen blev endelig: (1) en ulåst profil kunne fejlagtigt rate-limitedes af en efterladt tilstand — fix: `pin_hash` tjekkes FØR forsinkelsen håndhæves; (2) et ukendt profil-id ville have kastet en rå FK-fejl — fix: profilen slås op FØR noget skrives til `pin_attempts`. Bevist med rollback-markør-regressionstest mod live-DB (Ali som testprofil), 0 rækker persisteret.
+
+**KRITISK SIKKERHEDSFUND undervejs:** den ældre `verify_child_pin`-RPC (statsløs boolean, ingen rate limiting) var granted EXECUTE til `anon`/`authenticated` — havde den forblivet åben, kunne den bruges som en ubegrænset gætte-oracle (1320 kombinationer på sekunder) UDEN OM det nye rate limit. Låst ned (`revoke execute ... from anon, authenticated`) i samme migration. `child-signin` er nu den ENESTE vej til at verificere en pin. `set_child_pin` upåvirket (kræver allerede ægte forælder-session).
+
+**Edge Function `child-signin`** (`supabase/functions/child-signin/`, deployeret v2, `verify_jwt: true`): kalder kun `attempt_child_pin`; udsteder ved succes et engangs-magiclink-token (`auth.admin.generateLink`), som klienten indløser med `verifyOtp()` — service-nøgle og adgangskode forlader aldrig funktionen. Svarer `409 needs_provisioning` mangler `auth_user_id`.
+
+**Frontend:**
+- `features/pin-login/`: pin-tjek flyttet fra den nu-låste `verify_child_pin` til `attemptChildSignin` (`child-signin`). `usePinLogin.ts` omlagt fra "tjek ved hvert tryk" til DEBOUNCE (550ms pause, eller `MAX_PIN_LEN`) — et rigtigt rate limit gør den gamle optimistiske per-tryk-polling for dyr. Nye statusser `rate_limited` (med nedtælling)/`not_provisioned`.
+- `features/app-shell/useAppShell.ts`: nyt `completeChildSignin` — eksplicit `signOut()` af forælderen FØR `verifyOtp()` som barnet (to identiteter, aldrig begge aktive), bag en `authTransitionInFlight`-guard så `onAuthStateChange` ikke bounce'r til "landing" midt i skiftet. **Sikkerhedskritisk fix undervejs:** `gatePassed` nulstilles nu eksplicit ved et barne-login — ellers kunne et barn gå picker → "🔒 Forælder" → parent_gate og springe lige ind i dashboardet uden kodeord, hvis en forælder tidligere havde bestået porten i samme browser-session. `goTo("picker")` genbruger nu den allerede hentede profilliste (i stedet for at gen-hente under en barne-session, som ville fejle under RLS og tømme listen for søskende) — løser sidedeleflowet for søskende uden en voksen. Forældre-porten er ændret fra kodeord-genindtastning til FULD e-mail+adgangskode-reautentificering (den aktive session er ikke længere pålideligt forælderens).
+- `lib/progressQueue.ts` (fælde 5.1 LUKKET): `flushQueue` grupperer nu poster pr. `profileId` — et profilskift (Ali → Zainab) blokerer ikke længere Zainabs poster, selvom Alis gamle poster afvises.
+- `lib/childRoster.ts` (ny): enheds-lokal cache af `{profileId, displayName, avatar}` pr. barn — ALDRIG `pin_hash`. Skrevet ved hvert login; "Glem denne enhed"-knap i `ParentAuth.tsx`s Welcome-visning rydder den. Fuldt taget i brug (bootstrap af picker uden forælder-session) er Leverance B4.
+
+**IKKE bygget (B4-scope, kendt og dokumenteret):** en side-genindlæsning midt i en barne-session fører i dag tilbage til pin-skærmen (RLS viser kun barnet selv i "familien"), ikke direkte tilbage til spillet. Fuld sessionskontinuitet efter genindlæsning kræver roster-drevet boot af skallen (B4).
+
+Build-kæde grøn: `tsc --noEmit` 0 · `oxlint` 0/0 · **104/104 tests** (93 tidligere + 9 nye `childRoster.test.ts` + 2 nye fælde-5.1-tests) · build ✓.
+
+**Næste skridt:** Leverance B3 (sletning/livscyklus ende-til-ende — trigger på `profiles` DELETE skal slette den tilhørende barne-auth-bruger, `delete_own_account()` udvides) og B4 (skallen bygget om til to rigtige indgange, roster-drevet boot). Se `plan-boernesession-og-dashboard.md` → Leverance B3/B4.
+
+---
+
+**Status (2026-07-23, session 15 — B1's åbne ende LUKKET: "Aktivér egen adgang"-knap bygget, pushet og bevist ende-til-ende. Commit `0e003ec`.)**
+
+B1 (session 14) efterlod én åben ende: Edge Function `provision-child-auth` var deployeret men ALDRIG ende-til-ende-testet, fordi Claudes container ikke kan nå Supabase's projekt-URL direkte. Denne session lukkede den ende ved at bygge selve klik-vejen i appen og lade ejerens tryk i telefon-browseren være den reelle test.
+
+**Bygget (frontend, ingen migration — bruger eksisterende `profiles.auth_user_id` fra B1):** `features/dashboard/engine.ts` fik `provisionChildAuth(profileId)` (kalder `supabase.functions.invoke("provision-child-auth")`, idempotent) · `useDashboard.ts` fik `activateAccess(child)` + `provisioningId`-state · `Dashboard.tsx`: hvert barnekort viser nu badge "👤 egen adgang" ELLER en "Aktivér egen adgang →"-knap.
+
+**Bevist ende-til-ende mod live-DB** (efter ejerens klik i telefonen): Ali (`b1bc21cd-…`) → `auth_user_id` `2ea57415-…`, e-mail `c-b1bc21cd-…@child.nour.invalid`. Zainab (`94f698f3-…`) → tilsvarende. Begge har nu en rigtig `auth.users`-række.
+
+**Ejer-beslutninger (til B2, indarbejdet i session 16 ovenfor):** dyre-pin forbliver VALGFRI for alle børn · 12 dyr i pin-grid'et (`ANIMAL_POOL` har allerede 12).
+
+Build grøn ved push: `tsc --noEmit` 0 · `oxlint` 0/0 · **93/93 tests** (uændrede) · build ✓.
+
+---
+
 **Status (2026-07-23, session 14 — Leverance B1: barnets identitet i databasen. Database-lag + hook FULDT GENNEMFØRT og anvendt på live-DB; Edge Function deployeret men IKKE ende-til-ende-testet endnu; PUSH TIL REPO AFVENTER GitHub-token i chatten.)**
 
 Problemet (plan-boernesession-og-dashboard.md, del 1–3): barnet spillede indtil nu INDE I forælderens session — dyre-pinnen var kun en UI-port, ikke en identitet. Alt et barn foretog sig skete med forælderens fulde rettigheder. Løst med **mulighed A**: hver børneprofil kan nu få sin egen `auth.users`-række med syntetisk e-mail (`c-<profil-uuid>@child.nour.invalid`, RFC 2606-reserveret, ruter ingen steder) og en kryptografisk tilfældig adgangskode intet menneske ser.

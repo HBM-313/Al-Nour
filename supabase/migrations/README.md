@@ -388,3 +388,111 @@ i køen, vil A's poster blive afvist af `record_progress` under B's session
 og blokere køen permanent for B. Løsning (kø pr. `profile_id`) er en B2-opgave
 — IKKE bygget i B1, og ikke et problem endnu, da ingen barne-sessioner
 findes før B2.
+
+
+## Leverance B2 — child-signin rate limiting + lock-down af verify_child_pin (2026-07-23)
+
+`20260723_child_signin_rate_limit_b2.sql` — bygget som backend-fundamentet
+for Leverance B2 (plan-boernesession-og-dashboard.md del 4: barnets pin
+udsteder nu en RIGTIG session, ikke kun en UI-port).
+
+**Ny tabel `pin_attempts`** (`profile_id` PK/FK til `profiles`, `attempt_count`,
+`last_attempt_at`) — dataminimering: intet om barnet ud over selve tælleren.
+RLS aktiveret, bevidst INGEN policies (fail-closed for anon/authenticated),
+kun rørt af funktionen nedenfor + service_role.
+
+**`attempt_child_pin(profile_id, attempt)`** (SECURITY DEFINER, samme
+mønster som `record_progress()`): gør rate-tjek + pin-verifikation +
+forsøgs-registrering ATOMISK i ét kald. Stigende forsinkelse
+(0/0/5/15/30/60 sek. efter hhv. 1.–6.+ fejl i træk), **aldrig lockout**.
+Tidsforfald efter 30 minutter glemmer en gammel fejlserie.
+
+**To reelle bugs fanget af regressionstesten selv, før migrationen blev
+endelig** (dokumenteret her fordi rækkefølgen i funktionens krop nu ser
+bevidst, ikke tilfældig, ud):
+1. En ulåst profil (intet pin sat — standarden for alle børn i dag) kunne
+   fejlagtigt blive rate-limitet af en efterladt `pin_attempts`-tilstand,
+   selvom der ingen hemmelighed er at beskytte. Fix: `pin_hash` tjekkes
+   FØR forsinkelsen håndhæves, ikke efter.
+2. Et ukendt profil-id ville have kastet en rå FK-violation (fra
+   `pin_attempts.profile_id`s FK til `profiles`) i stedet for et pænt
+   svar. Fix: profilen slås op FØR noget som helst skrives til
+   `pin_attempts` — findes den ikke, svares der `invalid` med det samme,
+   uden at røre tabellen overhovedet.
+
+**Bevist med rollback-markør-regressionstest mod live-DB (Ali som
+testprofil, pin/attempts midlertidigt sat/rettet, 0 rækker persisteret):**
+forsinkelsesstige 0/0/5/15/30/60 ✓ · aktiv rate limit blokerer selv et
+korrekt pin ✓ · forsinkelse udløbet accepterer korrekt pin og rydder
+rækken ✓ · tidsforfald efter 31 min. glemmer en gammel fejlserie ✓ · ulåst
+profil ignorerer ALTID en efterladt attempts-række ✓ · ukendt profil-id
+giver pænt `invalid`-svar uden FK-fejl og uden at oprette en række ✓ ·
+`anon`/`authenticated` har hverken funktions- eller tabel-adgang ✓.
+
+**KRITISK SIKKERHEDSFUND under implementeringen:** `verify_child_pin` (den
+ældre, statsløse boolean-RPC fra `20260718124834_fase1b_profiler_pin_
+samtykke.sql`) var granted EXECUTE til `anon`/`authenticated` og har INGEN
+rate limiting. Var den forblevet frit tilgængelig, kunne den have brugt
+som en ubegrænset gætte-oracle (op til 1320 kombinationer på sekunder)
+UDEN OM `attempt_child_pin`'s rate limiter — hele arbejdet ovenfor ville
+have været ren kosmetik. Samme migration reverserer derfor dens grants
+(`revoke execute ... from anon, authenticated`). `child-signin` (Edge
+Function) → `attempt_child_pin` er nu den ENESTE vej til at verificere en
+pin. `set_child_pin` er UPÅVIRKET og forbliver som den er — den kræver
+allerede en ægte forælder/admin-session, ikke en gættelig pin.
+
+**Edge Function `child-signin`** (`supabase/functions/child-signin/`,
+deployeret, version 2, aktiv, `verify_jwt: true`): kalder udelukkende
+`attempt_child_pin` (ingen egen forsøgs-logik). Ved succes udsteder den et
+engangs-magiclink-token (`auth.admin.generateLink`) som klienten selv
+indløser med `supabase.auth.verifyOtp()` — service-nøglen og barnets
+adgangskode forlader aldrig funktionen. Svarer `409 needs_provisioning`
+hvis profilen mangler `auth_user_id` (forælderen skal først trykke
+"Aktivér egen adgang", Leverance B1/session 15). Genbruger
+service-nøgle-mønsteret fra `provision-child-auth`
+(`SUPABASE_SERVICE_ROLE_KEY` først, `CHILD_AUTH_SERVICE_ROLE_KEY` som
+fallback — allerede sat i Secrets).
+
+**Frontend (samme session):**
+- `features/pin-login/`: `verifyPin`/`verify_child_pin` erstattet af
+  `attemptChildSignin` (`engine.ts`) mod `child-signin`. `usePinLogin.ts`
+  omlagt fra "tjek ved hvert tastetryk" til DEBOUNCE (550ms pause, eller
+  `MAX_PIN_LEN` nået) — et rigtigt rate limit gør "spørg serveren
+  optimistisk ved hver længde" for dyrt (ville bruge budgettet op på ren
+  "ikke færdig endnu"-støj). Nye statusser `rate_limited`/`not_provisioned`
+  med nedtælling. Ulåst profil springer stadig pin-skærmen helt over
+  (kendt fra `profile.pin_hash`, ikke fra en gættelig server-oracle).
+- `features/app-shell/useAppShell.ts`: nyt `completeChildSignin` — eksplicit
+  `signOut()` af forælderen FØR `verifyOtp()` som barnet (to identiteter,
+  aldrig begge aktive). Ny `authTransitionInFlight`-guard forhindrer
+  `onAuthStateChange` i at bounce'e til "landing" midt i det kontrollerede
+  skifte. **Sikkerhedskritisk fix undervejs:** `gatePassed` (forældre-
+  portens "allerede bekræftet denne session"-flag) nulstilles nu eksplicit
+  når et barn logger ind — ellers kunne et barn gå picker → "🔒 Forælder"
+  → parent_gate og springe lige ind i dashboardet uden kodeord, hvis en
+  forælder tidligere havde bestået porten i samme browser-session.
+  `goTo("picker")` genbruger nu den allerede hentede profilliste i stedet
+  for at gen-hente under en (evt.) barne-session — en gen-hentning ville
+  fejle under RLS (barnet ser kun sig selv) og tømme listen for søskende.
+  Forældre-porten (`submitGate`) er ændret fra ren kodeord-genindtastning
+  til FULD e-mail+adgangskode-reautentificering, fordi den aktive session
+  ikke længere pålideligt er forælderens.
+- `lib/progressQueue.ts` (fælde 5.1, plan-boernesession-og-dashboard.md del
+  5.1): `flushQueue` grupperer nu poster pr. `profileId` og stopper kun den
+  ramte profils resterende poster ved fejl — et profilskift (Ali → Zainab)
+  blokerer ikke længere Zainabs poster, selvom Alis gamle poster afvises.
+- `lib/childRoster.ts` (ny): enheds-lokal cache af `{profileId,
+  displayName, avatar}` pr. barn, skrevet ved hvert vellykkede login.
+  ALDRIG `pin_hash`. Fuldt taget i brug (bootstrap af picker uden
+  forælder-session) er Leverance B4 — her bygges kun selve lageret +
+  "Glem denne enhed"-knappen i forældre-portalen (`ParentAuth.tsx`).
+
+**IKKE bygget i denne leverance (B4-scope, kendt og dokumenteret):** en
+side-genindlæsning midt i en aktiv barne-session fører i dag tilbage til
+pin-skærmen (viser kun barnet selv i "familien", da RLS kun viser egen
+profil), IKKE direkte tilbage til spillet. Fuld sessionskontinuitet efter
+genindlæsning kræver roster-drevet boot af hele skallen (B4).
+
+Build-kæde grøn: `tsc --noEmit` 0 · `oxlint` 0/0 · **104/104 tests**
+(93 tidligere + 9 nye `childRoster.test.ts` + 2 nye fælde-5.1-tests i
+`progressQueue.test.ts`) · build ✓.

@@ -1,13 +1,17 @@
 /**
- * App-shell — engine: de tre backend-veje skallen har brug for.
+ * App-shell — engine: backend-veje skallen har brug for.
  *
  *  1. fetchOwnProfiles()      — familiens børneprofiler (RLS: kun egne).
- *  2. verifyParentPassword()  — forældre-porten foran dashboardet: barnet
- *     må aldrig kunne nå slette-knapperne, så porten kræver forælderens
- *     adgangskode genindtastet (verificeres mod Supabase Auth, aldrig
- *     lokalt). Fail-closed: enhver fejl = ingen adgang.
- *  3. migrateGuestProgress()  — engangs-flytning "tag dit lys med":
+ *  2. migrateGuestProgress()  — engangs-flytning "tag dit lys med":
  *     gæste-fremskridt fra localStorage → progress-rækker på profilen.
+ *
+ * Forældre-porten (foran dashboardet) er IKKE her — siden Leverance B2 kan
+ * den aktive session være et BARNS, ikke kun forælderens (barnets egen
+ * session, se pin-login/child-signin), så porten kan ikke længere nøjes
+ * med at "genindtaste kodeord for den allerede indloggede" — den skal
+ * kunne skifte identitet helt. Det kræver adgang til session-skifte-guarden
+ * (`authTransitionInFlight`), som bor i useAppShell selv. Se
+ * useAppShell.submitGate.
  *
  * MUREN: rører kun profiles/progress (persondata bag RLS) og Supabase
  * Auth — aldrig content/aqidah.
@@ -29,24 +33,6 @@ export async function fetchOwnProfiles(): Promise<Profile[] | null> {
     .order("created_at");
   if (error) return null;
   return (data ?? []) as Profile[];
-}
-
-/**
- * Forældre-porten: bekræft adgangskoden for den ALLEREDE indloggede
- * forælder. Vi genbruger signInWithPassword mod sessionens egen e-mail —
- * korrekt kode fornyer blot sessionen, forkert kode afvises af GoTrue.
- * Fail-closed: mangler sessionen/e-mailen, eller fejler kaldet, er svaret nej.
- */
-export async function verifyParentPassword(password: string): Promise<boolean> {
-  try {
-    const { data } = await supabase.auth.getSession();
-    const email = data.session?.user.email;
-    if (!email) return false;
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return !error;
-  } catch {
-    return false;
-  }
 }
 
 export interface MigrationCheck {

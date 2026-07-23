@@ -19,14 +19,22 @@
 
 import { useMemo } from "react";
 import type { AgeSkin, Profile } from "@/lib/types";
-import { ANIMAL_POOL, SKIN_PARAMS } from "./engine";
-import { usePinLogin } from "./usePinLogin";
+import { ANIMAL_POOL, SKIN_PARAMS, type ChildSigninCredentials } from "./engine";
+import { usePinLogin, type PinLoginStatus } from "./usePinLogin";
 import "./pin-login.css";
 
 export interface PinLoginProps {
   skin: AgeSkin;
   profiles: readonly Profile[];
-  onLoggedIn: (profile: Profile) => void;
+  /**
+   * Kaldes når pin'en er bekræftet. Ejeren (app-skallen) skifter selve
+   * Supabase-sessionen fra forælder til barn og returnerer om det lykkedes
+   * (Leverance B2) — se useAppShell.completeChildSignin.
+   */
+  onLoggedIn: (
+    profile: Profile,
+    credentials: ChildSigninCredentials,
+  ) => Promise<boolean>;
 }
 
 export function PinLogin({ skin, profiles, onLoggedIn }: PinLoginProps) {
@@ -35,6 +43,7 @@ export function PinLogin({ skin, profiles, onLoggedIn }: PinLoginProps) {
     activeProfile,
     entered,
     status,
+    waitSeconds,
     needsAdultHelp,
     chooseProfile,
     pressAnimal,
@@ -94,6 +103,7 @@ export function PinLogin({ skin, profiles, onLoggedIn }: PinLoginProps) {
             profile={activeProfile}
             entered={entered}
             status={status}
+            waitSeconds={waitSeconds}
             needsAdultHelp={needsAdultHelp}
             onPressAnimal={pressAnimal}
           />
@@ -166,13 +176,15 @@ function PinPad({
   profile,
   entered,
   status,
+  waitSeconds,
   needsAdultHelp,
   onPressAnimal,
 }: {
   skin: AgeSkin;
   profile: Profile;
   entered: readonly string[];
-  status: "idle" | "checking" | "wrong" | "network_error";
+  status: PinLoginStatus;
+  waitSeconds: number;
   needsAdultHelp: boolean;
   onPressAnimal: (poolIndex: number) => void;
 }) {
@@ -182,6 +194,7 @@ function PinPad({
   // forlader aldrig DB'en), så vi viser pladser i takt med det indtastede —
   // et nyt tomt plads-slot dukker op efter hvert tryk, op til et rimeligt loft.
   const slotCount = Math.max(4, Math.min(6, entered.length + 1));
+  const disabled = status === "checking" || status === "rate_limited";
 
   return (
     <div className="flex flex-col items-center gap-6 py-2 text-center">
@@ -216,7 +229,12 @@ function PinPad({
         })}
       </div>
 
-      <FeedbackLine status={status} needsAdultHelp={needsAdultHelp} skin={skin} />
+      <FeedbackLine
+        status={status}
+        waitSeconds={waitSeconds}
+        needsAdultHelp={needsAdultHelp}
+        skin={skin}
+      />
 
       <div
         className="grid gap-3 sm:gap-4"
@@ -226,7 +244,7 @@ function PinPad({
           <button
             key={index}
             type="button"
-            disabled={status === "checking"}
+            disabled={disabled}
             onClick={() => onPressAnimal(index)}
             className={`pin-animal-btn flex flex-col items-center justify-center rounded-(--radius-skin) transition-transform active:scale-90 ${
               skin === "soft" ? "size-20 text-4xl" : skin === "mid" ? "size-16 text-3xl" : "size-14 text-2xl"
@@ -245,13 +263,24 @@ function PinPad({
 
 function FeedbackLine({
   status,
+  waitSeconds,
   needsAdultHelp,
   skin,
 }: {
-  status: "idle" | "checking" | "wrong" | "network_error";
+  status: PinLoginStatus;
+  waitSeconds: number;
   needsAdultHelp: boolean;
   skin: AgeSkin;
 }) {
+  if (status === "rate_limited") {
+    return (
+      <p className="pin-feedback pin-feedback-help text-sm font-semibold">
+        {needsAdultHelp
+          ? `Vent lidt sammen med en voksen 🤝 (${waitSeconds}s)`
+          : `Vent lidt, og prøv igen … (${waitSeconds}s)`}
+      </p>
+    );
+  }
   if (needsAdultHelp && status === "wrong") {
     return (
       <p className="pin-feedback pin-feedback-help text-sm font-semibold">
@@ -263,6 +292,14 @@ function FeedbackLine({
     return (
       <p className="pin-feedback text-sm font-semibold">
         {skin === "soft" ? "Prøv igen! 🌙" : "Ikke helt — prøv igen"}
+      </p>
+    );
+  }
+  if (status === "not_provisioned") {
+    return (
+      <p className="pin-feedback text-sm font-semibold">
+        Denne profil er ikke helt klar endnu. Bed en voksen om at aktivere adgang i
+        forældre-portalen.
       </p>
     );
   }

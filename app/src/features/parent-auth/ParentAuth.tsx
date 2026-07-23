@@ -15,6 +15,7 @@
 
 import { useMemo, useState } from "react";
 import type { Account } from "@/lib/types";
+import { forgetDeviceRoster } from "@/lib/childRoster";
 import { Consent } from "@/features/consent";
 import { Dashboard } from "@/features/dashboard";
 import { HistorieVaerksted } from "@/features/historie-vaerksted";
@@ -303,6 +304,7 @@ function Welcome({
 }) {
   const [portalTab, setPortalTab] = useState<"born" | "vaerksted" | "historier">("born");
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [deviceForgotten, setDeviceForgotten] = useState(false);
 
   if (!account.consent_given_at) {
     return (
@@ -361,6 +363,24 @@ function Welcome({
       <button type="button" onClick={onSignOut} className="auth-ghost rounded-(--radius-skin) px-5 py-2.5 text-sm font-semibold">
         Log ud
       </button>
+
+      <div className="flex flex-col items-center gap-1">
+        <button
+          type="button"
+          onClick={() => {
+            forgetDeviceRoster();
+            setDeviceForgotten(true);
+          }}
+          className="auth-danger-link text-xs font-semibold"
+        >
+          Glem denne enhed
+        </button>
+        <p className="auth-sub text-xs opacity-70">
+          {deviceForgotten
+            ? "Denne enheds gemte børneliste er glemt."
+            : "Rydder børnenes navne/billeder, som er gemt lokalt på denne enhed til hurtigere login."}
+        </p>
+      </div>
 
       <button
         type="button"

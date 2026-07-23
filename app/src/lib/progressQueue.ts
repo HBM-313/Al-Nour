@@ -15,11 +15,22 @@
  * bliver posten liggende og forsøges igen ved næste `online`-event eller
  * app-start (se `startSyncEngine`).
  *
- * Rækkefølge er vigtig og bevares STRENGT (FIFO, én ad gangen): RPC'en
- * sætter `current_step` direkte (ikke monotont, for at understøtte at
- * lektionen nulstilles ved fuldførelse) — sendes poster ude af
- * rækkefølge, kan trin-markøren ende forkert. `flushQueue` stopper derfor
- * ved første fejl i stedet for at springe videre til næste post.
+ * Rækkefølge er vigtig og bevares STRENGT PR. PROFIL (FIFO, én ad gangen):
+ * RPC'en sætter `current_step` direkte (ikke monotont, for at understøtte
+ * at lektionen nulstilles ved fuldførelse) — sendes én profils poster ude
+ * af rækkefølge, kan trin-markøren ende forkert. `flushQueue` stopper
+ * derfor ved første fejl for EN GIVEN profil, men fortsætter uforstyrret
+ * med de øvrige profilers poster.
+ *
+ * FÆLDE 5.1-FIX (plan-boernesession-og-dashboard.md, del 5.1, Leverance B2):
+ * Køen er fysisk fælles for hele enheden. Før dette fix stoppede ÉN global
+ * FIFO-løkke ved første fejl — men med barne-sessioner (B1/B2) betyder et
+ * profilskift (Ali logger ud, Zainab logger ind) at Alis uafsendte poster
+ * nu afvises af serveren (forkert session/ejerskab). Uden fixet ville det
+ * stoppe hele køen permanent, og Zainabs fremskridt kunne ALDRIG komme
+ * igennem. Løsningen: grupér poster pr. `profileId` og kør hver gruppes
+ * FIFO uafhængigt af de andre — rækkefølgegarantien inden for én profil er
+ * uændret, men en fejlet profil blokerer ikke længere de øvrige.
  *
  * Idempotens (ingen dobbelt-xp ved gensynk) kommer gratis fra
  * `record_progress`s event_id-tjek — hver kø-post får sit eget, holdbare
@@ -141,9 +152,10 @@ async function defaultSender(
 }
 
 /**
- * Tøm køen, i rækkefølge, én ad gangen. Stopper ved første fejl (offline
- * eller server-fejl) for at bevare rækkefølgen — resten forsøges igen ved
- * næste kald (online-event eller app-start).
+ * Tøm køen, gruppevis pr. profil, FIFO inden for hver gruppe. Stopper ved
+ * første fejl (offline eller server-fejl) for EN profils poster — men
+ * fortsætter uforstyrret med de øvrige profilers poster (fælde 5.1). Resten
+ * forsøges igen ved næste kald (online-event eller app-start).
  */
 export async function flushQueue(
   sender: RecordProgressSender = defaultSender,
@@ -157,18 +169,32 @@ export async function flushQueue(
     return { flushed: 0, remaining: 0 };
   }
 
-  let flushed = 0;
+  // listQueued() er allerede sorteret ældst-først, så grupperingen bevarer
+  // FIFO-rækkefølgen inden for hver profil uden en ekstra sortering.
+  const byProfile = new Map<string, QueuedProgressEntry[]>();
   for (const entry of entries) {
-    const { error } = await sender(entry);
-    if (error) break;
-    try {
-      await removeFromQueue(entry.eventId);
-      flushed++;
-    } catch {
-      // Kunne ikke fjerne posten efter succesfuld afsendelse — den
-      // sendes igen næste gang, men det er harmløst: samme event_id
-      // gør gentagelsen til et no-op i RPC'en.
-      break;
+    const group = byProfile.get(entry.profileId);
+    if (group) {
+      group.push(entry);
+    } else {
+      byProfile.set(entry.profileId, [entry]);
+    }
+  }
+
+  let flushed = 0;
+  for (const profileEntries of byProfile.values()) {
+    for (const entry of profileEntries) {
+      const { error } = await sender(entry);
+      if (error) break; // stop KUN denne profils resterende poster
+      try {
+        await removeFromQueue(entry.eventId);
+        flushed++;
+      } catch {
+        // Kunne ikke fjerne posten efter succesfuld afsendelse — den
+        // sendes igen næste gang, men det er harmløst: samme event_id
+        // gør gentagelsen til et no-op i RPC'en.
+        break;
+      }
     }
   }
 

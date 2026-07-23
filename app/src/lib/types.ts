@@ -65,8 +65,11 @@ export interface Profile {
   /**
    * Bcrypt-hash af dyre-pin-sekvensen (pool-index, fx "0,1,2"). ALDRIG
    * klartekst. Null = intet pin sat — profilen er ulåst (forælderens valg).
-   * Sættes/tjekkes udelukkende via RPC (set_child_pin/verify_child_pin);
-   * hashen forlader aldrig databasen mod klienten.
+   * Sættes via RPC (set_child_pin). Tjekkes udelukkende via den rate-
+   * limitede attempt_child_pin()/Edge Function child-signin (Leverance B2)
+   * — den ældre, statsløse verify_child_pin-RPC er bevidst låst ned
+   * (revoke fra anon/authenticated), da den var en ubegrænset gætte-
+   * oracle uden rate limiting. Hashen forlader aldrig databasen mod klienten.
    */
   pin_hash: string | null;
   /** Oplæser-stemme — afløser lib/voicePref.ts's localStorage når profil er logget ind */

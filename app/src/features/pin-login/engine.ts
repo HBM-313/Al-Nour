@@ -1,12 +1,17 @@
 /**
- * Pin-login — engine: dyre-pool, skind-parametre, RPC-kald mod
- * verify_child_pin/set_child_pin (fase1b_profiler_pin_samtykke).
+ * Pin-login — engine: dyre-pool, skind-parametre, + child-signin (Leverance
+ * B2). set_child_pin (forælder sætter/ændrer et pin) er uændret.
  *
- * Hashen forlader ALDRIG databasen. Klienten sender kun pool-index-arrays
- * og modtager kun boolean. Ved netværksfejl: fail-closed (ingen adgang) —
- * se verifyPin().
+ * Hashen forlader ALDRIG databasen. Klienten sender kun pool-index-arrays.
+ * Selve pin-tjekket sker nu via Edge Function `child-signin`, som er den
+ * ENESTE vej ind (den gamle, statsløse `verify_child_pin`-RPC er låst ned —
+ * den havde ingen rate limiting og ville have gjort attempt_child_pin's
+ * rate limiter virkningsløs som en fri gætte-oracle). Ved succes udsteder
+ * child-signin et engangs-login-token som skallen (useAppShell) indløser
+ * med supabase.auth.verifyOtp() — det er her barnets EGEN session opstår.
  */
 
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import type { AgeSkin } from "@/lib/types";
 
@@ -45,29 +50,116 @@ export const SKIN_PARAMS: Record<AgeSkin, PinSkinParams> = {
   teen: { animalCount: 12, gridCols: 4, showOrderHint: false },
 };
 
-/** Efter dette antal forkerte forsøg i træk: vis "hent en voksen" — aldrig lockout. */
-export const ADULT_HELP_THRESHOLD = 2;
+// ----------------------------------------------------------------------------
+// child-signin — pin-verifikation + session-udstedelse (Leverance B2)
+// ----------------------------------------------------------------------------
 
-export type VerifyResult = "correct" | "incorrect" | "network_error";
+export interface ChildSigninCredentials {
+  email: string;
+  tokenHash: string;
+  /** Altid "magiclink" i dag — sendt af serveren, ikke hardcodet her, så
+   * en fremtidig ændring på serversiden ikke kræver en klient-antagelse. */
+  otpType: string;
+  displayName: string | null;
+}
+
+export interface ChildSigninOk extends ChildSigninCredentials {
+  status: "ok";
+}
+/** "wrong" = forkert pin, intet aktivt rate limit lige nu. "rate_limited" = vent. */
+export interface ChildSigninBlocked {
+  status: "wrong" | "rate_limited";
+  waitSeconds: number;
+  attemptCount: number;
+  askAdult: boolean;
+}
+export interface ChildSigninNotProvisioned {
+  status: "not_provisioned";
+}
+export interface ChildSigninNetworkError {
+  status: "network_error";
+}
+export type ChildSigninResult =
+  | ChildSigninOk
+  | ChildSigninBlocked
+  | ChildSigninNotProvisioned
+  | ChildSigninNetworkError;
+
+interface ChildSigninErrorBody {
+  error?: string;
+  wait_seconds?: number;
+  attempt_count?: number;
+  ask_adult?: boolean;
+  needs_provisioning?: boolean;
+}
 
 /**
- * Tjek en indtastet pin-sekvens mod databasen via SECURITY DEFINER-RPC.
- * Fail-closed: enhver netværks-/RPC-fejl behandles som "ingen adgang",
- * aldrig som stiltiende korrekt.
+ * Forsøg at logge barnet ind: verificerer pin-sekvensen (atomisk,
+ * rate-limitet i databasen via attempt_child_pin) og — hvis den er
+ * korrekt (eller profilen er ulåst) — beder om et engangs-login-token.
+ * Fail-closed: enhver netværks-/parse-fejl behandles som "ingen adgang".
+ *
+ * `sequence` kan være tom for en profil klienten allerede ved er ulåst
+ * (se `profile.pin_hash`) — serveren ignorerer indholdet i det tilfælde.
  */
-export async function verifyPin(
+export async function attemptChildSignin(
   profileId: string,
-  attempt: readonly string[],
-): Promise<VerifyResult> {
+  sequence: readonly string[],
+): Promise<ChildSigninResult> {
   try {
-    const { data, error } = await supabase.rpc("verify_child_pin", {
-      p_profile_id: profileId,
-      p_attempt: [...attempt],
+    const { data, error } = await supabase.functions.invoke("child-signin", {
+      body: { profile_id: profileId, sequence: [...sequence] },
     });
-    if (error) return "network_error";
-    return data === true ? "correct" : "incorrect";
+
+    if (!error) {
+      const res = data as {
+        success?: boolean;
+        email?: string;
+        token_hash?: string;
+        otp_type?: string;
+        display_name?: string | null;
+      } | null;
+      if (res?.success && res.email && res.token_hash) {
+        return {
+          status: "ok",
+          email: res.email,
+          tokenHash: res.token_hash,
+          otpType: res.otp_type ?? "magiclink",
+          displayName: res.display_name ?? null,
+        };
+      }
+      return { status: "network_error" };
+    }
+
+    if (!(error instanceof FunctionsHttpError)) {
+      return { status: "network_error" };
+    }
+
+    let body: ChildSigninErrorBody = {};
+    try {
+      body = (await error.context.json()) as ChildSigninErrorBody;
+    } catch {
+      return { status: "network_error" };
+    }
+
+    if (body.needs_provisioning) {
+      return { status: "not_provisioned" };
+    }
+
+    const httpStatus = error.context.status;
+    const waitSeconds = body.wait_seconds ?? 0;
+    const attemptCount = body.attempt_count ?? 0;
+    const askAdult = body.ask_adult ?? false;
+
+    if (httpStatus === 429) {
+      return { status: "rate_limited", waitSeconds, attemptCount, askAdult };
+    }
+    if (httpStatus === 401) {
+      return { status: "wrong", waitSeconds, attemptCount, askAdult };
+    }
+    return { status: "network_error" };
   } catch {
-    return "network_error";
+    return { status: "network_error" };
   }
 }
 

@@ -99,10 +99,15 @@ export async function signOutParent(): Promise<void> {
 }
 
 /**
- * Bekræfter adgangskoden for den ALLEREDE indloggede forælder — samme
- * genbrugs-mønster som `app-shell/engine.ts`s `verifyParentPassword`
+ * Bekræfter adgangskoden for den ALLEREDE indloggede forælder
  * (signInWithPassword mod sessionens egen e-mail). Bruges som port foran
  * kontosletning (ejer-beslutning: adgangskode kræves, se Leverance 1.4).
+ * Denne funktion kaldes KUN fra "parent"-visningen, hvor en rigtig
+ * forælder-session er garanteret (nået via ParentAuth-login eller
+ * app-shell's parent_gate) — modsat den brede forældre-port i
+ * `app-shell/useAppShell.ts`s `submitGate`, som (siden Leverance B2) skal
+ * virke uanset hvilken identitet der måtte være aktiv, og derfor gør en
+ * FULD e-mail+adgangskode-reautentificering i stedet for kun dette.
  * Fail-closed: mangler sessionen/e-mailen, eller fejler kaldet, er svaret nej.
  */
 export async function verifyOwnPassword(password: string): Promise<boolean> {
