@@ -39,7 +39,33 @@ Admin (mig) · Indholds-redaktør (kan ikke udgive aqidah) · Godkender (eneste 
 
 ## Hvor jeg er nu (opdater dette felt løbende)
 
-**Status (2026-07-24, session 21 — i18n-lag (plan-platformsmodning.md §2.1) FULDFØRT: 13/13 skærme migreret. Commit `9313d45`.)**
+**Status (2026-07-24, session 22 — voksnes sprogvalg-UI bygget: DA/AR-skifter i hele forælder-/admin-træet. Commit `f1fd099`, pushet.)**
+
+Tog fat på spor 3 fra opstart-prompt-6 (de tre andre spor — D-blokken, fejlrapport-knappen, "noget andet" — er stadig åbne, se "Næste skridt"). Ejer-beslutning undervejs: skifteren skal være synlig HELE VEJEN (login/signup-skærm + portal), ikke kun efter login.
+
+**Migration** `20260724_accounts_ui_language.sql`: `accounts.ui_language` (spejler `profiles.ui_language` 1:1 — samme default 'da'/check-constraint inkl. 'en', som stadig ikke har nogen `en.ts`-ordbog). Ren dataudvidelse, INGEN ny RLS/trigger — drift-tjek viste at `accounts_update_own` allerede dækkede kolonnen, og `trg_accounts_protect_role` vogter kun `role`/`id`. Bevist med 3-punkts rollback-markør-test mod live-DB (0 rækker persisteret): egen konto ✓ · ikke en anden forælders ✓ · ugyldig værdi afvist af check-constraint ✓.
+
+**Ny i18n-infrastruktur** (`src/lib/i18n/`): `LanguageProvider`/`useLanguage()` leverer `{ lang, t, dir, setLang }` via React-context. `languagePref.ts` er et rent localStorage-lag (fail-soft, samme mønster som `voicePref.ts`) — INGEN Supabase-afhængighed i selve context'en, bevidst adskilt fra DB-synkroniseringen. **Teknisk fælde undervejs:** `oxlint`s `react/only-export-components` afviste at have context-objektet OG `LanguageProvider`-komponenten i samme `.tsx`-fil (Fast Refresh-krav). Løst ved at flytte selve `createContext(...)`-kaldet til en ren `.ts`-fil (`languageContextObject.ts`) og lade `LanguageContext.tsx` kun eksportere komponenten — værd at huske hvis flere React-contexts bygges senere i projektet.
+
+**`LanguageSwitcher.tsx`** (`features/parent-auth/`): DA/AR-knapper, genbruger eksisterende `.auth-ghost`-styling til inaktiv tilstand + ny `.lang-btn-on` til aktiv. Renderes ÉN gang i `ParentAuth.tsx`s scene-rod (ikke duplikeret pr. underskærm) — `dir={dir}` sættes samme sted og nedarves automatisk til hele undertræet (ingen React-portaler i koden, verificeret, så CSS-arv er nok). Ejer-godkendt via isoleret demo (`nour-sprogskifter-demo.html`) FØR porting, samme arbejdsform som hidtil.
+
+**DB-synkronisering** (`useParentAuth.ts`) — asymmetrisk med vilje:
+- **Login/session-genoprettelse:** databasens `ui_language` VINDER, kontekst synkroniseres derfra.
+- **Signup:** omvendt — enhedens NUVÆRENDE sprogvalg sås ind i den friske konto (optimistisk lokalt + baggrunds-skrivning). Uden dette ville login-grenens "DB vinder" straks have overskrevet et sprog forælderen lige valgte på selve signup-skærmen med databasens default 'da'.
+- **Aktivt skift mens logget ind:** en `useEffect` sammenligner `lang` mod `account.ui_language` og persisterer forskellen til `accounts.ui_language` i baggrunden (fail-soft — fejler skrivningen, gælder valget stadig for resten af sessionen, ligesom `voicePref`/`localProgress`).
+- Ny `updateAccountLanguage()` i `parent-auth/engine.ts`, samme mønster som `consent/engine.ts`s `giveConsent()`.
+
+**12 kaldesteder skiftet** fra `useT("da")` til `useLanguage()`: `ParentAuth.tsx`/`useParentAuth.ts`, `Consent.tsx`/`useConsent.ts`, `Dashboard.tsx`/`useDashboard.ts`, `VokabVaerksted.tsx`/`useVokabVaerksted.ts`, `HistorieVaerksted.tsx`/`useHistorieVaerksted.ts`, `OpretProfil.tsx`/`useOpretProfil.ts` (komponent + hook hver). Kommentarer i de tilhørende `engine.ts`-filer, der nævnte `useT("da")`, er opdateret til at nævne `useLanguage()` i stedet, så de ikke bliver misvisende.
+
+**Scope, bevidst afgrænset:** `AppShell.tsx`s "← Til børne-indgangen"-knap (sidder LIGE UDENFOR `<ParentAuth />`, i selve `AppShell.tsx`) forbliver hardkodet dansk — den deler `appShell`-navnerummet med Landing/Picker/ChildMode/GuestMode, som er børnevendte og IKKE må røres denne session. Kun `<ParentAuth />` selv er pakket ind i `<LanguageProvider>`. Børnevendt UI (spil, WorldMap, PinLogin, ChildMode) og `ErrorScreen` er fuldstændig UBERØRT — det er D3-opgaven (`plan-boernesession-og-dashboard.md`), som bruger `profiles.ui_language`, en helt separat mekanisme.
+
+Ny test `languagePref.test.ts` (5 tests, fail-soft-adfærd inkl. simuleret blokeret `localStorage`). Build-kæde grøn: `tsc --noEmit` 0 · `oxlint` 0/0 · **117/117 tests** (112 tidligere + 5 nye) · `npm run build` ✓. Pushet i én commit (`f1fd099`).
+
+**Næste skridt:** tre spor fra opstart-prompt-6 er stadig åbne — (1) D-blokken (forælder-dashboard, `plan-boernesession-og-dashboard.md` del 4+6), (2) fejlrapport-knappens placering (PAUSE siden session 18, se session 18's status), (3) noget andet fra `plan-platformsmodning.md`/`todo.md`. Stil dem som klikbare valgmuligheder ved sessionens start.
+
+---
+
+**Tidligere status (2026-07-24, session 21 — i18n-lag (plan-platformsmodning.md §2.1) FULDFØRT: 13/13 skærme migreret. Commit `9313d45`.)**
 
 De sidste fem skærme migreret denne session (build-kæde grøn efter hver fil): `HistorieVaerksted.tsx` (`historieVaerksted`-navnerum — faner, muren-info, liste/filtre, hele formularen inkl. aldersvarianter og "hvad husker du?"-quiz, valideringsfejl og engine-fejlbeskeder), `WorldMap.tsx` (`worldMap`-navnerum), `ParentAuth.tsx` (`parentAuth`-navnerum — login/signup, e-mailbekræftelse, velkomst-portal, farvel-skærm, kontosletnings-overlay), `Dashboard.tsx` (`dashboard`-navnerum — barnekort, fremskridtsboks, slette-overlay, pin-overlay), `VokabVaerksted.tsx` (`vokabVaerksted`-navnerum — ordliste, nyt-ord-formular, AI-forslag).
 
