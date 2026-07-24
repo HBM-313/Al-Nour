@@ -10,7 +10,7 @@ import type { Account, Profile } from "@/lib/types";
 import { ANIMAL_POOL, setPin } from "@/features/pin-login";
 import { OpretProfil } from "@/features/opret-profil";
 import { PIN_MAX, PIN_MIN, ageOf } from "@/features/opret-profil/engine";
-import { useT, type Dictionary } from "@/lib/i18n";
+import { useLanguage, type Dictionary } from "@/lib/i18n";
 import type { ProgressSummary } from "./engine";
 import { useDashboard } from "./useDashboard";
 import "./dashboard.css";
@@ -22,7 +22,7 @@ export interface DashboardProps {
 export function Dashboard({ account }: DashboardProps) {
   const { state, patch, toggleProgress, confirmAndDelete, onCreated, onPinSaved, activateAccess } =
     useDashboard();
-  const t = useT("da");
+  const { t } = useLanguage();
 
   if (state.view === "create") {
     return (

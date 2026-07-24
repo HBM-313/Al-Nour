@@ -10,7 +10,7 @@
 
 import { useMemo, useState } from "react";
 import type { VocabularyWord } from "@/lib/types";
-import { useT, type Dictionary } from "@/lib/i18n";
+import { useLanguage, type Dictionary } from "@/lib/i18n";
 import {
   VOCAB_CATEGORIES,
   detectFirstLetter,
@@ -24,7 +24,7 @@ import "./vokab-vaerksted.css";
 export function VokabVaerksted() {
   const vv = useVokabVaerksted();
   const { state, patch } = vv;
-  const t = useT("da");
+  const { t } = useLanguage();
 
   return (
     <div className="flex w-full flex-col gap-3 text-left">

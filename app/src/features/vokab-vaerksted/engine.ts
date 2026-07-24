@@ -24,7 +24,7 @@ import { supabase } from "@/lib/supabase";
 import type { Letter, VocabularyWord } from "@/lib/types";
 import type { Dictionary } from "@/lib/i18n";
 
-/** Oversatte beskeder — kaldestedet (useVokabVaerksted.ts, som har `t = useT("da")`) leverer dem. */
+/** Oversatte beskeder — kaldestedet (useVokabVaerksted.ts, som har `t` fra `useLanguage()`) leverer dem. */
 export type VokabVaerkstedMessages = Dictionary["vokabVaerksted"];
 
 /** Spejler DB-CHECK'en `vocabulary_category_check` — udvides kun via migration. */

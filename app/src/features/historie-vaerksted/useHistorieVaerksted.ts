@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Content } from "@/lib/types";
-import { useT } from "@/lib/i18n";
+import { useLanguage } from "@/lib/i18n";
 import {
   fetchStories,
   insertDraft,
@@ -45,7 +45,7 @@ const INITIAL: HistorieState = {
 
 export function useHistorieVaerksted() {
   const [state, setState] = useState<HistorieState>(INITIAL);
-  const t = useT("da");
+  const { t } = useLanguage();
 
   const patch = useCallback((p: Partial<HistorieState>) => {
     setState((s) => ({ ...s, ...p }));

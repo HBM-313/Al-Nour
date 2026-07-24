@@ -21,7 +21,7 @@ export type AuthResult =
   | { ok: true; account: null; needsEmailConfirmation: true }
   | { ok: false; error: string };
 
-/** Oversatte beskeder — kaldestedet (useParentAuth.ts, som har `t = useT("da")`) leverer dem. */
+/** Oversatte beskeder — kaldestedet (useParentAuth.ts, som har `t` fra `useLanguage()`) leverer dem. */
 export type ParentAuthMessages = Dictionary["parentAuth"];
 
 /**
@@ -52,6 +52,29 @@ function mapAuthError(message: string, messages: ParentAuthMessages): string {
 /** Henter/opretter accounts-rækken for den nu-indloggede bruger. Fail-closed: null ved fejl. */
 async function ensureAccount(): Promise<Account | null> {
   const { data, error } = await supabase.rpc("ensure_parent_account");
+  if (error || !data) return null;
+  return data as Account;
+}
+
+/**
+ * Persisterer forælder/admin-sprogvalget (migration 20260724_accounts_
+ * ui_language). Samme mønster som consent/engine.ts's giveConsent — dækket
+ * af den eksisterende accounts_update_own-policy, ingen ny RPC nødvendig.
+ * Fail-soft ved kaldestedet (useParentAuth.ts): en fejlet skrivning betyder
+ * blot at valget forbliver enheds-lokalt (localStorage) til næste forsøg —
+ * det blokerer aldrig selve sprogskiftet i UI'et.
+ */
+export async function updateAccountLanguage(
+  accountId: string,
+  language: "da" | "ar",
+): Promise<Account | null> {
+  const { data, error } = await supabase
+    .from("accounts")
+    .update({ ui_language: language })
+    .eq("id", accountId)
+    .select()
+    .single();
+
   if (error || !data) return null;
   return data as Account;
 }

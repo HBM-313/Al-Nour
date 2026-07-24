@@ -6,7 +6,7 @@
 
 import { useCallback, useState } from "react";
 import type { Profile, VoicePref } from "@/lib/types";
-import { useT } from "@/lib/i18n";
+import { useLanguage } from "@/lib/i18n";
 import { createChildProfile, PIN_MAX, PIN_MIN } from "./engine";
 
 export type OpretStep = "about" | "pin" | "confirm" | "summary" | "saving" | "done";
@@ -40,7 +40,7 @@ const INITIAL: OpretState = {
 
 export function useOpretProfil(ownerAccountId: string, onCreated?: (p: Profile) => void) {
   const [state, setState] = useState<OpretState>(INITIAL);
-  const t = useT("da");
+  const { t } = useLanguage();
 
   const patch = useCallback((p: Partial<OpretState>) => {
     setState((s) => ({ ...s, ...p }));

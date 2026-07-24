@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Profile } from "@/lib/types";
-import { useT } from "@/lib/i18n";
+import { useLanguage } from "@/lib/i18n";
 import {
   deleteChildProfile,
   fetchChildren,
@@ -49,7 +49,7 @@ export function useDashboard() {
     provisioningId: null,
     toast: null,
   });
-  const t = useT("da");
+  const { t } = useLanguage();
 
   const patch = useCallback((p: Partial<DashboardState>) => {
     setState((s) => ({ ...s, ...p }));

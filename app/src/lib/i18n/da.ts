@@ -19,6 +19,8 @@ export const da = {
   common: {
     back: "Tilbage",
     somethingWrong: "Noget gik galt",
+    /** aria-label på DA/AR-sprogskifteren (forælder/admin-UI). */
+    switcherAriaLabel: "Sprog",
   },
 
   pinLogin: {

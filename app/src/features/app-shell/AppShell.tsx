@@ -26,7 +26,7 @@ import { WorldMap } from "@/features/verdenskort/WorldMap";
 import { LessonScreen } from "@/features/lektion/LessonScreen";
 import { HistorierBjergeScreen } from "@/features/historiernes-bjerge";
 import { ageSkinForBirthYear, type AgeSkin, type Profile } from "@/lib/types";
-import { useT, type Dictionary } from "@/lib/i18n";
+import { useT, type Dictionary, LanguageProvider } from "@/lib/i18n";
 import { useAppShell } from "./useAppShell";
 import "./app-shell.css";
 
@@ -62,7 +62,9 @@ export function AppShell() {
             >
               {t.appShell.backToChildEntry}
             </button>
-            <ParentAuth />
+            <LanguageProvider>
+              <ParentAuth />
+            </LanguageProvider>
           </div>
         )}
 

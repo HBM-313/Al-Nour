@@ -20,7 +20,8 @@ import { Consent } from "@/features/consent";
 import { Dashboard } from "@/features/dashboard";
 import { HistorieVaerksted } from "@/features/historie-vaerksted";
 import { VokabVaerksted } from "@/features/vokab-vaerksted";
-import { useT, type Dictionary } from "@/lib/i18n";
+import { useLanguage, type Dictionary } from "@/lib/i18n";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useParentAuth, type AuthMode } from "./useParentAuth";
 import "./parent-auth.css";
 
@@ -47,7 +48,7 @@ export function ParentAuth({ onAuthenticated }: ParentAuthProps) {
   } = useParentAuth({
     onAuthenticated,
   });
-  const t = useT("da");
+  const { t, dir } = useLanguage();
 
   const stars = useMemo(
     () =>
@@ -61,7 +62,10 @@ export function ParentAuth({ onAuthenticated }: ParentAuthProps) {
   );
 
   return (
-    <div className="auth-scene relative mx-auto w-full max-w-md overflow-hidden rounded-(--radius-skin) px-5 py-8 sm:px-8">
+    <div
+      dir={dir}
+      className="auth-scene relative mx-auto w-full max-w-md overflow-hidden rounded-(--radius-skin) px-5 py-8 sm:px-8"
+    >
       <div className="auth-stars" aria-hidden>
         {stars.map((s, i) => (
           <span
@@ -77,6 +81,8 @@ export function ParentAuth({ onAuthenticated }: ParentAuthProps) {
           />
         ))}
       </div>
+
+      <LanguageSwitcher />
 
       <div className="relative">
         {phase === "checking_session" ? (

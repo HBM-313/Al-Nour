@@ -24,6 +24,7 @@ export const ar: Dictionary = {
   common: {
     back: "رجوع",
     somethingWrong: "حدث خطأ ما",
+    switcherAriaLabel: "اللغة",
   },
 
   pinLogin: {

@@ -9,7 +9,7 @@
 import { useId } from "react";
 import type { Account, Profile } from "@/lib/types";
 import { ANIMAL_POOL } from "@/features/pin-login";
-import { useT, type Dictionary } from "@/lib/i18n";
+import { useLanguage, type Dictionary } from "@/lib/i18n";
 import { ageOf, AVATAR_POOL, birthYearOptions, PIN_MAX, PIN_MIN } from "./engine";
 import { useOpretProfil } from "./useOpretProfil";
 import "./opret-profil.css";
@@ -35,7 +35,7 @@ export function OpretProfil({ account, onCreated }: OpretProfilProps) {
     reset,
   } = useOpretProfil(account.id, onCreated);
   const nameId = useId();
-  const t = useT("da");
+  const { t } = useLanguage();
 
   const stepIndex =
     state.step === "saving" || state.step === "done"

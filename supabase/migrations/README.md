@@ -496,3 +496,23 @@ genindlæsning kræver roster-drevet boot af hele skallen (B4).
 Build-kæde grøn: `tsc --noEmit` 0 · `oxlint` 0/0 · **104/104 tests**
 (93 tidligere + 9 nye `childRoster.test.ts` + 2 nye fælde-5.1-tests i
 `progressQueue.test.ts`) · build ✓.
+
+
+## Voksnes sprogvalg-UI — accounts.ui_language (2026-07-24)
+
+`20260724_accounts_ui_language.sql`: tilføjer `accounts.ui_language`
+(spejler `profiles.ui_language` 1:1 — samme default/constraint, inkl. 'en'
+som endnu ikke har nogen `en.ts`-ordbog). Ren dataudvidelse, ingen ny RLS/
+trigger — `accounts_update_own` dækkede allerede kolonnen, `trg_accounts_
+protect_role` vogter kun role/id. Bevist med 3-punkts rollback-markør-test
+(egen konto ✓ · ikke andres ✓ · ugyldig værdi afvist ✓).
+
+Frontend samtidig: ny `LanguageProvider`/`useLanguage()` i `src/lib/i18n/`
+kobler DA/AR-skifteren til hele forælder-/admin-træet under `ParentAuth.tsx`
+(login/signup → samtykke → Dashboard/VokabVaerksted/HistorieVaerksted/
+OpretProfil). Sprog huskes i localStorage FØR login (ejer-beslutning
+2026-07-24: skifteren skal være synlig hele vejen, ikke kun efter login);
+DB'ens `ui_language` vinder og synkroniseres ind ved login. `dirFor()`
+(fandtes, men var ubrugt) er nu koblet på scenens container. Børnevendt UI
+(spil, WorldMap, PinLogin, ChildMode) og `ErrorScreen` er UÆNDREDE — det
+er D3's opgave (plan-boernesession-og-dashboard.md), ikke denne.

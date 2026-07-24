@@ -13,13 +13,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Account } from "@/lib/types";
-import { useT } from "@/lib/i18n";
+import { useLanguage } from "@/lib/i18n";
 import {
   deleteOwnAccount,
   restoreSession,
   signInParent,
   signOutParent,
   signUpParent,
+  updateAccountLanguage,
   verifyOwnPassword,
 } from "./engine";
 
@@ -39,15 +40,18 @@ export function useParentAuth({ onAuthenticated }: UseParentAuthArgs = {}) {
   const [justDeleted, setJustDeleted] = useState(false);
   const onAuthenticatedRef = useRef(onAuthenticated);
   onAuthenticatedRef.current = onAuthenticated;
-  const t = useT("da");
+  const { lang, t, setLang } = useLanguage();
 
   // Tjek en evt. eksisterende session ved opstart — kører kun én gang.
+  // (setLang's reference er stabil på tværs af renders, så tilføjelsen af
+  // den som dependency ændrer ikke "kør kun én gang"-opførslen.)
   useEffect(() => {
     let cancelled = false;
     void restoreSession().then((acc) => {
       if (cancelled) return;
       if (acc) {
         setAccount(acc);
+        setLang(acc.ui_language === "ar" ? "ar" : "da");
         onAuthenticatedRef.current?.(acc);
       }
       setPhase("idle");
@@ -63,7 +67,23 @@ export function useParentAuth({ onAuthenticated }: UseParentAuthArgs = {}) {
       cancelled = true;
       sub.subscription.unsubscribe();
     };
-  }, []);
+  }, [setLang]);
+
+  // Sprogskifteren bruges MENS der er en aktiv konto → persistér til DB.
+  // (Rammer aldrig lige efter login/signup nedenfor, da submit selv sørger
+  // for at lang og account.ui_language allerede stemmer overens der.)
+  useEffect(() => {
+    if (!account) return;
+    if (account.ui_language === lang) return;
+    let cancelled = false;
+    void updateAccountLanguage(account.id, lang).then((updated) => {
+      if (cancelled || !updated) return;
+      setAccount((prev) => (prev && prev.id === updated.id ? updated : prev));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [account, lang]);
 
   const switchMode = useCallback((next: AuthMode) => {
     setMode(next);
@@ -90,11 +110,23 @@ export function useParentAuth({ onAuthenticated }: UseParentAuthArgs = {}) {
         setPhase("needs_confirmation");
         return;
       }
-      setAccount(result.account);
+
+      if (mode === "signup" && result.account.ui_language !== lang) {
+        // Frisk konto: uden dette ville login-grenens "DB vinder" straks
+        // have overskrevet det sprog forælderen lige valgte på selve
+        // signup-skærmen med databasens default ('da'). Optimistisk lokalt;
+        // DB-skrivningen sker i baggrunden (fail-soft, samme princip som
+        // resten af sprog-synkroniseringen).
+        setAccount({ ...result.account, ui_language: lang });
+        void updateAccountLanguage(result.account.id, lang);
+      } else {
+        setAccount(result.account);
+        setLang(result.account.ui_language === "ar" ? "ar" : "da");
+      }
       setPhase("idle");
       onAuthenticatedRef.current?.(result.account);
     },
-    [mode, t],
+    [mode, t, lang, setLang],
   );
 
   const signOut = useCallback(async () => {

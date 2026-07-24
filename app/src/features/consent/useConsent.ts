@@ -6,7 +6,7 @@
 
 import { useCallback, useState } from "react";
 import type { Account } from "@/lib/types";
-import { useT } from "@/lib/i18n";
+import { useLanguage } from "@/lib/i18n";
 import { giveConsent } from "./engine";
 
 export type ConsentPhase = "idle" | "submitting" | "error";
@@ -18,7 +18,7 @@ export interface UseConsentArgs {
 export function useConsent({ onConsented }: UseConsentArgs = {}) {
   const [phase, setPhase] = useState<ConsentPhase>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const t = useT("da");
+  const { t } = useLanguage();
 
   const submit = useCallback(
     async (accountId: string) => {

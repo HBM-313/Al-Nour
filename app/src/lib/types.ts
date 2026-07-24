@@ -42,6 +42,8 @@ export interface Account {
   /** GDPR-retsgrundlag (fase1b_profiler_pin_samtykke) — sat ved samtykke-accept */
   consent_given_at: string | null;
   consent_version: string | null;
+  /** Forælder/admin-UI'ets sprog — spejler profiles.ui_language (migration 20260724). */
+  ui_language: string;
   created_at: string;
   updated_at: string;
 }

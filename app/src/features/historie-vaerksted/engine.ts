@@ -24,7 +24,7 @@ import type { Dictionary } from "@/lib/i18n";
 
 /**
  * Oversatte beskeder til denne fil — kaldestedet (useHistorieVaerksted.ts,
- * som har `t = useT("da")`) leverer dem. Samme mønster som
+ * som har `t` fra `useLanguage()`) leverer dem. Samme mønster som
  * OpretProfilMessages i features/opret-profil/engine.ts: en almindelig
  * (ikke-hook) funktion må aldrig selv kalde useT.
  */

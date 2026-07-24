@@ -20,7 +20,7 @@ import {
 } from "@/lib/types";
 import type { Dictionary } from "@/lib/i18n";
 
-/** Oversatte beskeder — kaldestedet (useDashboard.ts, som har `t = useT("da")`) leverer dem. */
+/** Oversatte beskeder — kaldestedet (useDashboard.ts, som har `t` fra `useLanguage()`) leverer dem. */
 export type DashboardMessages = Dictionary["dashboard"];
 
 /** Hent forælderens børneprofiler, ældste først (stabil rækkefølge). */

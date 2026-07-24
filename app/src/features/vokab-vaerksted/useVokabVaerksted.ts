@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Letter, VocabularyWord } from "@/lib/types";
-import { useT } from "@/lib/i18n";
+import { useLanguage } from "@/lib/i18n";
 import {
   fetchAiSuggestions,
   fetchLetters,
@@ -56,7 +56,7 @@ const INITIAL: VaerkstedState = {
 
 export function useVokabVaerksted() {
   const [state, setState] = useState<VaerkstedState>(INITIAL);
-  const t = useT("da");
+  const { t } = useLanguage();
 
   const patch = useCallback((p: Partial<VaerkstedState>) => {
     setState((s) => ({ ...s, ...p }));

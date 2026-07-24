@@ -70,7 +70,7 @@ export type CreateResult =
   | { ok: true; profile: Profile; pinWarning?: string }
   | { ok: false; error: string };
 
-/** Oversatte fejlbeskeder — kaldestedet (useOpretProfil.ts) leverer dem fra useT("da"). */
+/** Oversatte fejlbeskeder — kaldestedet (useOpretProfil.ts) leverer dem fra useLanguage(). */
 export interface OpretProfilMessages {
   emptyName: string;
   pinSaveFailed: string;

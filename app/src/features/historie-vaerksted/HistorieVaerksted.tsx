@@ -14,7 +14,7 @@ import { useMemo, useState } from "react";
 import type { Account, Content, QuizQuestion } from "@/lib/types";
 import { ALDERSSPAEND, validateQuizVariant, type AlderKey, type AqidahDraftInput } from "./engine";
 import { useHistorieVaerksted, type StatusFilter } from "./useHistorieVaerksted";
-import { useT, type Dictionary } from "@/lib/i18n";
+import { useLanguage, type Dictionary } from "@/lib/i18n";
 import "./historie-vaerksted.css";
 
 /**
@@ -46,7 +46,7 @@ export function HistorieVaerksted({ role }: HistorieVaerkstedProps) {
   const hv = useHistorieVaerksted();
   const { state } = hv;
   const godkender = kanGodkende(role);
-  const t = useT("da");
+  const { t } = useLanguage();
 
   return (
     <div className="flex w-full flex-col gap-3 text-left">

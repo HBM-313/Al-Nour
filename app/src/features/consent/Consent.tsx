@@ -17,7 +17,7 @@
 
 import { useState } from "react";
 import type { Account } from "@/lib/types";
-import { useT } from "@/lib/i18n";
+import { useLanguage } from "@/lib/i18n";
 import { useConsent } from "./useConsent";
 import { CONSENT_VERSION } from "./engine";
 import "./consent.css";
@@ -31,7 +31,7 @@ export function Consent({ account, onConsented }: ConsentProps) {
   const [accepted, setAccepted] = useState(false);
   const { phase, errorMessage, submit } = useConsent({ onConsented });
   const loading = phase === "submitting";
-  const t = useT("da");
+  const { t } = useLanguage();
 
   return (
     <div className="flex flex-col items-center gap-5 py-2 text-left">
