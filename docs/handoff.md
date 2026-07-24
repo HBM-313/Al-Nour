@@ -39,7 +39,30 @@ Admin (mig) · Indholds-redaktør (kan ikke udgive aqidah) · Godkender (eneste 
 
 ## Hvor jeg er nu (opdater dette felt løbende)
 
-**Status (2026-07-23, session 20 — i18n-lag (plan-platformsmodning.md §2.1) fortsat. 4 flere skærme migreret (8 i alt: 5 børnevendte + 3 voksenskærme). DELVIST GENNEMFØRT — bevidst tjekpunkt, resten fortsætter næste session.)**
+**Status (2026-07-24, session 21 — i18n-lag (plan-platformsmodning.md §2.1) FULDFØRT: 13/13 skærme migreret. Commit `9313d45`.)**
+
+De sidste fem skærme migreret denne session (build-kæde grøn efter hver fil): `HistorieVaerksted.tsx` (`historieVaerksted`-navnerum — faner, muren-info, liste/filtre, hele formularen inkl. aldersvarianter og "hvad husker du?"-quiz, valideringsfejl og engine-fejlbeskeder), `WorldMap.tsx` (`worldMap`-navnerum), `ParentAuth.tsx` (`parentAuth`-navnerum — login/signup, e-mailbekræftelse, velkomst-portal, farvel-skærm, kontosletnings-overlay), `Dashboard.tsx` (`dashboard`-navnerum — barnekort, fremskridtsboks, slette-overlay, pin-overlay), `VokabVaerksted.tsx` (`vokabVaerksted`-navnerum — ordliste, nyt-ord-formular, AI-forslag).
+
+**Mønstre (uændret fra session 18–20, nu bekræftet på 5 flere features):** `engine.ts`-funktioner med fejlbeskeder tager en `Messages`-parameter (typisk `Dictionary["navnerum"]`) fra kaldestedet — hooken (som har `t = useT("da")`) leverer den, aldrig `useT` direkte i en ikke-hook-funktion. `historieVaerksted.quizVariantLabel` fik eksplicit `: string`-returtype (literal-union-fælden, femte gang den er ramt — alle grene faste strenge uden interpolation).
+
+**Bevidst IKKE oversat (nye eksempler denne session, samme princip som tidligere bilingvale faste overskrifter):**
+- `WorldMap.tsx`: "Nour-landet"-h2'en (dual-sprog, viser altid både dansk og arabisk) og de tre regionnavne i selve SVG-kortet (Bogstavernes Dal / Historiernes Bjerge / Hverdagshaven) — universets egennavne, ikke UI-chrome.
+- `historie-vaerksted`/`vokab-vaerksted`: den arabiske titel-/ord-placeholder (`"العنوان بالعربية"`, `"مِثَال"`) — allerede arabisk uanset UI-sprog.
+- `vokab-vaerksted`: kategori-værdierne (familie/tal/farver/dyr/mad/krop/hjem/natur/hilsner) og `word.register`-værdien vist rå i badges — faste DB-enum-nøgler, samme princip som regionnavnene.
+
+**Kræver INGEN i18n-arbejde** (uændret): `TraceCanvas.tsx`, `NourCompanion.tsx`, `ErrorBoundary.tsx`, `BilingualText.tsx`.
+
+**Bevidst udeladte, dokumenterede gaps (rør ikke uden ejer-beslutning):** `FORM_LABEL_DA` i `lyt-og-find/engine.ts` (delt med `TegnBogstavetGame`) er stadig hardkodet dansk. Bilingvale FASTE overskrifter er bevidst ikke oversat (liste ovenfor + tidligere sessioners fund, fx "Match-par مُطَابَقَة"). Alders-tallene (3–6/7–10/11–14) i `AppShell.tsx` er bevidst ikke oversat.
+
+**OBS juridisk (uændret):** `Consent.tsx`s arabiske samtykketekst er et UDKAST der bør have samme to-trins godkendelse som den danske original — påmind ejeren hvis samtalen kommer ind på lancering.
+
+Build-kæde grøn efter hver fil denne session: `tsc --noEmit` 0 · `oxlint` 0/0 · **112/112 tests** (uændret — i18n-paritetstesten dækker automatisk nye navnerum via `ar.ts`'s `Dictionary`-typetjek) · `npm run build` ✓. Pushet i én commit (`9313d45`).
+
+**Næste skridt:** i18n-laget er nu FULDT GENNEMFØRT. To åbne spor fra tidligere sessioner venter på ejerens valg: (1) fejlrapport-knappens placering (sat på PAUSE siden session 18 — se session 18's status nedenfor for det uafklarede arkitektur-spørgsmål), (2) D-blokken (forældre-dashboard — item-statistik, læringstal, "her kæmper barnet", se `plan-boernesession-og-dashboard.md` del 4+6). Ejerens sprogvalg for voksen-UI (forælder/admin) er stadig bevidst udskudt — alle skærme kalder `useT("da")` hardkodet; en reel sprogskift-UI er ikke bygget endnu, kun mekanikken.
+
+---
+
+**Tidligere status (2026-07-23, session 20 — i18n-lag (plan-platformsmodning.md §2.1) fortsat. 4 flere skærme migreret (8 i alt: 5 børnevendte + 3 voksenskærme). DELVIST GENNEMFØRT — bevidst tjekpunkt, resten fortsatte næste session.)
 
 Ejeren afsluttede først den børnevendte spil-/lektionsbatch (`ErrorScreen.tsx`), og valgte derefter tre voksenskærme til denne session: `Consent.tsx`, `OpretProfil.tsx`, `AppShell.tsx`. **Fejlrapport-knappen er fortsat sat på PAUSE** — uændret åben beslutning, se session 18's status.
 
