@@ -21,6 +21,7 @@ import { preferredAudioId } from "@/lib/voicePref";
 import type { AgeSkin, LessonStepParams, Letter, VocabularyWord } from "@/lib/types";
 import { canSpeak, createAudioPlayer, speak, stopSpeaking } from "@/lib/audio";
 import { saveRoundProgress } from "@/lib/progress";
+import { recordItemStat } from "@/lib/itemStats";
 import { useT } from "@/lib/i18n";
 import {
   SKIN_CONFIG,
@@ -284,13 +285,15 @@ export function useMatchPairs(options: UseMatchPairsOptions) {
         return next;
       });
       emit({ seq: 0, type: "match", keys: [a.key, b.key], word: a.word });
+      // Item-stat (D1): a og b er samme ord (to sider af ét match).
+      if (profileId) void recordItemStat(profileId, "vocabulary", a.wordId, true);
       // Dansk bekræftelse et øjeblik efter det arabiske ord
       timerRef.current = setTimeout(() => {
         if (!ttsUnavailable) void speak(a.word.word_da, "da-DK");
       }, 250);
       setLocked(false);
     },
-    [skin, emit, ttsUnavailable],
+    [skin, emit, ttsUnavailable, profileId],
   );
 
   const resolveMiss = useCallback(
@@ -298,9 +301,16 @@ export function useMatchPairs(options: UseMatchPairsOptions) {
       setCombo(0);
       setOpenKeys([]);
       emit({ seq: 0, type: "miss", keys: [a.key, b.key] });
+      // Item-stat (D1): begge de forsøgte ord tælles som "ikke ramt".
+      if (profileId) {
+        void recordItemStat(profileId, "vocabulary", a.wordId, false);
+        if (b.wordId !== a.wordId) {
+          void recordItemStat(profileId, "vocabulary", b.wordId, false);
+        }
+      }
       setLocked(false);
     },
-    [emit],
+    [emit, profileId],
   );
 
   // Runden er færdig når alle par lyser
@@ -371,6 +381,14 @@ export function useMatchPairs(options: UseMatchPairsOptions) {
         resolveMatch(first, card);
       } else {
         emit({ seq: 0, type: "miss", keys: [first.key, card.key] });
+        // Item-stat (D1): soft-flowet går ikke gennem resolveMiss (ingen
+        // combo/lås-nulstilling nødvendig her), så kaldet gentages lokalt.
+        if (profileId) {
+          void recordItemStat(profileId, "vocabulary", first.wordId, false);
+          if (card.wordId !== first.wordId) {
+            void recordItemStat(profileId, "vocabulary", card.wordId, false);
+          }
+        }
       }
     },
     [
@@ -386,6 +404,7 @@ export function useMatchPairs(options: UseMatchPairsOptions) {
       resolveMatch,
       resolveMiss,
       emit,
+      profileId,
     ],
   );
 

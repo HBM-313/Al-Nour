@@ -516,3 +516,51 @@ DB'ens `ui_language` vinder og synkroniseres ind ved login. `dirFor()`
 (fandtes, men var ubrugt) er nu koblet på scenens container. Børnevendt UI
 (spil, WorldMap, PinLogin, ChildMode) og `ErrorScreen` er UÆNDREDE — det
 er D3's opgave (plan-boernesession-og-dashboard.md), ikke denne.
+
+
+## D1 — Item-statistik: datalag + skrive-RPC (2026-07-24)
+
+**Drift fundet ved sessionens skema-tjek:** `profile_item_stats` var
+allerede anvendt direkte på live-DB (version `20260724130816`, navn
+`profile_item_stats_d1`) — matchede plan-boernesession-og-dashboard.md
+§6.2's spec til punkt og prikke (samme RLS-mønstre som `profiles`/
+`progress`), men lå hverken i repoet eller i `docs/handoff.md`. 0 rækker,
+ingen tilknyttet skrive-funktion. Mest sandsynlige forklaring: en tidligere
+session fik migrationen anvendt men afsluttede aldrig commit/dokumentation.
+`20260724130816_profile_item_stats_d1.sql` REKONSTRUERER den (idempotent,
+no-op på live, fuld opbygning på et frisk miljø) for at lukke hullet.
+
+`20260724173453_record_item_stat_rpc.sql`: `record_item_stat(profile_id,
+item_type, item_id, correct)` — atomisk upsert (`insert ... on conflict do
+update`), samme SECURITY DEFINER + tre-vejs ejerskabstjek som
+`record_progress()` (forælder / admin / barnets egen session via
+`auth_user_id`). `item_type` begrænset til `letter`/`vocabulary` af
+tabellens CHECK-constraint, valideret pænt i funktionen først. Bevist med
+rollback-markør-regressionstest mod live-DB (0 rækker persisteret): forælder
+skriver for eget barn ✓ · akkumulering over to kald (seen_count/
+correct_count) ✓ · fremmed forælder afvist ✓ · barnets egen session skriver
+for sig selv ✓ · barnets session afvist for søskendes profil ✓ · ugyldig
+item_type afvist ✓.
+
+**Spil-koblingen (samme session, D1 nu FULDT GENNEMFØRT):** ny
+`src/lib/itemStats.ts` — tynd fire-and-forget-wrapper om `record_item_stat`,
+BEVIDST uden IndexedDB-kø (som `lib/progress.ts` har): en tabt tælling er
+lavt-risiko ren statistik, ingen XP/streak/completion på spil, så endnu et
+offline-lager ville være ude af proportion. `correct`-flaget er strengere
+end spillets egen rigtig/forkert-følelse — det betyder "ramt uden at prøve
+forkert først" (firstTry), ikke "endte rigtig", ellers ville soft-skindets
+"kan ikke fejle"-design skjule præcis det mønster stats'en skal vise.
+
+Koblet i tre hooks: `useListenFind.ts` (`answer()` — item_type udledes af
+`current.kind`, item_id fra det korrekte valg), `TegnBogstavetGame.tsx`
+(`handleComplete()` — item er altid `letter`, korrekt = `isCleanTrace`),
+`useMatchPairs.ts` (`resolveMatch`/`resolveMiss` OG soft-skindets inline
+miss-gren i `tapCard`, som ikke går gennem `resolveMiss` — begge ords id
+tælles ved et miss, kun ét ved et match). Alle tre guardet af `profileId`
+tilstede (gæster/uden profil skriver intet).
+
+Build-kæde grøn: `tsc --noEmit` 0 · `oxlint` 0/0 · **117/117 tests**
+(uændret — ingen ny branch-logik i `engine.ts`-filerne, kun kald ud til en
+utestet IO-wrapper, samme princip som `updateAccountLanguage`) · build ✓.
+
+D2 (dashboard-visning af tallene) er en efterfølgende leverance.

@@ -23,6 +23,7 @@ import { supabase } from "@/lib/supabase";
 import { preferredAudioId } from "@/lib/voicePref";
 import { createAudioPlayer, speak } from "@/lib/audio";
 import { saveRoundProgress } from "@/lib/progress";
+import { recordItemStat } from "@/lib/itemStats";
 import { useT } from "@/lib/i18n";
 import type { AgeSkin, LessonStepParams, Letter, LetterForm } from "@/lib/types";
 import { FORM_LABEL_DA } from "@/features/lyt-og-find/engine";
@@ -284,8 +285,11 @@ export function TegnBogstavetGame({
       setXp((n) => n + (clean ? XP_CLEAN : XP_DONE));
       if (clean) setCleanCount((n) => n + 1);
     }
+    // Item-stat (D1): "korrekt" = ren streg (samme mål som XP-bonussen for
+    // mid/teen), også registreret for soft selvom soft aldrig viser fejl.
+    if (profileId) void recordItemStat(profileId, "letter", step.letter.id, clean);
     setPhase("step_done");
-  }, [step, coverage, offRatio, skin]);
+  }, [step, coverage, offRatio, skin, profileId]);
 
   const nextStep = useCallback(() => {
     if (stepIndex + 1 >= steps.length) {

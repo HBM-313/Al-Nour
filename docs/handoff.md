@@ -39,7 +39,23 @@ Admin (mig) · Indholds-redaktør (kan ikke udgive aqidah) · Godkender (eneste 
 
 ## Hvor jeg er nu (opdater dette felt løbende)
 
-**Status (2026-07-24, session 22 — voksnes sprogvalg-UI bygget: DA/AR-skifter i hele forælder-/admin-træet. Commit `f1fd099`, pushet.)**
+**Status (2026-07-24, session 23 — Leverance D1: item-statistik, datalag + skrive-RPC + kobling til de tre spil. FULDT GENNEMFØRT. PUSH AFVENTER GitHub-token i chatten.)**
+
+Ejeren valgte D-blokken ved sessionens start. **Skema-drift-tjekket fandt en udokumenteret migration:** `profile_item_stats` (version `20260724130816`, navn `profile_item_stats_d1`) var allerede anvendt direkte på live-DB — matchede plan-boernesession-og-dashboard.md §6.2's spec til punkt og prikke (samme RLS-mønstre som `profiles`/`progress`), men lå hverken i repoet eller i denne fil. 0 rækker, ingen skrive-funktion. Mest sandsynlige forklaring: en session der fik migrationen anvendt men aldrig nåede commit/dokumentation. Ejeren godkendte at genbruge tabellen (fremfor at slette og genbygge identisk) og lukke dokumentations-hullet.
+
+**To migrationer i repoet nu:**
+- `20260724130816_profile_item_stats_d1.sql` — REKONSTRUERER den allerede anvendte tabel (idempotent, no-op på live, fuld opbygning på et frisk miljø). `profile_item_stats(profile_id, item_type, item_id, seen_count, correct_count, last_seen_day, updated_at)`, PK (profile_id, item_type, item_id), FK → profiles CASCADE, CHECK item_type ∈ {letter, vocabulary}. RLS: `_owner_all` (forælder/admin), `_child_select_own`, `_teacher_read` (fremadrettet, harmløs — classes/class_members er tomme).
+- `20260724173453_record_item_stat_rpc.sql` — ny `record_item_stat(profile_id, item_type, item_id, correct)`: atomisk upsert (SECURITY DEFINER, samme tre-vejs ejerskabstjek som `record_progress`). Bevist med rollback-markør-regressionstest mod live-DB (0 rækker persisteret): forælder skriver for eget barn ✓ · akkumulering over to kald ✓ · fremmed forælder afvist ✓ · barnets egen session skriver for sig selv ✓ · afvist for søskendes profil ✓ · ugyldig item_type afvist ✓.
+
+**Spil-koblingen:** ny `src/lib/itemStats.ts` — tynd fire-and-forget-wrapper, BEVIDST uden IndexedDB-kø (se README for begrundelsen: lavt-risiko ren statistik, intet XP/streak på spil). `correct`-flaget betyder "ramt uden at prøve forkert først" (firstTry), ikke "endte rigtig" — ellers ville soft-skindets "kan ikke fejle"-design skjule det mønster stats'en skal vise. Koblet i `useListenFind.ts` (`answer()`), `TegnBogstavetGame.tsx` (`handleComplete()`), `useMatchPairs.ts` (`resolveMatch`/`resolveMiss` + soft-skindets inline miss-gren i `tapCard`). Se `supabase/migrations/README.md` → "D1 — Item-statistik" for det fulde design.
+
+Build-kæde grøn: `tsc --noEmit` 0 · `oxlint` 0/0 · **117/117 tests** (uændret — ren IO-wrapper uden branch-logik, samme princip som `updateAccountLanguage`, ingen ny test) · `npm run build` ✓.
+
+**Næste skridt:** D2 — dashboard-visning af tallene ("bogstaver barnet kan", "her kæmper barnet", se plan-boernesession-og-dashboard.md §6.1+6.2). De to andre spor fra opstart-prompt-6 (fejlrapport-knappens placering, "noget andet") er stadig åbne hvis ejeren hellere vil dertil.
+
+---
+
+**Tidligere status (2026-07-24, session 22 — voksnes sprogvalg-UI bygget: DA/AR-skifter i hele forælder-/admin-træet. Commit `f1fd099`, pushet.)**
 
 Tog fat på spor 3 fra opstart-prompt-6 (de tre andre spor — D-blokken, fejlrapport-knappen, "noget andet" — er stadig åbne, se "Næste skridt"). Ejer-beslutning undervejs: skifteren skal være synlig HELE VEJEN (login/signup-skærm + portal), ikke kun efter login.
 

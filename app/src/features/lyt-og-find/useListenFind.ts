@@ -21,6 +21,7 @@ import type { AgeSkin, LessonStepParams, Letter, VocabularyWord } from "@/lib/ty
 import { buildRound, buildStepRound, type Question } from "./engine";
 import { canSpeak, createAudioPlayer, speakArabic, stopSpeaking } from "@/lib/audio";
 import { saveRoundProgress } from "@/lib/progress";
+import { recordItemStat } from "@/lib/itemStats";
 import { useT } from "@/lib/i18n";
 
 export type LoadState =
@@ -225,11 +226,18 @@ export function useListenFind(options: UseListenFindOptions) {
       if (!choice || triedChoiceIds.has(choiceId)) return null;
 
       const firstTry = triedChoiceIds.size === 0;
+      // Item-stat (D1): item_type/id udledes af spørgsmålet uanset kind —
+      // "word" er ordforråd, "letter"/"letter_form" er samme bogstav.
+      const targetId = current.choices.find((c) => c.isCorrect)?.id;
+      const itemType = current.kind === "word" ? "vocabulary" : "letter";
 
       if (choice.isCorrect) {
         setAnswered(true);
         setCorrectCount((n) => n + (firstTry ? 1 : 0));
         setXp((n) => n + (firstTry ? XP_FIRST_TRY : XP_RETRY));
+        if (profileId && targetId) {
+          void recordItemStat(profileId, itemType, targetId, firstTry);
+        }
         return { correct: true, firstTry };
       }
 
@@ -237,10 +245,13 @@ export function useListenFind(options: UseListenFindOptions) {
       if (skin !== "soft") {
         // Mid/teen: ét forsøg — lås spørgsmålet og vis det rigtige svar.
         setAnswered(true);
+        if (profileId && targetId) {
+          void recordItemStat(profileId, itemType, targetId, false);
+        }
       }
       return { correct: false, firstTry };
     },
-    [current, answered, triedChoiceIds, skin],
+    [current, answered, triedChoiceIds, skin, profileId],
   );
 
   const next = useCallback(() => {
