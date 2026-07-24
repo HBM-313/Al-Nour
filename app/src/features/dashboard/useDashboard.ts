@@ -10,10 +10,12 @@ import { useLanguage } from "@/lib/i18n";
 import {
   deleteChildProfile,
   fetchChildren,
+  fetchLearningSummary,
   fetchProgressSummary,
   provisionChildAuth,
   type ProgressSummary,
 } from "./engine";
+import type { LearningSummary } from "./learning";
 
 export type DashboardView = "list" | "create";
 
@@ -25,6 +27,8 @@ export interface DashboardState {
   /** Profil-id med udfoldet fremskridt (én ad gangen) */
   openProgressId: string | null;
   progress: Record<string, ProgressSummary | "loading" | "error">;
+  /** D2 — læringstal pr. barn, hentet sammen med fremskridtet */
+  learning: Record<string, LearningSummary | "loading" | "error">;
   /** Profil der afventer slette-bekræftelse */
   confirmDelete: Profile | null;
   deleting: boolean;
@@ -43,6 +47,7 @@ export function useDashboard() {
     error: null,
     openProgressId: null,
     progress: {},
+    learning: {},
     confirmDelete: null,
     deleting: false,
     pinTarget: null,
@@ -84,13 +89,27 @@ export function useDashboard() {
           ...s,
           openProgressId: child.id,
           progress: shouldFetch ? { ...s.progress, [child.id]: "loading" } : s.progress,
+          learning: shouldFetch ? { ...s.learning, [child.id]: "loading" } : s.learning,
         };
       });
       if (!shouldFetch) return;
-      const res = await fetchProgressSummary(child, t.dashboard);
+      // Fremskridt og læringstal (D2) hentes parallelt: de vises i samme
+      // udfoldede boks, og to sekventielle rundture ville give et synligt
+      // spring hvor tallene dukker op efter lanternerne.
+      const [progressRes, learningRes] = await Promise.all([
+        fetchProgressSummary(child, t.dashboard),
+        fetchLearningSummary(child, t.dashboard),
+      ]);
       setState((s) => ({
         ...s,
-        progress: { ...s.progress, [child.id]: res.ok ? res.summary : "error" },
+        progress: {
+          ...s.progress,
+          [child.id]: progressRes.ok ? progressRes.summary : "error",
+        },
+        learning: {
+          ...s.learning,
+          [child.id]: learningRes.ok ? learningRes.summary : "error",
+        },
       }));
     },
     [t],

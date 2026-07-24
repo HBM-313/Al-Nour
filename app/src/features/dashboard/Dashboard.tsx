@@ -12,6 +12,7 @@ import { OpretProfil } from "@/features/opret-profil";
 import { PIN_MAX, PIN_MIN, ageOf } from "@/features/opret-profil/engine";
 import { useLanguage, type Dictionary } from "@/lib/i18n";
 import type { ProgressSummary } from "./engine";
+import type { LearningSummary } from "./learning";
 import { useDashboard } from "./useDashboard";
 import "./dashboard.css";
 
@@ -70,6 +71,7 @@ export function Dashboard({ account }: DashboardProps) {
           child={c}
           open={state.openProgressId === c.id}
           summary={state.progress[c.id]}
+          learning={state.learning[c.id]}
           activating={state.provisioningId === c.id}
           onToggleProgress={() => void toggleProgress(c)}
           onPin={() => patch({ pinTarget: c })}
@@ -123,6 +125,7 @@ function ChildCard({
   child,
   open,
   summary,
+  learning,
   activating,
   onToggleProgress,
   onPin,
@@ -133,6 +136,7 @@ function ChildCard({
   child: Profile;
   open: boolean;
   summary: ProgressSummary | "loading" | "error" | undefined;
+  learning: LearningSummary | "loading" | "error" | undefined;
   activating: boolean;
   onToggleProgress: () => void;
   onPin: () => void;
@@ -198,7 +202,9 @@ function ChildCard({
         </button>
       </div>
 
-      {open && <ProgressBox childName={child.display_name} summary={summary} t={t} />}
+      {open && (
+        <ProgressBox childName={child.display_name} summary={summary} learning={learning} t={t} />
+      )}
     </div>
   );
 }
@@ -210,10 +216,12 @@ function ChildCard({
 function ProgressBox({
   childName,
   summary,
+  learning,
   t,
 }: {
   childName: string;
   summary: ProgressSummary | "loading" | "error" | undefined;
+  learning: LearningSummary | "loading" | "error" | undefined;
   t: Dictionary;
 }) {
   if (summary === undefined || summary === "loading") {
@@ -256,6 +264,129 @@ function ProgressBox({
       <StatRow k={t.dashboard.completedLessonsLabel} v={t.dashboard.completedLessonsValue(summary.completedCount)} />
       <StatRow k={t.dashboard.totalXpLabel} v={t.dashboard.totalXpValue(summary.totalXp)} />
       <StatRow k={t.dashboard.streakLabel} v={t.dashboard.streakValue(summary.streakCount)} />
+      <LearningBox childName={childName} learning={learning} t={t} />
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Læringstal (D2) — spil-tællere oversat til noget en forælder kan bruge.
+// Et vindue ind i barnets lys, ikke et overvågningspanel: ingen
+// sammenligning med andre børn, ingen tid, ingen adfærd (§6.7).
+// ----------------------------------------------------------------------------
+
+function LearningBox({
+  childName,
+  learning,
+  t,
+}: {
+  childName: string;
+  learning: LearningSummary | "loading" | "error" | undefined;
+  t: Dictionary;
+}) {
+  const [showLetters, setShowLetters] = useState(false);
+
+  if (learning === undefined || learning === "loading" || learning === "error") return null;
+
+  return (
+    <div className="db-learn mt-3.5 pt-3.5">
+      <div className="db-learn-title mb-2 text-[12px] font-bold uppercase tracking-wide">
+        {t.dashboard.learningHeading(childName)}
+      </div>
+
+      {learning.empty ? (
+        <p className="db-empty px-1 py-1 text-center text-[13px] leading-relaxed">
+          {t.dashboard.learningEmpty(childName)}
+        </p>
+      ) : (
+        <>
+          <LearnBar
+            label={t.dashboard.learningLettersLabel}
+            known={learning.letters.known}
+            total={learning.letters.total}
+            t={t}
+          />
+
+          {learning.knownLetters.length > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowLetters((v) => !v)}
+                className="db-learn-toggle mb-2 text-[12px] font-semibold underline decoration-dotted"
+              >
+                {showLetters ? t.dashboard.learningHideLetters : t.dashboard.learningShowLetters}
+              </button>
+              {showLetters && (
+                <div className="mb-2.5 flex flex-wrap gap-1.5" dir="rtl">
+                  {learning.knownLetters.map((l) => (
+                    <span
+                      key={l}
+                      className="db-learn-glyph flex size-9 items-center justify-center rounded-lg text-[19px]"
+                    >
+                      {l}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          <LearnBar
+            label={t.dashboard.learningWordsLabel}
+            known={learning.words.known}
+            total={learning.words.total}
+            t={t}
+          />
+
+          {learning.struggles.length > 0 && (
+            <div className="db-struggle mt-1 rounded-2xl px-3 py-2.5">
+              <div className="db-learn-title mb-1.5 text-[12px] font-bold">
+                {t.dashboard.strugglesHeading(childName)}
+              </div>
+              {learning.struggles.map((s) => (
+                <div key={s.glyph + s.text} className="db-struggle-line flex gap-2 text-[13px] leading-relaxed">
+                  <span className="db-struggle-glyph w-6 shrink-0 text-center text-[18px]" aria-hidden>
+                    {s.glyph}
+                  </span>
+                  <span>{s.text}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function LearnBar({
+  label,
+  known,
+  total,
+  t,
+}: {
+  label: string;
+  known: number;
+  total: number;
+  t: Dictionary;
+}) {
+  const pct = total > 0 ? Math.round((known / total) * 100) : 0;
+  return (
+    <div className="mb-2.5">
+      <div className="mb-1.5 flex justify-between text-[13px]">
+        <span>{label}</span>
+        <b className="db-learn-val font-bold">{t.dashboard.learningCount(known, total)}</b>
+      </div>
+      <div
+        className="db-bar-track h-1.5 overflow-hidden rounded-full"
+        role="progressbar"
+        aria-valuenow={known}
+        aria-valuemin={0}
+        aria-valuemax={total}
+        aria-label={label}
+      >
+        <div className="db-bar-fill h-full rounded-full" style={{ width: `${pct}%` }} />
+      </div>
     </div>
   );
 }

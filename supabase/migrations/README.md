@@ -564,3 +564,55 @@ Build-kæde grøn: `tsc --noEmit` 0 · `oxlint` 0/0 · **117/117 tests**
 utestet IO-wrapper, samme princip som `updateAccountLanguage`) · build ✓.
 
 D2 (dashboard-visning af tallene) er en efterfølgende leverance.
+
+---
+
+## D2 — Læringstal i forældre-dashboardet (2026-07-24)
+
+**Ingen migration.** D2 er ren LÆSNING oven på D1's tabel og bruger de
+policies der allerede findes — der er bevidst ikke tilføjet skema.
+
+Læse-vejen er dog ny og derfor bevist selvstændigt mod live-DB
+(rollback-markør, 0 rækker persisteret):
+
+1. Forælder læser begge egne børns tællere ✓
+2. Fremmed forælder ser 0 rækker ✓
+3. Barnets egen session ser KUN sig selv — ikke søskendes ✓
+4. `ai_service` ser 0 rækker ✓
+5. Claim-løs session (tom JWT-payload) ser 0 rækker — fail-closed ✓
+
+**Fund undervejs:** `profile_item_stats_child_select_own` binder barnet via
+`profiles.auth_user_id = auth.uid()` — IKKE via et `profile_id`-claim i
+JWT'en. Det er den stærkere konstruktion (et claim kunne i princippet
+sættes af en fremtidig fejl i hooket; FK-koblingen kan ikke), og enhver
+fremtidig test skal derfor bruge barnets rigtige `auth_user_id`, ikke et
+syntetisk claim. En første version af regressionstesten fejlede netop dér.
+
+**Fortolkningen ligger i kode, ikke i databasen:**
+`features/dashboard/learning.ts` (ren, testet — `learning.test.ts`, 16
+tests). Tærskler ejer-besluttet 2026-07-24: `MIN_SEEN = 3` gælder BEGGE
+veje (uden den ville ét heldigt/uheldigt svar kunne rykke et bogstav ind
+i "kan" eller ud i "øver stadig", og tallene ville hoppe uden grund),
+`KNOWN_RATE = 0.70`, `STRUGGLING_RATE = 0.40`. Midterfeltet er bevidst en
+neutral `learning`-kategori: barnet bliver hverken rost eller udpeget på
+et tyndt grundlag.
+
+**Ærlighed om hvad tællerne kan bære:** `profile_item_stats` er tællere,
+ikke en hændelseslog — vi ved *at* ب driller, aldrig *hvad* barnet trykkede
+i stedet. Derfor formuleres forklaringen som lighed ("ب ligner ت og ث"),
+og kun når to bogstaver i samme rasm-gruppe rent faktisk BEGGE er svage
+hos barnet, siges "driller begge". Det er en observation; alt andet ville
+være et gæt præsenteret for forælderen som viden.
+
+**Delt domæne-viden:** rasm-ligheds-grupperne er flyttet fra
+`features/lyt-og-find/engine.ts` til `lib/letterSimilarity.ts` (uændret
+indhold), så spillets distraktor-valg og dashboardets forklaringer ikke
+kan drifte fra hinanden — siger spillet at ب og ت ligner hinanden, siger
+dashboardet det samme.
+
+Nævneren for ord tæller kun `is_published = true`: kladder fra værkstedet
+kan barnet ikke møde i spillene, så de må ikke få "34 af 107" til at falde,
+hver gang der oprettes en kladde.
+
+Build-kæde grøn: `tsc --noEmit` 0 · `oxlint` 0/0 · **133/133 tests**
+(117 → 133, +16 nye i `learning.test.ts`) · build ✓.

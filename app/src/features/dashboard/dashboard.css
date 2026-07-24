@@ -203,3 +203,50 @@
   z-index: 50;
   white-space: nowrap;
 }
+
+/* --- D2: læringstal (§6.1) — samme nattehimmel/guld-tokens som resten --- */
+
+.db-learn {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.db-learn-title {
+  color: #c9a46b;
+  letter-spacing: 0.02em;
+}
+.db-learn-val {
+  color: #f5b942;
+}
+.db-learn-toggle {
+  background: transparent;
+  color: #c9a46b;
+  transition: color 0.15s ease;
+}
+.db-learn-toggle:hover,
+.db-learn-toggle:focus-visible {
+  color: #f5b942;
+  outline: none;
+}
+.db-learn-glyph {
+  background: rgba(245, 185, 66, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(245, 185, 66, 0.28);
+  color: #f5eddd;
+}
+
+.db-bar-track {
+  background: rgba(255, 255, 255, 0.08);
+}
+.db-bar-fill {
+  background: linear-gradient(90deg, #c9861f, #f5b942);
+  transition: width 0.4s ease;
+}
+
+.db-struggle {
+  background: rgba(245, 185, 66, 0.08);
+  border: 1px solid rgba(245, 185, 66, 0.22);
+}
+.db-struggle-line + .db-struggle-line {
+  margin-top: 8px;
+}
+.db-struggle-glyph {
+  color: #f5b942;
+}

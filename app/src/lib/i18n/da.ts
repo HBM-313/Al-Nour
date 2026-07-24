@@ -633,6 +633,28 @@ export const da = {
     saving: "Gemmer…",
     saveCode: "Gem koden",
 
+    /** D2 — læringstal: spil-tællere oversat til noget en forælder kan bruge. */
+    learningHeading: (name: string) => `Hvad ${name} kan`,
+    learningLettersLabel: "Bogstaver",
+    learningWordsLabel: "Ord",
+    learningCount: (known: number, total: number) => `${known} af ${total}`,
+    learningEmpty: (name: string) =>
+      `I er lige startet — kom tilbage her, når ${name} har øvet et par gange, så kan du se hvilke bogstaver og ord der sidder fast.`,
+    learningShowLetters: "Se hvilke bogstaver",
+    learningHideLetters: "Skjul bogstaverne",
+    strugglesHeading: (name: string) => `Her øver ${name} stadig`,
+    /** Begge bogstaver i samme rasm-gruppe er svage — vi kan ærligt sige "driller begge". */
+    struggleLetterPair: (letter: string, others: string[]) =>
+      `${letter} og ${others.join(", ")} driller begge — de har samme grundform, og kun prikkerne adskiller dem. Skriv dem ved siden af hinanden og tæl prikkerne sammen.`,
+    /** Kun ét bogstav er svagt: sig hvad det LIGNER, påstå ikke en forveksling vi ikke kan se i tællerne. */
+    struggleLetterAlone: (letter: string, nameDa: string, similar: string[]): string =>
+      similar.length > 0
+        ? `${letter} (${nameDa}) sidder ikke helt endnu. Det ligner ${similar.join(", ")} — læg mærke til prikkerne sammen.`
+        : `${letter} (${nameDa}) sidder ikke helt endnu. Lidt mere øvelse løser det.`,
+    struggleWord: (wordAr: string, translit: string, wordDa: string) =>
+      `${wordAr} (${translit} — ${wordDa}) er stadig svært. Prøv at sige ordet højt sammen i løbet af dagen.`,
+    fetchLearningError: "Læringstallene kunne ikke hentes. Prøv igen.",
+
     /** Fejlbeskeder fra engine.ts (parametriseret fra useDashboard.ts, ikke useT direkte i ikke-hook-funktioner) + toasts. */
     fetchChildrenError: "Børnene kunne ikke hentes. Prøv igen.",
     fetchProgressError: "Fremskridt kunne ikke hentes. Prøv igen.",

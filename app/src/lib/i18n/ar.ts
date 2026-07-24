@@ -584,6 +584,26 @@ export const ar: Dictionary = {
     saving: "جارٍ الحفظ…",
     saveCode: "حفظ الرمز",
 
+    /** D2 — أرقام التعلّم */
+    learningHeading: (name) => `ما يعرفه ${name}`,
+    learningLettersLabel: "الحروف",
+    learningWordsLabel: "الكلمات",
+    learningCount: (known, total) => `${known} من ${total}`,
+    learningEmpty: (name) =>
+      `لقد بدأتم للتو — عُد إلى هنا بعد أن يتمرّن ${name} بضع مرات، لترى أي الحروف والكلمات ترسّخت.`,
+    learningShowLetters: "أظهر الحروف",
+    learningHideLetters: "أخفِ الحروف",
+    strugglesHeading: (name) => `ما زال ${name} يتمرّن هنا`,
+    struggleLetterPair: (letter, others) =>
+      `${letter} و${others.join("، ")} يسبّبان الالتباس معاً — لهما الرسم نفسه، ولا تفرّق بينهما سوى النقاط. اكتبها متجاورة وعُدّوا النقاط معاً.`,
+    struggleLetterAlone: (letter, nameDa, similar): string =>
+      similar.length > 0
+        ? `${letter} (${nameDa}) لم يترسّخ بعد. يشبه ${similar.join("، ")} — انتبها إلى النقاط معاً.`
+        : `${letter} (${nameDa}) لم يترسّخ بعد. قليل من التمرين يكفي.`,
+    struggleWord: (wordAr, translit, wordDa) =>
+      `${wordAr} (${translit} — ${wordDa}) ما زالت صعبة. جرّبا نطق الكلمة بصوت عالٍ خلال اليوم.`,
+    fetchLearningError: "تعذّر جلب أرقام التعلّم. حاول مرة أخرى.",
+
     fetchChildrenError: "تعذّر جلب الأطفال. حاول مرة أخرى.",
     fetchProgressError: "تعذّر جلب التقدّم. حاول مرة أخرى.",
     activateAccessError: "تعذّر تفعيل الوصول. تحقّق من تسجيل دخولك وحاول مرة أخرى.",

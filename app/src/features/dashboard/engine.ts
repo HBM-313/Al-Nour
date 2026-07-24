@@ -15,10 +15,13 @@ import {
   ageSkinForBirthYear,
   stepsForSkin,
   type LessonStep,
+  type Letter,
   type Profile,
   type Progress,
+  type VocabularyWord,
 } from "@/lib/types";
 import type { Dictionary } from "@/lib/i18n";
+import { summarizeLearning, type ItemStat, type LearningSummary } from "./learning";
 
 /** Oversatte beskeder — kaldestedet (useDashboard.ts, som har `t` fra `useLanguage()`) leverer dem. */
 export type DashboardMessages = Dictionary["dashboard"];
@@ -127,6 +130,45 @@ export async function fetchProgressSummary(
       streakCount: child.streak_count,
       empty: completedCount === 0 && current === null,
     },
+  };
+}
+
+/**
+ * D2 — læringstal pr. barn (plan-boernesession-og-dashboard.md §6.1).
+ *
+ * Læser barnets tællere fra `profile_item_stats` (RLS-policyen
+ * `profile_item_stats_owner_all` sikrer at forælderen kun ser egne børn —
+ * ingen filtrering i UI'et gør arbejdet) plus de to kataloger, der udgør
+ * nævneren. Selve fortolkningen ligger i `learning.ts`, som er ren og testet.
+ *
+ * Vocabulary-nævneren tæller kun UDGIVNE ord: kladder fra værkstedet er
+ * ikke noget barnet kan møde i spillene, og må derfor ikke tælle med i
+ * "34 af 107" — ellers ville tallet falde af sig selv, hver gang du
+ * oprettede en kladde.
+ */
+export async function fetchLearningSummary(
+  child: Profile,
+  messages: DashboardMessages,
+): Promise<{ ok: true; summary: LearningSummary } | { ok: false; error: string }> {
+  const [statsRes, lettersRes, wordsRes] = await Promise.all([
+    supabase
+      .from("profile_item_stats")
+      .select("item_type, item_id, seen_count, correct_count")
+      .eq("profile_id", child.id),
+    supabase.from("letters").select("*").order("position"),
+    supabase.from("vocabulary").select("*").eq("is_published", true),
+  ]);
+  if (statsRes.error || lettersRes.error || wordsRes.error) {
+    return { ok: false, error: messages.fetchLearningError };
+  }
+  return {
+    ok: true,
+    summary: summarizeLearning(
+      (statsRes.data ?? []) as ItemStat[],
+      (lettersRes.data ?? []) as Letter[],
+      (wordsRes.data ?? []) as VocabularyWord[],
+      messages,
+    ),
   };
 }
 

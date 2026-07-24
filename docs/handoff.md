@@ -39,7 +39,31 @@ Admin (mig) · Indholds-redaktør (kan ikke udgive aqidah) · Godkender (eneste 
 
 ## Hvor jeg er nu (opdater dette felt løbende)
 
-**Status (2026-07-24, session 23 — Leverance D1: item-statistik, datalag + skrive-RPC + kobling til de tre spil. FULDT GENNEMFØRT. PUSH AFVENTER GitHub-token i chatten.)**
+**Status (2026-07-24, session 24 — Leverance D2: læringstal i forældre-dashboardet. FULDT GENNEMFØRT. PUSH AFVENTER GitHub-token i chatten.)**
+
+Ejeren valgte D2. Dashboardet svarer nu på det en forælder faktisk spørger om (§6.1) i stedet for kun at vise spilvaluta: **"Bogstaver 8 af 28"** og **"Ord 15 af 107"** med guld-bjælker, en foldbar liste over *hvilke* bogstaver barnet kan, og **"Her øver X stadig"** med op til tre linjer. Sektionen ligger nederst i den eksisterende, udfoldede fremskridt-boks — ingen ny knap, intet nyt layout. Ejer-godkendt via demo før porting.
+
+**Ingen migration.** D2 er ren læsning oven på D1's tabel og bruger de eksisterende policies. Læse-vejen er dog ny og derfor bevist selvstændigt mod live-DB (rollback-markør, 0 rækker persisteret): forælder læser egne børns tællere ✓ · fremmed forælder 0 rækker ✓ · barnets egen session ser kun sig selv, ikke søskendes ✓ · `ai_service` 0 rækker ✓ · claim-løs session 0 rækker (fail-closed) ✓.
+
+**Fund:** `profile_item_stats_child_select_own` binder barnet via `profiles.auth_user_id = auth.uid()` — IKKE via et `profile_id`-claim. Det er den stærkere konstruktion, og fremtidige tests skal bruge barnets rigtige `auth_user_id`; en første version af regressionstesten fejlede netop dér.
+
+**Nye/ændrede filer:**
+- `src/lib/letterSimilarity.ts` (NY) — rasm-ligheds-grupperne flyttet ud af `lyt-og-find/engine.ts` (uændret indhold), så spillets distraktor-valg og dashboardets forklaringer ikke kan drifte fra hinanden.
+- `src/features/dashboard/learning.ts` (NY) — ren, testet fortolkning. Tærskler ejer-besluttet: `MIN_SEEN = 3` (gælder BEGGE veje, så tallene ikke hopper på ét heldigt/uheldigt svar), `KNOWN_RATE = 0.70`, `STRUGGLING_RATE = 0.40`, `MAX_STRUGGLES = 3`. Midterfeltet er en neutral `learning`-kategori — barnet bliver hverken rost eller udpeget på tyndt grundlag.
+- `src/features/dashboard/learning.test.ts` (NY) — 16 tests på netop de forgreninger hvor en fejl er dyr.
+- `engine.ts` (`fetchLearningSummary`), `useDashboard.ts` (learning-state, hentet parallelt med fremskridt), `Dashboard.tsx` (`LearningBox`/`LearnBar`), `dashboard.css`, `i18n/da.ts` + `ar.ts`.
+
+**Ærlighed om data (bevidst valg, lav det ikke om):** tællerne viser *at* et bogstav driller, aldrig *hvad* barnet trykkede i stedet. Derfor står der "ب ligner ت og ث" — og kun når to bogstaver i samme rasm-gruppe BEGGE er svage hos barnet, står der "driller begge". Alt andet ville være et gæt præsenteret for forælderen som viden.
+
+Tom-tilstand (ejer-valgt): venlig tekst i stedet for tal — tabellen er stadig tom i live, så det er dét enhver forælder ser lige nu.
+
+Build-kæde grøn: `tsc --noEmit` 0 · `oxlint` 0/0 · **133/133 tests** (117 → 133) · `npm run build` ✓.
+
+**Næste skridt:** D3 — indstillinger (niveau, transskription, dagens mål, `ui_language` for barnet; tre ubrugte kolonner ligger i skemaet). Se §6.4 + `plan-platformsmodning.md` §2.2. Alternativt D4 (forælderens egne ord) eller fejlrapport-knappens placering, som stadig er uafklaret.
+
+---
+
+**Tidligere status (2026-07-24, session 23 — Leverance D1: item-statistik, datalag + skrive-RPC + kobling til de tre spil. FULDT GENNEMFØRT, commit `4fc1578`, pushet.)**
 
 Ejeren valgte D-blokken ved sessionens start. **Skema-drift-tjekket fandt en udokumenteret migration:** `profile_item_stats` (version `20260724130816`, navn `profile_item_stats_d1`) var allerede anvendt direkte på live-DB — matchede plan-boernesession-og-dashboard.md §6.2's spec til punkt og prikke (samme RLS-mønstre som `profiles`/`progress`), men lå hverken i repoet eller i denne fil. 0 rækker, ingen skrive-funktion. Mest sandsynlige forklaring: en session der fik migrationen anvendt men aldrig nåede commit/dokumentation. Ejeren godkendte at genbruge tabellen (fremfor at slette og genbygge identisk) og lukke dokumentations-hullet.
 

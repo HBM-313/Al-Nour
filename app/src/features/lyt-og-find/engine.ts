@@ -18,6 +18,7 @@ import type {
   LetterForm,
   VocabularyWord,
 } from "@/lib/types";
+import { groupOf } from "@/lib/letterSimilarity";
 
 export type QuestionKind = "letter" | "word" | "letter_form";
 
@@ -66,26 +67,13 @@ export const FORM_LABEL_DA: Record<LetterForm, string> = {
 };
 
 /**
- * Visuelle ligheds-grupper: bogstaver med samme grundform (rasm), der kun
- * adskilles af prikker. Bruges til at styre sværhedsgrad:
+ * Visuelle ligheds-grupper (bogstaver med samme rasm, kun adskilt af prikker)
+ * bor nu i `lib/letterSimilarity.ts` — delt med dashboardets D2-forklaringer,
+ * så spillet og forælder-visningen altid er enige om hvad der ligner hvad.
+ * Bruges her til sværhedsgrad:
  *   - soft: distraktorer vælges fra ANDRE grupper (let at skelne)
  *   - teen: distraktorer vælges fra SAMME gruppe når muligt (svært)
  */
-const SIMILARITY_GROUPS: string[][] = [
-  ["ب", "ت", "ث", "ن", "ي"],
-  ["ج", "ح", "خ"],
-  ["د", "ذ"],
-  ["ر", "ز"],
-  ["س", "ش"],
-  ["ص", "ض"],
-  ["ط", "ظ"],
-  ["ع", "غ"],
-  ["ف", "ق"],
-];
-
-function groupOf(letter: string): string[] | null {
-  return SIMILARITY_GROUPS.find((g) => g.includes(letter)) ?? null;
-}
 
 // ----------------------------------------------------------------------------
 // Tilfældigheds-hjælpere (Fisher–Yates; ingen bias)
