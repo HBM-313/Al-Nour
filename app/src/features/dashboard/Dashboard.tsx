@@ -10,6 +10,7 @@ import type { Account, Profile } from "@/lib/types";
 import { ANIMAL_POOL, setPin } from "@/features/pin-login";
 import { OpretProfil } from "@/features/opret-profil";
 import { PIN_MAX, PIN_MIN, ageOf } from "@/features/opret-profil/engine";
+import { useT, type Dictionary } from "@/lib/i18n";
 import type { ProgressSummary } from "./engine";
 import { useDashboard } from "./useDashboard";
 import "./dashboard.css";
@@ -21,6 +22,7 @@ export interface DashboardProps {
 export function Dashboard({ account }: DashboardProps) {
   const { state, patch, toggleProgress, confirmAndDelete, onCreated, onPinSaved, activateAccess } =
     useDashboard();
+  const t = useT("da");
 
   if (state.view === "create") {
     return (
@@ -36,7 +38,7 @@ export function Dashboard({ account }: DashboardProps) {
           onClick={() => patch({ view: "list" })}
           className="db-btn-ghost w-full rounded-2xl py-3 text-sm font-semibold"
         >
-          Tilbage til oversigten
+          {t.dashboard.backToOverview}
         </button>
       </div>
     );
@@ -44,7 +46,7 @@ export function Dashboard({ account }: DashboardProps) {
 
   return (
     <div className="flex w-full flex-col gap-3">
-      {state.loading && <p className="db-empty py-6 text-center text-sm">Henter børn…</p>}
+      {state.loading && <p className="db-empty py-6 text-center text-sm">{t.dashboard.loadingChildren}</p>}
 
       {state.error && (
         <p className="db-hint-warn py-3 text-center text-sm" role="alert">
@@ -55,9 +57,9 @@ export function Dashboard({ account }: DashboardProps) {
       {!state.loading && !state.error && state.children.length === 0 && (
         <div className="db-card rounded-(--radius-skin) p-4">
           <p className="db-empty text-center text-sm leading-relaxed">
-            Ingen børneprofiler endnu.
+            {t.dashboard.noChildrenLine1}
             <br />
-            Opret den første og tænd en lanterne 🏮
+            {t.dashboard.noChildrenLine2}
           </p>
         </div>
       )}
@@ -73,6 +75,7 @@ export function Dashboard({ account }: DashboardProps) {
           onPin={() => patch({ pinTarget: c })}
           onDelete={() => patch({ confirmDelete: c })}
           onActivateAccess={() => void activateAccess(c)}
+          t={t}
         />
       ))}
 
@@ -81,7 +84,7 @@ export function Dashboard({ account }: DashboardProps) {
         onClick={() => patch({ view: "create" })}
         className="db-btn-gold w-full rounded-2xl py-3.5 text-base font-bold"
       >
-        + Opret barneprofil
+        {t.dashboard.createProfileButton}
       </button>
 
       {state.confirmDelete && (
@@ -90,6 +93,7 @@ export function Dashboard({ account }: DashboardProps) {
           deleting={state.deleting}
           onConfirm={() => void confirmAndDelete()}
           onCancel={() => patch({ confirmDelete: null })}
+          t={t}
         />
       )}
 
@@ -98,6 +102,7 @@ export function Dashboard({ account }: DashboardProps) {
           child={state.pinTarget}
           onSaved={() => onPinSaved(state.pinTarget as Profile)}
           onCancel={() => patch({ pinTarget: null })}
+          t={t}
         />
       )}
 
@@ -123,6 +128,7 @@ function ChildCard({
   onPin,
   onDelete,
   onActivateAccess,
+  t,
 }: {
   child: Profile;
   open: boolean;
@@ -132,6 +138,7 @@ function ChildCard({
   onPin: () => void;
   onDelete: () => void;
   onActivateAccess: () => void;
+  t: Dictionary;
 }) {
   return (
     <div className="db-card rounded-(--radius-skin) p-4">
@@ -143,19 +150,19 @@ function ChildCard({
           <div className="text-[17px] font-bold">{child.display_name}</div>
           <div className="mt-1 flex flex-wrap gap-1.5">
             <span className="db-pill rounded-full px-2.5 py-0.5 text-[11px] font-semibold">
-              {ageOf(child.birth_year)} år
+              {t.dashboard.ageSuffix(ageOf(child.birth_year))}
             </span>
             <span
               className={`db-pill rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${child.pin_hash ? "db-pill-gold" : ""}`}
             >
-              {child.pin_hash ? "🔑 kode sat" : "ingen kode"}
+              {child.pin_hash ? t.dashboard.pinSet : t.dashboard.pinNotSet}
             </span>
             <span className="db-pill rounded-full px-2.5 py-0.5 text-[11px] font-semibold">
-              {child.preferred_voice === "female" ? "🎀 Habibah" : "🎩 Ahmed"}
+              {child.preferred_voice === "female" ? t.dashboard.voiceFemale : t.dashboard.voiceMale}
             </span>
             {child.auth_user_id ? (
               <span className="db-pill db-pill-gold rounded-full px-2.5 py-0.5 text-[11px] font-semibold">
-                👤 egen adgang
+                {t.dashboard.ownAccess}
               </span>
             ) : (
               <button
@@ -164,7 +171,7 @@ function ChildCard({
                 onClick={onActivateAccess}
                 className="db-pill bg-transparent rounded-full px-2.5 py-0.5 text-[11px] font-semibold underline decoration-dotted disabled:opacity-60"
               >
-                {activating ? "Aktiverer…" : "Aktivér egen adgang →"}
+                {activating ? t.dashboard.activating : t.dashboard.activateAccess}
               </button>
             )}
           </div>
@@ -177,21 +184,21 @@ function ChildCard({
           onClick={onToggleProgress}
           className={`db-abtn rounded-xl px-1 py-2.5 text-[12.5px] font-semibold ${open ? "db-abtn-on" : ""}`}
         >
-          {open ? "Skjul" : "Fremskridt"}
+          {open ? t.dashboard.toggleProgressHide : t.dashboard.toggleProgressShow}
         </button>
         <button type="button" onClick={onPin} className="db-abtn rounded-xl px-1 py-2.5 text-[12.5px] font-semibold">
-          Dyre-kode
+          {t.dashboard.pinButton}
         </button>
         <button
           type="button"
           onClick={onDelete}
           className="db-abtn db-abtn-danger rounded-xl px-1 py-2.5 text-[12.5px] font-semibold"
         >
-          Slet
+          {t.dashboard.deleteButton}
         </button>
       </div>
 
-      {open && <ProgressBox childName={child.display_name} summary={summary} />}
+      {open && <ProgressBox childName={child.display_name} summary={summary} t={t} />}
     </div>
   );
 }
@@ -203,26 +210,30 @@ function ChildCard({
 function ProgressBox({
   childName,
   summary,
+  t,
 }: {
   childName: string;
   summary: ProgressSummary | "loading" | "error" | undefined;
+  t: Dictionary;
 }) {
   if (summary === undefined || summary === "loading") {
-    return <div className="db-progress mt-3 pt-3"><p className="db-empty text-center text-sm">Henter fremskridt…</p></div>;
+    return (
+      <div className="db-progress mt-3 pt-3">
+        <p className="db-empty text-center text-sm">{t.dashboard.loadingProgress}</p>
+      </div>
+    );
   }
   if (summary === "error") {
     return (
       <div className="db-progress mt-3 pt-3">
-        <p className="db-hint-warn text-center text-sm">Fremskridt kunne ikke hentes. Prøv at folde ud igen.</p>
+        <p className="db-hint-warn text-center text-sm">{t.dashboard.progressFetchError}</p>
       </div>
     );
   }
   if (summary.empty) {
     return (
       <div className="db-progress mt-3 pt-3">
-        <p className="db-empty text-center text-sm leading-relaxed">
-          {childName} er ikke begyndt endnu — rejsen venter i Bogstavernes Dal ✨
-        </p>
+        <p className="db-empty text-center text-sm leading-relaxed">{t.dashboard.notStartedYet(childName)}</p>
       </div>
     );
   }
@@ -237,11 +248,14 @@ function ProgressBox({
         ))}
       </div>
       {summary.current && (
-        <StatRow k="I gang med" v={`Lektion ${summary.current.orderIndex} · trin ${summary.current.step}/${summary.current.totalSteps}`} />
+        <StatRow
+          k={t.dashboard.inProgressLabel}
+          v={t.dashboard.inProgressValue(summary.current.orderIndex, summary.current.step, summary.current.totalSteps)}
+        />
       )}
-      <StatRow k="Fuldførte lektioner" v={`${summary.completedCount} af 7`} />
-      <StatRow k="Lys samlet (XP)" v={`${summary.totalXp} ✨`} />
-      <StatRow k="Streak" v={`${summary.streakCount} dage 🔥`} />
+      <StatRow k={t.dashboard.completedLessonsLabel} v={t.dashboard.completedLessonsValue(summary.completedCount)} />
+      <StatRow k={t.dashboard.totalXpLabel} v={t.dashboard.totalXpValue(summary.totalXp)} />
+      <StatRow k={t.dashboard.streakLabel} v={t.dashboard.streakValue(summary.streakCount)} />
     </div>
   );
 }
@@ -264,29 +278,32 @@ function DeleteOverlay({
   deleting,
   onConfirm,
   onCancel,
+  t,
 }: {
   child: Profile;
   deleting: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  t: Dictionary;
 }) {
   return (
-    <div className="db-overlay" role="dialog" aria-modal="true" aria-label={`Slet ${child.display_name}s profil`}>
+    <div className="db-overlay" role="dialog" aria-modal="true" aria-label={t.dashboard.deleteDialogAriaLabel(child.display_name)}>
       <div className="db-card w-full max-w-sm rounded-(--radius-skin) p-5">
-        <h3 className="text-center text-lg font-bold">Slet {child.display_name}s profil?</h3>
+        <h3 className="text-center text-lg font-bold">{t.dashboard.deleteHeading(child.display_name)}</h3>
         <p className="db-ov-text mt-2 text-center text-[13.5px] leading-relaxed">
-          Dette sletter <b className="db-hint-warn">alt permanent</b>: profilen, alt fremskridt, XP og dyre-koden.
-          Det kan <b className="db-hint-warn">ikke fortrydes</b>.
+          {t.dashboard.deleteExplainPrefix}
+          <b className="db-hint-warn">{t.dashboard.deleteExplainBold}</b>
+          {t.dashboard.deleteExplainMiddle}
+          <b className="db-hint-warn">{t.dashboard.deleteExplainBold2}</b>
+          {t.dashboard.deleteExplainSuffix}
         </p>
-        <p className="db-empty mt-2 text-center text-xs leading-relaxed">
-          Sådan overholder Nour din ret til sletning (GDPR) — ét klik, alt væk.
-        </p>
+        <p className="db-empty mt-2 text-center text-xs leading-relaxed">{t.dashboard.deleteGdprNote}</p>
         <div className="mt-4 flex flex-col gap-2">
           <button type="button" disabled={deleting} onClick={onConfirm} className="db-btn-danger w-full rounded-2xl py-3.5 text-base font-bold">
-            {deleting ? "Sletter…" : `Ja — slet alt om ${child.display_name}`}
+            {deleting ? t.dashboard.deleting : t.dashboard.deleteConfirmButton(child.display_name)}
           </button>
           <button type="button" disabled={deleting} onClick={onCancel} className="db-btn-ghost w-full rounded-2xl py-3 text-sm font-semibold">
-            Fortryd
+            {t.dashboard.cancel}
           </button>
         </div>
       </div>
@@ -302,10 +319,12 @@ function PinOverlay({
   child,
   onSaved,
   onCancel,
+  t,
 }: {
   child: Profile;
   onSaved: () => void;
   onCancel: () => void;
+  t: Dictionary;
 }) {
   const [phase, setPhase] = useState<"choose" | "confirm">("choose");
   const [seq, setSeq] = useState<string[]>([]);
@@ -330,17 +349,17 @@ function PinOverlay({
     const res = await setPin(child.id, seq);
     setSaving(false);
     if (!res.ok) {
-      setError("Koden kunne ikke gemmes. Tjek forbindelsen og prøv igen.");
+      setError(t.dashboard.pinSaveFailed);
       return;
     }
     onSaved();
   };
 
   return (
-    <div className="db-overlay" role="dialog" aria-modal="true" aria-label={`Dyre-kode til ${child.display_name}`}>
+    <div className="db-overlay" role="dialog" aria-modal="true" aria-label={t.dashboard.pinDialogAriaLabel(child.display_name)}>
       <div className="db-card w-full max-w-sm rounded-(--radius-skin) p-5">
         <h3 className="text-center text-lg font-bold">
-          {child.pin_hash ? "Skift" : "Sæt"} {child.display_name}s dyre-kode
+          {child.pin_hash ? t.dashboard.pinHeadingChange : t.dashboard.pinHeadingSet} {t.dashboard.pinHeadingSuffix(child.display_name)}
         </h3>
 
         <div className="my-3 flex min-h-[50px] justify-center gap-2.5" aria-hidden>
@@ -356,7 +375,7 @@ function PinOverlay({
             <button
               key={a}
               type="button"
-              aria-label={`Dyr ${i + 1}`}
+              aria-label={t.dashboard.animalAriaLabel(i + 1)}
               disabled={active.length >= (phase === "choose" ? PIN_MAX : seq.length)}
               onClick={() => tap(i)}
               className="db-animal rounded-xl pb-1 pt-2.5 text-center text-[28px] leading-tight disabled:opacity-35"
@@ -371,12 +390,12 @@ function PinOverlay({
           {error
             ? error
             : phase === "choose"
-              ? `Tryk på ${PIN_MIN}–${PIN_MAX} dyr i rækkefølge.`
+              ? t.dashboard.pinChooseHint(PIN_MIN, PIN_MAX)
               : mismatch
-                ? "Hov — ikke helt de samme dyr. Prøv igen 💛"
+                ? t.dashboard.pinMismatch
                 : match
-                  ? "Perfekt — koden passer! ✨"
-                  : "Bekræft ved at vælge de samme dyr igen."}
+                  ? t.dashboard.pinMatch
+                  : t.dashboard.pinConfirmHint}
         </p>
 
         <div className="mt-3 flex flex-col gap-2">
@@ -390,19 +409,19 @@ function PinOverlay({
               }}
               className="db-btn-gold w-full rounded-2xl py-3.5 text-base font-bold"
             >
-              Videre — bekræft
+              {t.dashboard.pinContinueConfirm}
             </button>
           ) : mismatch ? (
             <button type="button" onClick={() => setConfirmSeq([])} className="db-btn-ghost w-full rounded-2xl py-3 text-sm font-semibold">
-              Prøv igen
+              {t.dashboard.tryAgain}
             </button>
           ) : (
             <button type="button" disabled={!match || saving} onClick={() => void save()} className="db-btn-gold w-full rounded-2xl py-3.5 text-base font-bold">
-              {saving ? "Gemmer…" : "Gem koden"}
+              {saving ? t.dashboard.saving : t.dashboard.saveCode}
             </button>
           )}
           <button type="button" disabled={saving} onClick={onCancel} className="db-btn-ghost w-full rounded-2xl py-3 text-sm font-semibold">
-            Fortryd
+            {t.dashboard.cancel}
           </button>
         </div>
       </div>

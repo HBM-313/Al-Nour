@@ -10,6 +10,7 @@
 
 import { useMemo, useState } from "react";
 import type { VocabularyWord } from "@/lib/types";
+import { useT, type Dictionary } from "@/lib/i18n";
 import {
   VOCAB_CATEGORIES,
   detectFirstLetter,
@@ -23,13 +24,14 @@ import "./vokab-vaerksted.css";
 export function VokabVaerksted() {
   const vv = useVokabVaerksted();
   const { state, patch } = vv;
+  const t = useT("da");
 
   return (
     <div className="flex w-full flex-col gap-3 text-left">
-      <div className="vv-tabs flex gap-2" role="tablist" aria-label="Værksted">
-        <TabButton id="liste" label="Ordliste" current={state.tab} onPick={(t) => patch({ tab: t })} />
-        <TabButton id="nyt" label="Nyt ord" current={state.tab} onPick={(t) => patch({ tab: t })} />
-        <TabButton id="ai" label="AI-forslag" current={state.tab} onPick={(t) => patch({ tab: t })} />
+      <div className="vv-tabs flex gap-2" role="tablist" aria-label={t.vokabVaerksted.tablistAriaLabel}>
+        <TabButton id="liste" label={t.vokabVaerksted.tabList} current={state.tab} onPick={(tab) => patch({ tab })} />
+        <TabButton id="nyt" label={t.vokabVaerksted.tabNew} current={state.tab} onPick={(tab) => patch({ tab })} />
+        <TabButton id="ai" label={t.vokabVaerksted.aiSuggestions} current={state.tab} onPick={(tab) => patch({ tab })} />
       </div>
 
       {state.notice && (
@@ -38,16 +40,16 @@ export function VokabVaerksted() {
         </p>
       )}
 
-      {state.loading && <p className="vv-dim py-6 text-center text-sm">Henter ordforrådet…</p>}
+      {state.loading && <p className="vv-dim py-6 text-center text-sm">{t.vokabVaerksted.loadingVocabulary}</p>}
       {state.error && (
         <p className="vv-err py-3 text-center text-sm" role="alert">
           {state.error}
         </p>
       )}
 
-      {!state.loading && !state.error && state.tab === "liste" && <OrdListe vv={vv} />}
-      {!state.loading && !state.error && state.tab === "nyt" && <NytOrd vv={vv} />}
-      {!state.loading && !state.error && state.tab === "ai" && <AiForslag vv={vv} />}
+      {!state.loading && !state.error && state.tab === "liste" && <OrdListe vv={vv} t={t} />}
+      {!state.loading && !state.error && state.tab === "nyt" && <NytOrd vv={vv} t={t} />}
+      {!state.loading && !state.error && state.tab === "ai" && <AiForslag vv={vv} t={t} />}
     </div>
   );
 }
@@ -81,7 +83,7 @@ function TabButton({
 
 /* ========================= Ordliste ========================= */
 
-function OrdListe({ vv }: { vv: VV }) {
+function OrdListe({ vv, t }: { vv: VV; t: Dictionary }) {
   const { state, patch, togglePublish } = vv;
 
   const rows = useMemo(() => {
@@ -118,17 +120,17 @@ function OrdListe({ vv }: { vv: VV }) {
         type="text"
         value={state.search}
         onChange={(e) => patch({ search: e.target.value })}
-        placeholder="Søg (dansk eller arabisk)…"
-        aria-label="Søg i ordforråd"
+        placeholder={t.vokabVaerksted.searchPlaceholder}
+        aria-label={t.vokabVaerksted.searchAriaLabel}
         className="vv-input w-full rounded-2xl px-4 py-2.5 text-sm"
       />
-      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Status">
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label={t.vokabVaerksted.statusGroupAriaLabel}>
         {(
           [
-            ["alle", "Alle"],
-            ["kladde", "Kladder"],
-            ["udgivet", "Udgivet"],
-            ["ai", "AI-forslag"],
+            ["alle", t.vokabVaerksted.statusAll],
+            ["kladde", t.vokabVaerksted.statusDraft],
+            ["udgivet", t.vokabVaerksted.statusPublished],
+            ["ai", t.vokabVaerksted.aiSuggestions],
           ] as [StatusFilter, string][]
         ).map(([id, label]) => (
           <button
@@ -145,10 +147,10 @@ function OrdListe({ vv }: { vv: VV }) {
       <select
         value={state.categoryFilter}
         onChange={(e) => patch({ categoryFilter: e.target.value as VocabCategory | "" })}
-        aria-label="Filtrér på kategori"
+        aria-label={t.vokabVaerksted.categoryFilterAriaLabel}
         className="vv-input w-full rounded-2xl px-3 py-2.5 text-sm"
       >
-        <option value="">Alle kategorier</option>
+        <option value="">{t.vokabVaerksted.allCategories}</option>
         {VOCAB_CATEGORIES.map((c) => (
           <option key={c} value={c}>
             {c[0].toUpperCase() + c.slice(1)}
@@ -157,17 +159,15 @@ function OrdListe({ vv }: { vv: VV }) {
       </select>
 
       {rows.length === 0 ? (
-        <p className="vv-dim py-6 text-center text-sm">
-          Ingen ord matcher. Prøv et andet filter — eller tilføj et nyt ord ✨
-        </p>
+        <p className="vv-dim py-6 text-center text-sm">{t.vokabVaerksted.emptyList}</p>
       ) : (
-        rows.map((w) => <WordCard key={w.id} word={w} onToggle={() => void togglePublish(w)} />)
+        rows.map((w) => <WordCard key={w.id} word={w} onToggle={() => void togglePublish(w)} t={t} />)
       )}
     </>
   );
 }
 
-function WordCard({ word, onToggle }: { word: VocabularyWord; onToggle: () => void }) {
+function WordCard({ word, onToggle, t }: { word: VocabularyWord; onToggle: () => void; t: Dictionary }) {
   return (
     <div className={`vv-card flex items-center gap-3 rounded-3xl p-3.5 ${word.is_published ? "vv-published" : ""}`}>
       <span className="vv-lamp" aria-hidden />
@@ -180,17 +180,17 @@ function WordCard({ word, onToggle }: { word: VocabularyWord; onToggle: () => vo
           {word.word_da}
         </p>
         <p className="vv-dim text-xs italic">
-          {word.transliteration} · niveau {word.level} · {word.register}
+          {word.transliteration} · {t.vokabVaerksted.levelAndRegister(word.level, word.register)}
         </p>
         <div className="mt-1.5 flex flex-wrap gap-1">
           <span className="vv-badge vv-b-cat">{word.category}</span>
           {word.is_published ? (
-            <span className="vv-badge vv-b-pub">Udgivet</span>
+            <span className="vv-badge vv-b-pub">{t.vokabVaerksted.publishedBadge}</span>
           ) : (
-            <span className="vv-badge vv-b-draft">Kladde</span>
+            <span className="vv-badge vv-b-draft">{t.vokabVaerksted.draftBadge}</span>
           )}
-          {word.suggested_by === "ai" && <span className="vv-badge vv-b-ai">AI-forslag</span>}
-          {!word.audio_media_id && <span className="vv-badge vv-b-noaudio">Lyd mangler</span>}
+          {word.suggested_by === "ai" && <span className="vv-badge vv-b-ai">{t.vokabVaerksted.aiSuggestions}</span>}
+          {!word.audio_media_id && <span className="vv-badge vv-b-noaudio">{t.vokabVaerksted.noAudioBadge}</span>}
         </div>
       </div>
       <button
@@ -198,7 +198,7 @@ function WordCard({ word, onToggle }: { word: VocabularyWord; onToggle: () => vo
         onClick={onToggle}
         className={`vv-btn flex-none rounded-xl px-3 py-2 text-xs font-bold ${word.is_published ? "vv-btn-ghost" : "vv-btn-gold"}`}
       >
-        {word.is_published ? "Sluk lyset" : "Tænd lyset"}
+        {word.is_published ? t.vokabVaerksted.unpublishButton : t.vokabVaerksted.publishButton}
       </button>
     </div>
   );
@@ -206,7 +206,7 @@ function WordCard({ word, onToggle }: { word: VocabularyWord; onToggle: () => vo
 
 /* ========================= Nyt ord ========================= */
 
-function NytOrd({ vv }: { vv: VV }) {
+function NytOrd({ vv, t }: { vv: VV; t: Dictionary }) {
   const { state, saveDraft } = vv;
   const [ar, setAr] = useState("");
   const [da, setDa] = useState("");
@@ -223,23 +223,23 @@ function NytOrd({ vv }: { vv: VV }) {
   const onSave = async () => {
     setErr(null);
     if (!ar.trim() || !hasArabicScript(ar)) {
-      setErr("Skriv det arabiske ord (med arabiske bogstaver).");
+      setErr(t.vokabVaerksted.validationArabicRequired);
       return;
     }
     if (!da.trim()) {
-      setErr("Skriv den danske betydning.");
+      setErr(t.vokabVaerksted.validationDanishRequired);
       return;
     }
     if (!tr.trim()) {
-      setErr("Skriv en barnevenlig transskription.");
+      setErr(t.vokabVaerksted.validationTransliterationRequired);
       return;
     }
     if (isDuplicateWord({ word_ar: ar, word_da: da }, state.words)) {
-      setErr("Ordet findes allerede i ordforrådet.");
+      setErr(t.vokabVaerksted.validationDuplicate);
       return;
     }
     if (!detected) {
-      setErr("Kunne ikke genkende første bogstav — tjek stavningen.");
+      setErr(t.vokabVaerksted.validationLetterNotDetected);
       return;
     }
     setBusy(true);
@@ -266,7 +266,7 @@ function NytOrd({ vv }: { vv: VV }) {
 
   return (
     <div className="vv-card flex flex-col gap-3 rounded-3xl p-4">
-      <Field label="Arabisk ord" hint="(med harakat)">
+      <Field label={t.vokabVaerksted.arabicWordLabel} hint={t.vokabVaerksted.arabicWordHint}>
         <input
           type="text"
           value={ar}
@@ -282,10 +282,11 @@ function NytOrd({ vv }: { vv: VV }) {
           <span className="arabic text-xl leading-none" aria-hidden>
             {detected.letter}
           </span>
-          Kobles automatisk til bogstavet <b>{detected.name_da}</b>
+          {t.vokabVaerksted.letterHintPrefix}
+          <b>{detected.name_da}</b>
         </p>
       )}
-      <Field label="Dansk betydning">
+      <Field label={t.vokabVaerksted.danishMeaningLabel}>
         <input
           type="text"
           value={da}
@@ -294,7 +295,7 @@ function NytOrd({ vv }: { vv: VV }) {
           className="vv-input w-full rounded-2xl px-4 py-2.5 text-sm"
         />
       </Field>
-      <Field label="Transskription" hint="(barnevenlig)">
+      <Field label={t.vokabVaerksted.transliterationLabel} hint={t.vokabVaerksted.transliterationHint}>
         <input
           type="text"
           value={tr}
@@ -304,7 +305,7 @@ function NytOrd({ vv }: { vv: VV }) {
         />
       </Field>
       <div className="flex gap-2">
-        <Field label="Kategori" className="flex-1">
+        <Field label={t.vokabVaerksted.categoryLabel} className="flex-1">
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value as VocabCategory)}
@@ -317,7 +318,7 @@ function NytOrd({ vv }: { vv: VV }) {
             ))}
           </select>
         </Field>
-        <Field label="Niveau" className="flex-1">
+        <Field label={t.vokabVaerksted.levelLabel} className="flex-1">
           <select
             value={level}
             onChange={(e) => setLevel(Number(e.target.value))}
@@ -332,17 +333,17 @@ function NytOrd({ vv }: { vv: VV }) {
         </Field>
       </div>
       <div className="flex gap-2">
-        <Field label="Register" className="flex-1">
+        <Field label={t.vokabVaerksted.registerLabel} className="flex-1">
           <select
             value={register}
             onChange={(e) => setRegister(e.target.value as "fusha" | "everyday")}
             className="vv-input w-full rounded-2xl px-3 py-2.5 text-sm"
           >
-            <option value="fusha">Fusha</option>
-            <option value="everyday">Hverdag</option>
+            <option value="fusha">{t.vokabVaerksted.registerFusha}</option>
+            <option value="everyday">{t.vokabVaerksted.registerEveryday}</option>
           </select>
         </Field>
-        <Field label="Emoji" hint="(3–6-skind)" className="flex-1">
+        <Field label={t.vokabVaerksted.emojiLabel} hint={t.vokabVaerksted.emojiHint} className="flex-1">
           <input
             type="text"
             value={emoji}
@@ -365,12 +366,9 @@ function NytOrd({ vv }: { vv: VV }) {
         disabled={busy}
         className="vv-btn vv-btn-gold w-full rounded-2xl py-3 text-base font-bold disabled:opacity-60"
       >
-        {busy ? "Gemmer…" : "Gem som kladde"}
+        {busy ? t.vokabVaerksted.saving : t.vokabVaerksted.saveDraft}
       </button>
-      <p className="vv-dim text-center text-xs leading-relaxed">
-        Nye ord gemmes altid som kladde. Du tænder ordets lys fra ordlisten, når det er klar —
-        lyd genereres automatisk bagefter.
-      </p>
+      <p className="vv-dim text-center text-xs leading-relaxed">{t.vokabVaerksted.newWordFooterNote}</p>
     </div>
   );
 }
@@ -398,7 +396,7 @@ function Field({
 
 /* ========================= AI-forslag ========================= */
 
-function AiForslag({ vv }: { vv: VV }) {
+function AiForslag({ vv, t }: { vv: VV; t: Dictionary }) {
   const { state, loadSuggestions, saveSuggestion, discardSuggestion } = vv;
   const [category, setCategory] = useState<VocabCategory>("dyr");
   const [count, setCount] = useState(5);
@@ -406,13 +404,13 @@ function AiForslag({ vv }: { vv: VV }) {
   return (
     <>
       <p className="vv-wallnote rounded-2xl px-4 py-3 text-xs leading-relaxed">
-        <b>Muren gælder her:</b> AI'en foreslår kun. Hvert forslag gemmes af dig som kladde og
-        bærer varigt mærket <span className="vv-badge vv-b-ai">AI-forslag</span>. Intet udgives
-        uden din hånd på kontakten — og dubletter af eksisterende ord frasorteres automatisk.
+        <b>{t.vokabVaerksted.aiWallNoteBold}</b> {t.vokabVaerksted.aiWallNoteText}{" "}
+        <span className="vv-badge vv-b-ai">{t.vokabVaerksted.aiSuggestions}</span>
+        {t.vokabVaerksted.aiWallNoteSuffix}
       </p>
       <div className="vv-card flex flex-col gap-3 rounded-3xl p-4">
         <div className="flex gap-2">
-          <Field label="Kategori" className="flex-1">
+          <Field label={t.vokabVaerksted.categoryLabel} className="flex-1">
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value as VocabCategory)}
@@ -425,7 +423,7 @@ function AiForslag({ vv }: { vv: VV }) {
               ))}
             </select>
           </Field>
-          <Field label="Antal forslag" className="flex-1">
+          <Field label={t.vokabVaerksted.suggestionCountLabel} className="flex-1">
             <select
               value={count}
               onChange={(e) => setCount(Number(e.target.value))}
@@ -442,7 +440,7 @@ function AiForslag({ vv }: { vv: VV }) {
           disabled={state.aiLoading}
           className="vv-btn vv-btn-gold w-full rounded-2xl py-3 text-base font-bold disabled:opacity-60"
         >
-          {state.aiLoading ? "Claude tænker…" : "Hent forslag"}
+          {state.aiLoading ? t.vokabVaerksted.aiThinking : t.vokabVaerksted.fetchSuggestions}
         </button>
       </div>
 
@@ -452,9 +450,7 @@ function AiForslag({ vv }: { vv: VV }) {
         </p>
       )}
       {!state.aiLoading && !state.aiError && state.suggestions.length === 0 && (
-        <p className="vv-dim py-4 text-center text-xs">
-          Forslag vises her — alle fødes som kladder.
-        </p>
+        <p className="vv-dim py-4 text-center text-xs">{t.vokabVaerksted.suggestionsEmptyState}</p>
       )}
 
       {state.suggestions.map((s) => {
@@ -471,11 +467,11 @@ function AiForslag({ vv }: { vv: VV }) {
               </p>
               <p className="vv-dim text-xs italic">
                 {s.transliteration}
-                {detected ? ` · kobles til ${detected.name_da}` : ""}
+                {detected ? t.vokabVaerksted.linkedToLetter(detected.name_da) : ""}
               </p>
               <div className="mt-1.5 flex flex-wrap gap-1">
-                <span className="vv-badge vv-b-ai">AI-forslag</span>
-                <span className="vv-badge vv-b-draft">Gemmes som kladde</span>
+                <span className="vv-badge vv-b-ai">{t.vokabVaerksted.aiSuggestions}</span>
+                <span className="vv-badge vv-b-draft">{t.vokabVaerksted.draftBadgeToSave}</span>
               </div>
             </div>
             <div className="flex flex-none flex-col gap-1.5">
@@ -484,14 +480,14 @@ function AiForslag({ vv }: { vv: VV }) {
                 onClick={() => void saveSuggestion(s, category, detected?.id ?? null)}
                 className="vv-btn vv-btn-gold rounded-xl px-3 py-2 text-xs font-bold"
               >
-                Gem kladde
+                {t.vokabVaerksted.saveSuggestionButton}
               </button>
               <button
                 type="button"
                 onClick={() => discardSuggestion(s)}
                 className="vv-btn vv-btn-danger rounded-xl px-3 py-2 text-xs font-bold"
               >
-                Forkast
+                {t.vokabVaerksted.discardSuggestion}
               </button>
             </div>
           </div>

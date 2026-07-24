@@ -20,6 +20,7 @@ import { Consent } from "@/features/consent";
 import { Dashboard } from "@/features/dashboard";
 import { HistorieVaerksted } from "@/features/historie-vaerksted";
 import { VokabVaerksted } from "@/features/vokab-vaerksted";
+import { useT, type Dictionary } from "@/lib/i18n";
 import { useParentAuth, type AuthMode } from "./useParentAuth";
 import "./parent-auth.css";
 
@@ -46,6 +47,7 @@ export function ParentAuth({ onAuthenticated }: ParentAuthProps) {
   } = useParentAuth({
     onAuthenticated,
   });
+  const t = useT("da");
 
   const stars = useMemo(
     () =>
@@ -78,18 +80,19 @@ export function ParentAuth({ onAuthenticated }: ParentAuthProps) {
 
       <div className="relative">
         {phase === "checking_session" ? (
-          <p className="auth-sub py-10 text-center text-sm">Tjekker login …</p>
+          <p className="auth-sub py-10 text-center text-sm">{t.parentAuth.checkingLogin}</p>
         ) : justDeleted ? (
-          <Farewell onClose={dismissFarewell} />
+          <Farewell onClose={dismissFarewell} t={t} />
         ) : account ? (
           <Welcome
             account={account}
             onSignOut={() => void signOut()}
             onConsentGiven={updateAccount}
             onDeleteAccount={deleteAccount}
+            t={t}
           />
         ) : phase === "needs_confirmation" ? (
-          <NeedsConfirmation onBackToLogin={() => switchMode("login")} />
+          <NeedsConfirmation onBackToLogin={() => switchMode("login")} t={t} />
         ) : (
           <AuthForm
             mode={mode}
@@ -97,6 +100,7 @@ export function ParentAuth({ onAuthenticated }: ParentAuthProps) {
             errorMessage={errorMessage}
             onSwitchMode={switchMode}
             onSubmit={submit}
+            t={t}
           />
         )}
       </div>
@@ -114,12 +118,14 @@ function AuthForm({
   errorMessage,
   onSwitchMode,
   onSubmit,
+  t,
 }: {
   mode: AuthMode;
   phase: "idle" | "loading" | "error";
   errorMessage: string | null;
   onSwitchMode: (mode: AuthMode) => void;
   onSubmit: (email: string, password: string) => void;
+  t: Dictionary;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -134,19 +140,19 @@ function AuthForm({
 
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !EMAIL_RE.test(trimmedEmail)) {
-      setLocalError("Indtast en gyldig e-mailadresse.");
+      setLocalError(t.parentAuth.errorInvalidEmail);
       return;
     }
     if (isSignup && password.length < MIN_PASSWORD_LEN) {
-      setLocalError(`Adgangskoden skal være mindst ${MIN_PASSWORD_LEN} tegn.`);
+      setLocalError(t.parentAuth.errorPasswordTooShort(MIN_PASSWORD_LEN));
       return;
     }
     if (isSignup && password !== confirm) {
-      setLocalError("Adgangskoderne er ikke ens.");
+      setLocalError(t.parentAuth.errorPasswordMismatch);
       return;
     }
     if (!isSignup && !password) {
-      setLocalError("Indtast din adgangskode.");
+      setLocalError(t.parentAuth.errorPasswordRequired);
       return;
     }
 
@@ -159,12 +165,10 @@ function AuthForm({
     <div className="flex flex-col items-center gap-6 py-2">
       <div className="text-center">
         <h2 className="auth-title text-2xl font-bold">
-          {isSignup ? "Opret forælderkonto" : "Velkommen tilbage"}
+          {isSignup ? t.parentAuth.signupHeading : t.parentAuth.loginHeading}
         </h2>
         <p className="auth-sub mt-1 text-sm">
-          {isSignup
-            ? "Opret en konto for at tilføje dine børn til Nour-landet."
-            : "Log ind for at følge dine børns rejse gennem Nour-landet."}
+          {isSignup ? t.parentAuth.signupSubtitle : t.parentAuth.loginSubtitle}
         </p>
       </div>
 
@@ -178,7 +182,7 @@ function AuthForm({
             !isSignup ? "auth-tab-active" : ""
           }`}
         >
-          Log ind
+          {t.parentAuth.loginTab}
         </button>
         <button
           type="button"
@@ -189,7 +193,7 @@ function AuthForm({
             isSignup ? "auth-tab-active" : ""
           }`}
         >
-          Opret konto
+          {t.parentAuth.signupTab}
         </button>
       </div>
 
@@ -200,7 +204,7 @@ function AuthForm({
       <form onSubmit={handleSubmit} className="flex w-full flex-col gap-4" noValidate>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="pa-email" className="auth-field-label text-xs font-semibold">
-            E-mail
+            {t.parentAuth.emailLabel}
           </label>
           <input
             id="pa-email"
@@ -208,7 +212,7 @@ function AuthForm({
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="din@email.dk"
+            placeholder={t.parentAuth.emailPlaceholder}
             className="auth-input rounded-(--radius-skin) px-3.5 py-2.5 text-sm"
             required
           />
@@ -216,7 +220,7 @@ function AuthForm({
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="pa-password" className="auth-field-label text-xs font-semibold">
-            Adgangskode
+            {t.parentAuth.passwordLabel}
           </label>
           <input
             id="pa-password"
@@ -228,13 +232,13 @@ function AuthForm({
             className="auth-input rounded-(--radius-skin) px-3.5 py-2.5 text-sm"
             required
           />
-          {isSignup ? <p className="auth-hint text-xs">Mindst {MIN_PASSWORD_LEN} tegn.</p> : null}
+          {isSignup ? <p className="auth-hint text-xs">{t.parentAuth.passwordMinHint(MIN_PASSWORD_LEN)}</p> : null}
         </div>
 
         {isSignup ? (
           <div className="flex flex-col gap-1.5">
             <label htmlFor="pa-confirm" className="auth-field-label text-xs font-semibold">
-              Gentag adgangskode
+              {t.parentAuth.confirmPasswordLabel}
             </label>
             <input
               id="pa-confirm"
@@ -257,11 +261,11 @@ function AuthForm({
           {loading ? <span className="auth-spinner size-3.5" aria-hidden /> : null}
           {loading
             ? isSignup
-              ? "Opretter …"
-              : "Logger ind …"
+              ? t.parentAuth.submitCreating
+              : t.parentAuth.submitLoggingIn
             : isSignup
-              ? "Opret konto"
-              : "Log ind"}
+              ? t.parentAuth.submitCreate
+              : t.parentAuth.submitLogin}
         </button>
       </form>
     </div>
@@ -272,16 +276,14 @@ function AuthForm({
 // E-mailbekræftelse afventes
 // ----------------------------------------------------------------------------
 
-function NeedsConfirmation({ onBackToLogin }: { onBackToLogin: () => void }) {
+function NeedsConfirmation({ onBackToLogin, t }: { onBackToLogin: () => void; t: Dictionary }) {
   return (
     <div className="flex flex-col items-center gap-4 py-8 text-center">
       <div className="auth-welcome-glow size-14 rounded-full" aria-hidden />
-      <h2 className="auth-title text-xl font-bold">Bekræft din e-mail</h2>
-      <p className="auth-msg-info rounded-(--radius-skin) px-4 py-3 text-sm">
-        Vi har sendt et bekræftelseslink til din e-mail. Klik på linket, og log derefter ind.
-      </p>
+      <h2 className="auth-title text-xl font-bold">{t.parentAuth.confirmEmailHeading}</h2>
+      <p className="auth-msg-info rounded-(--radius-skin) px-4 py-3 text-sm">{t.parentAuth.confirmEmailBody}</p>
       <button type="button" onClick={onBackToLogin} className="auth-ghost rounded-(--radius-skin) px-5 py-2.5 text-sm font-semibold">
-        Tilbage til login
+        {t.parentAuth.backToLogin}
       </button>
     </div>
   );
@@ -296,11 +298,13 @@ function Welcome({
   onSignOut,
   onConsentGiven,
   onDeleteAccount,
+  t,
 }: {
   account: Account;
   onSignOut: () => void;
   onConsentGiven: (account: Account) => void;
   onDeleteAccount: (password: string) => Promise<{ ok: boolean; error?: string }>;
+  t: Dictionary;
 }) {
   const [portalTab, setPortalTab] = useState<"born" | "vaerksted" | "historier">("born");
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
@@ -315,7 +319,7 @@ function Welcome({
           onClick={onSignOut}
           className="auth-ghost rounded-(--radius-skin) px-5 py-2.5 text-sm font-semibold"
         >
-          Log ud i stedet
+          {t.parentAuth.signOutInstead}
         </button>
       </div>
     );
@@ -325,7 +329,7 @@ function Welcome({
     <div className="flex flex-col items-center gap-4 py-4 text-center">
       <div className="auth-welcome-glow size-14 rounded-full" aria-hidden />
       <div>
-        <h2 className="auth-title text-xl font-bold">Du er logget ind</h2>
+        <h2 className="auth-title text-xl font-bold">{t.parentAuth.loggedInHeading}</h2>
         <p className="auth-sub mt-1 text-sm">{account.email}</p>
       </div>
 
@@ -341,12 +345,12 @@ function Welcome({
       </div>
 
       {erRedaktionel(account.role) && (
-        <div className="flex w-full gap-2" role="tablist" aria-label="Portal">
-          <PortalTab label="Børn" id="born" current={portalTab} onPick={setPortalTab} />
+        <div className="flex w-full gap-2" role="tablist" aria-label={t.parentAuth.portalAriaLabel}>
+          <PortalTab label={t.parentAuth.tabChildren} id="born" current={portalTab} onPick={setPortalTab} />
           {isStaff(account.role) && (
-            <PortalTab label="Værkstedet" id="vaerksted" current={portalTab} onPick={setPortalTab} />
+            <PortalTab label={t.parentAuth.tabWorkshop} id="vaerksted" current={portalTab} onPick={setPortalTab} />
           )}
-          <PortalTab label="Historier" id="historier" current={portalTab} onPick={setPortalTab} />
+          <PortalTab label={t.parentAuth.tabStories} id="historier" current={portalTab} onPick={setPortalTab} />
         </div>
       )}
 
@@ -361,7 +365,7 @@ function Welcome({
       </div>
 
       <button type="button" onClick={onSignOut} className="auth-ghost rounded-(--radius-skin) px-5 py-2.5 text-sm font-semibold">
-        Log ud
+        {t.parentAuth.signOut}
       </button>
 
       <div className="flex flex-col items-center gap-1">
@@ -373,12 +377,10 @@ function Welcome({
           }}
           className="auth-danger-link text-xs font-semibold"
         >
-          Glem denne enhed
+          {t.parentAuth.forgetDevice}
         </button>
         <p className="auth-sub text-xs opacity-70">
-          {deviceForgotten
-            ? "Denne enheds gemte børneliste er glemt."
-            : "Rydder børnenes navne/billeder, som er gemt lokalt på denne enhed til hurtigere login."}
+          {deviceForgotten ? t.parentAuth.forgetDeviceDone : t.parentAuth.forgetDeviceHint}
         </p>
       </div>
 
@@ -387,7 +389,7 @@ function Welcome({
         onClick={() => setShowDeleteAccount(true)}
         className="auth-danger-link text-xs font-semibold"
       >
-        Slet min konto
+        {t.parentAuth.deleteAccountLink}
       </button>
 
       {showDeleteAccount && (
@@ -395,6 +397,7 @@ function Welcome({
           email={account.email}
           onConfirm={onDeleteAccount}
           onCancel={() => setShowDeleteAccount(false)}
+          t={t}
         />
       )}
     </div>
@@ -407,23 +410,20 @@ function Welcome({
  * bekræftelse på at Art. 17-anmodningen er gennemført, ikke bare et tomt
  * skift af skærm.
  */
-function Farewell({ onClose }: { onClose: () => void }) {
+function Farewell({ onClose, t }: { onClose: () => void; t: Dictionary }) {
   return (
     <div className="flex flex-col items-center gap-4 py-10 text-center">
       <div className="auth-welcome-glow size-14 rounded-full" aria-hidden />
       <div>
-        <h2 className="auth-title text-xl font-bold">Din konto er slettet</h2>
-        <p className="auth-sub mt-2 text-sm leading-relaxed">
-          Din konto og alt tilhørende data — børneprofiler, fremskridt og lys — er slettet
-          permanent. Tak fordi du brugte Nour.
-        </p>
+        <h2 className="auth-title text-xl font-bold">{t.parentAuth.accountDeletedHeading}</h2>
+        <p className="auth-sub mt-2 text-sm leading-relaxed">{t.parentAuth.accountDeletedBody}</p>
       </div>
       <button
         type="button"
         onClick={onClose}
         className="auth-ghost rounded-(--radius-skin) px-5 py-2.5 text-sm font-semibold"
       >
-        Luk
+        {t.parentAuth.close}
       </button>
     </div>
   );
@@ -441,10 +441,12 @@ function DeleteAccountOverlay({
   email,
   onConfirm,
   onCancel,
+  t,
 }: {
   email: string;
   onConfirm: (password: string) => Promise<{ ok: boolean; error?: string }>;
   onCancel: () => void;
+  t: Dictionary;
 }) {
   const [phase, setPhase] = useState<"explain" | "password">("explain");
   const [password, setPassword] = useState("");
@@ -457,7 +459,7 @@ function DeleteAccountOverlay({
     const res = await onConfirm(password);
     setDeleting(false);
     if (!res.ok) {
-      setError(res.error ?? "Sletning fejlede. Prøv igen.");
+      setError(res.error ?? t.parentAuth.deleteFailedFallback);
       return;
     }
     // Ved succes forsvinder denne overlay af sig selv, fordi account bliver
@@ -465,18 +467,20 @@ function DeleteAccountOverlay({
   };
 
   return (
-    <div className="db-overlay" role="dialog" aria-modal="true" aria-label="Slet din konto">
+    <div className="db-overlay" role="dialog" aria-modal="true" aria-label={t.parentAuth.deleteDialogAriaLabel}>
       <div className="db-card w-full max-w-sm rounded-(--radius-skin) p-5">
         {phase === "explain" ? (
           <>
-            <h3 className="text-center text-lg font-bold">Slet din konto?</h3>
+            <h3 className="text-center text-lg font-bold">{t.parentAuth.deleteExplainHeading}</h3>
             <p className="db-ov-text mt-2 text-center text-[13.5px] leading-relaxed">
-              Dette sletter <b className="db-hint-warn">alt permanent</b>: din konto ({email}),
-              alle dine børns profiler, alt deres fremskridt og lys, og alle dyre-koder.
+              {t.parentAuth.deleteExplainPrefix}
+              <b className="db-hint-warn">{t.parentAuth.deleteExplainBold}</b>
+              {t.parentAuth.deleteExplainSuffix(email)}
             </p>
             <p className="db-empty mt-2 text-center text-xs leading-relaxed">
-              Det kan <b className="db-hint-warn">ikke fortrydes</b> — der er ingen
-              fortrydelsesperiode. Sletningen sker med det samme.
+              {t.parentAuth.deleteIrreversiblePrefix}
+              <b className="db-hint-warn">{t.parentAuth.deleteIrreversibleBold}</b>
+              {t.parentAuth.deleteIrreversibleSuffix}
             </p>
             <div className="mt-4 flex flex-col gap-2">
               <button
@@ -484,27 +488,27 @@ function DeleteAccountOverlay({
                 onClick={() => setPhase("password")}
                 className="db-btn-danger w-full rounded-2xl py-3.5 text-base font-bold"
               >
-                Ja, jeg forstår — fortsæt
+                {t.parentAuth.deleteConfirmContinue}
               </button>
               <button
                 type="button"
                 onClick={onCancel}
                 className="db-btn-ghost w-full rounded-2xl py-3 text-sm font-semibold"
               >
-                Fortryd
+                {t.parentAuth.cancel}
               </button>
             </div>
           </>
         ) : (
           <>
-            <h3 className="text-center text-lg font-bold">Bekræft med din adgangskode</h3>
+            <h3 className="text-center text-lg font-bold">{t.parentAuth.confirmPasswordHeading}</h3>
             <p className="db-ov-text mt-2 text-center text-[13.5px] leading-relaxed">
-              Indtast din adgangskode for at slette kontoen for altid.
+              {t.parentAuth.confirmPasswordBody}
             </p>
             <input
               type="password"
               autoComplete="current-password"
-              placeholder="Adgangskode"
+              placeholder={t.parentAuth.passwordPlaceholder}
               value={password}
               disabled={deleting}
               onChange={(e) => setPassword(e.target.value)}
@@ -525,7 +529,7 @@ function DeleteAccountOverlay({
                 onClick={() => void submit()}
                 className="db-btn-danger w-full rounded-2xl py-3.5 text-base font-bold"
               >
-                {deleting ? "Sletter…" : "Slet min konto for altid"}
+                {deleting ? t.parentAuth.deleting : t.parentAuth.deleteForever}
               </button>
               <button
                 type="button"
@@ -533,7 +537,7 @@ function DeleteAccountOverlay({
                 onClick={onCancel}
                 className="db-btn-ghost w-full rounded-2xl py-3 text-sm font-semibold"
               >
-                Fortryd
+                {t.parentAuth.cancel}
               </button>
             </div>
           </>

@@ -18,16 +18,20 @@ import {
   type Profile,
   type Progress,
 } from "@/lib/types";
+import type { Dictionary } from "@/lib/i18n";
+
+/** Oversatte beskeder — kaldestedet (useDashboard.ts, som har `t = useT("da")`) leverer dem. */
+export type DashboardMessages = Dictionary["dashboard"];
 
 /** Hent forælderens børneprofiler, ældste først (stabil rækkefølge). */
-export async function fetchChildren(): Promise<
-  { ok: true; children: Profile[] } | { ok: false; error: string }
-> {
+export async function fetchChildren(
+  messages: DashboardMessages,
+): Promise<{ ok: true; children: Profile[] } | { ok: false; error: string }> {
   const { data, error } = await supabase
     .from("profiles")
     .select("*")
     .order("created_at", { ascending: true });
-  if (error) return { ok: false, error: "Børnene kunne ikke hentes. Prøv igen." };
+  if (error) return { ok: false, error: messages.fetchChildrenError };
   return { ok: true, children: (data ?? []) as Profile[] };
 }
 
@@ -55,6 +59,7 @@ export interface ProgressSummary {
  */
 export async function fetchProgressSummary(
   child: Profile,
+  messages: DashboardMessages,
 ): Promise<{ ok: true; summary: ProgressSummary } | { ok: false; error: string }> {
   const [lessonsRes, progressRes] = await Promise.all([
     supabase
@@ -67,7 +72,7 @@ export async function fetchProgressSummary(
     supabase.from("progress").select("*").eq("profile_id", child.id),
   ]);
   if (lessonsRes.error || progressRes.error) {
-    return { ok: false, error: "Fremskridt kunne ikke hentes. Prøv igen." };
+    return { ok: false, error: messages.fetchProgressError };
   }
 
   const lessons = lessonsRes.data ?? [];
@@ -138,16 +143,17 @@ export async function fetchProgressSummary(
  */
 export async function provisionChildAuth(
   profileId: string,
+  messages: DashboardMessages,
 ): Promise<{ ok: true; alreadyProvisioned: boolean } | { ok: false; error: string }> {
   const { data, error } = await supabase.functions.invoke("provision-child-auth", {
     body: { profile_id: profileId },
   });
   if (error) {
-    return { ok: false, error: "Adgang kunne ikke aktiveres. Tjek at du er logget ind, og prøv igen." };
+    return { ok: false, error: messages.activateAccessError };
   }
   const res = data as { success?: boolean; already_provisioned?: boolean; error?: string } | null;
   if (!res?.success) {
-    return { ok: false, error: res?.error ?? "Uventet svar. Prøv igen." };
+    return { ok: false, error: res?.error ?? messages.unexpectedResponse };
   }
   return { ok: true, alreadyProvisioned: Boolean(res.already_provisioned) };
 }
@@ -159,8 +165,9 @@ export async function provisionChildAuth(
  */
 export async function deleteChildProfile(
   profileId: string,
+  messages: DashboardMessages,
 ): Promise<{ ok: boolean; error?: string }> {
   const { error } = await supabase.from("profiles").delete().eq("id", profileId);
-  if (error) return { ok: false, error: "Profilen kunne ikke slettes. Prøv igen." };
+  if (error) return { ok: false, error: messages.deleteProfileError };
   return { ok: true };
 }

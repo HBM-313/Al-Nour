@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Account } from "@/lib/types";
+import { useT } from "@/lib/i18n";
 import {
   deleteOwnAccount,
   restoreSession,
@@ -38,6 +39,7 @@ export function useParentAuth({ onAuthenticated }: UseParentAuthArgs = {}) {
   const [justDeleted, setJustDeleted] = useState(false);
   const onAuthenticatedRef = useRef(onAuthenticated);
   onAuthenticatedRef.current = onAuthenticated;
+  const t = useT("da");
 
   // Tjek en evt. eksisterende session ved opstart — kører kun én gang.
   useEffect(() => {
@@ -75,7 +77,9 @@ export function useParentAuth({ onAuthenticated }: UseParentAuthArgs = {}) {
       setErrorMessage(null);
 
       const result =
-        mode === "signup" ? await signUpParent(email, password) : await signInParent(email, password);
+        mode === "signup"
+          ? await signUpParent(email, password, t.parentAuth)
+          : await signInParent(email, password, t.parentAuth);
 
       if (!result.ok) {
         setPhase("error");
@@ -90,7 +94,7 @@ export function useParentAuth({ onAuthenticated }: UseParentAuthArgs = {}) {
       setPhase("idle");
       onAuthenticatedRef.current?.(result.account);
     },
-    [mode],
+    [mode, t],
   );
 
   const signOut = useCallback(async () => {
@@ -109,9 +113,9 @@ export function useParentAuth({ onAuthenticated }: UseParentAuthArgs = {}) {
     async (password: string): Promise<{ ok: boolean; error?: string }> => {
       const passwordOk = await verifyOwnPassword(password);
       if (!passwordOk) {
-        return { ok: false, error: "Forkert adgangskode." };
+        return { ok: false, error: t.parentAuth.wrongPassword };
       }
-      const res = await deleteOwnAccount();
+      const res = await deleteOwnAccount(t.parentAuth);
       if (!res.ok) {
         return { ok: false, error: res.error };
       }
@@ -121,7 +125,7 @@ export function useParentAuth({ onAuthenticated }: UseParentAuthArgs = {}) {
       setJustDeleted(true);
       return { ok: true };
     },
-    [],
+    [t],
   );
 
   const dismissFarewell = useCallback(() => setJustDeleted(false), []);

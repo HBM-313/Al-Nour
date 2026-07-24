@@ -22,6 +22,10 @@
 
 import { supabase } from "@/lib/supabase";
 import type { Letter, VocabularyWord } from "@/lib/types";
+import type { Dictionary } from "@/lib/i18n";
+
+/** Oversatte beskeder — kaldestedet (useVokabVaerksted.ts, som har `t = useT("da")`) leverer dem. */
+export type VokabVaerkstedMessages = Dictionary["vokabVaerksted"];
 
 /** Spejler DB-CHECK'en `vocabulary_category_check` — udvides kun via migration. */
 export const VOCAB_CATEGORIES = [
@@ -80,27 +84,27 @@ export function isDuplicateWord(
 }
 
 /** Hent HELE ordforrådet (admin/editor ser også kladder via RLS). */
-export async function fetchVocabulary(): Promise<
-  { ok: true; words: VocabularyWord[] } | { ok: false; error: string }
-> {
+export async function fetchVocabulary(
+  messages: VokabVaerkstedMessages,
+): Promise<{ ok: true; words: VocabularyWord[] } | { ok: false; error: string }> {
   const { data, error } = await supabase
     .from("vocabulary")
     .select("*")
     .order("category", { ascending: true })
     .order("word_da", { ascending: true });
-  if (error) return { ok: false, error: "Ordforrådet kunne ikke hentes. Prøv igen." };
+  if (error) return { ok: false, error: messages.fetchVocabularyError };
   return { ok: true, words: (data ?? []) as VocabularyWord[] };
 }
 
 /** Hent de 28 bogstaver (til første-bogstav-kobling). */
-export async function fetchLetters(): Promise<
-  { ok: true; letters: Letter[] } | { ok: false; error: string }
-> {
+export async function fetchLetters(
+  messages: VokabVaerkstedMessages,
+): Promise<{ ok: true; letters: Letter[] } | { ok: false; error: string }> {
   const { data, error } = await supabase
     .from("letters")
     .select("*")
     .order("position", { ascending: true });
-  if (error) return { ok: false, error: "Bogstaverne kunne ikke hentes. Prøv igen." };
+  if (error) return { ok: false, error: messages.fetchLettersError };
   return { ok: true, letters: (data ?? []) as Letter[] };
 }
 
@@ -123,6 +127,7 @@ export interface VocabDraftInput {
 export async function insertDraft(
   input: VocabDraftInput,
   suggestedBy: "human" | "ai",
+  messages: VokabVaerkstedMessages,
 ): Promise<{ ok: true; word: VocabularyWord } | { ok: false; error: string }> {
   const { data, error } = await supabase
     .from("vocabulary")
@@ -137,9 +142,9 @@ export async function insertDraft(
     .single();
   if (error) {
     if (error.code === "23505") {
-      return { ok: false, error: "Ordet findes allerede i ordforrådet (word_ar er unik)." };
+      return { ok: false, error: messages.wordAlreadyExists };
     }
-    return { ok: false, error: "Ordet kunne ikke gemmes. Prøv igen." };
+    return { ok: false, error: messages.wordSaveFailed };
   }
   return { ok: true, word: data as VocabularyWord };
 }
@@ -148,12 +153,13 @@ export async function insertDraft(
 export async function setPublished(
   id: string,
   published: boolean,
+  messages: VokabVaerkstedMessages,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const { error } = await supabase
     .from("vocabulary")
     .update({ is_published: published })
     .eq("id", id);
-  if (error) return { ok: false, error: "Ændringen kunne ikke gemmes. Prøv igen." };
+  if (error) return { ok: false, error: messages.publishChangeFailed };
   return { ok: true };
 }
 
@@ -175,6 +181,7 @@ export async function fetchAiSuggestions(
   category: VocabCategory,
   count: number,
   existing: VocabularyWord[],
+  messages: VokabVaerkstedMessages,
 ): Promise<{ ok: true; suggestions: AiSuggestion[] } | { ok: false; error: string }> {
   const { data, error } = await supabase.functions.invoke("suggest-vocab", {
     body: { category, count },
@@ -182,12 +189,12 @@ export async function fetchAiSuggestions(
   if (error) {
     return {
       ok: false,
-      error: "Forslag kunne ikke hentes. Tjek at du er logget ind som admin/editor.",
+      error: messages.aiSuggestionsFailed,
     };
   }
   const raw: unknown = (data as { suggestions?: unknown })?.suggestions;
   if (!Array.isArray(raw)) {
-    return { ok: false, error: "Uventet svar fra forslags-tjenesten. Prøv igen." };
+    return { ok: false, error: messages.aiUnexpectedResponse };
   }
   const suggestions = raw
     .filter(

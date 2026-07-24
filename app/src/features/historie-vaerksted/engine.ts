@@ -20,6 +20,15 @@
 
 import { supabase } from "@/lib/supabase";
 import type { Content, QuizQuestion } from "@/lib/types";
+import type { Dictionary } from "@/lib/i18n";
+
+/**
+ * Oversatte beskeder til denne fil — kaldestedet (useHistorieVaerksted.ts,
+ * som har `t = useT("da")`) leverer dem. Samme mønster som
+ * OpretProfilMessages i features/opret-profil/engine.ts: en almindelig
+ * (ikke-hook) funktion må aldrig selv kalde useT.
+ */
+export type HistorieVaerkstedMessages = Dictionary["historieVaerksted"];
 
 export const ALDERSSPAEND = [
   { value: "3-14", label: "3–14 (alle)", min_age: 3, max_age: 14 },
@@ -30,16 +39,16 @@ export const ALDERSSPAEND = [
 export type AlderKey = (typeof ALDERSSPAEND)[number]["value"];
 
 /** Hent alle fortællinger i Historiernes Bjerge (staff ser også kladder, jf. content_staff_read_all). */
-export async function fetchStories(): Promise<
-  { ok: true; stories: Content[] } | { ok: false; error: string }
-> {
+export async function fetchStories(
+  messages: HistorieVaerkstedMessages,
+): Promise<{ ok: true; stories: Content[] } | { ok: false; error: string }> {
   const { data, error } = await supabase
     .from("content")
     .select("*")
     .eq("world", "historiernes_bjerge")
     .eq("content_type", "aqidah")
     .order("created_at", { ascending: false });
-  if (error) return { ok: false, error: "Fortællingerne kunne ikke hentes. Prøv igen." };
+  if (error) return { ok: false, error: messages.fetchError };
   return { ok: true, stories: (data ?? []) as Content[] };
 }
 
@@ -68,14 +77,19 @@ export interface AqidahDraftInput {
  * denne validering sikrer den faktiske brugbarhed (ingen tomme felter, præcis
  * ét rigtigt svar pr. spørgsmål), som databasen bevidst ikke håndhæver.
  */
-export function validateQuizVariant(quiz: QuizQuestion[], variantLabel: string): string | null {
+export function validateQuizVariant(
+  quiz: QuizQuestion[],
+  variantLabel: string,
+  messages: HistorieVaerkstedMessages,
+): string | null {
   for (let qi = 0; qi < quiz.length; qi++) {
     const q = quiz[qi];
-    if (!q.question_da.trim()) return `${variantLabel}: spørgsmål ${qi + 1} mangler tekst.`;
-    if (q.options.length < 2) return `${variantLabel}: spørgsmål ${qi + 1} skal have mindst 2 svarmuligheder.`;
-    if (q.options.some((o) => !o.text_da.trim())) return `${variantLabel}: spørgsmål ${qi + 1} har en tom svarmulighed.`;
+    if (!q.question_da.trim()) return messages.quizQuestionMissingText(variantLabel, qi + 1);
+    if (q.options.length < 2) return messages.quizQuestionNeedsTwoOptions(variantLabel, qi + 1);
+    if (q.options.some((o) => !o.text_da.trim()))
+      return messages.quizQuestionEmptyOption(variantLabel, qi + 1);
     if (q.options.filter((o) => o.correct).length !== 1) {
-      return `${variantLabel}: spørgsmål ${qi + 1} skal have præcis ét rigtigt svar.`;
+      return messages.quizQuestionNeedsOneCorrect(variantLabel, qi + 1);
     }
   }
   return null;
@@ -94,6 +108,7 @@ function alderTilAldre(alder: AlderKey): { min_age: number; max_age: number } {
  */
 export async function insertDraft(
   input: AqidahDraftInput,
+  messages: HistorieVaerkstedMessages,
 ): Promise<{ ok: true; story: Content } | { ok: false; error: string }> {
   const { min_age, max_age } = alderTilAldre(input.alder);
   const { data, error } = await supabase
@@ -124,7 +139,7 @@ export async function insertDraft(
     .select("*")
     .single();
   if (error) {
-    return { ok: false, error: "Muren afviste oprettelsen: " + error.message };
+    return { ok: false, error: messages.insertWallRejected(error.message) };
   }
   return { ok: true, story: data as Content };
 }
@@ -137,6 +152,7 @@ export async function insertDraft(
 export async function updateDraft(
   id: string,
   input: AqidahDraftInput,
+  messages: HistorieVaerkstedMessages,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const { min_age, max_age } = alderTilAldre(input.alder);
   const { data, error } = await supabase
@@ -159,27 +175,30 @@ export async function updateDraft(
     })
     .eq("id", id)
     .select("id");
-  if (error) return { ok: false, error: "Ændringen kunne ikke gemmes: " + error.message };
+  if (error) return { ok: false, error: messages.updateFailed(error.message) };
   if (!data || data.length === 0) {
-    return {
-      ok: false,
-      error: "Muren afviste ændringen: fortællingen er allerede kilde-verificeret af en godkender og kan ikke længere redigeres af en redaktør.",
-    };
+    return { ok: false, error: messages.updateWallRejected };
   }
   return { ok: true };
 }
 
 /** Markér kilden verificeret — kun godkender/admin (RLS + trigger Lag D). */
-export async function verifySource(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function verifySource(
+  id: string,
+  messages: HistorieVaerkstedMessages,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const { error } = await supabase.from("content").update({ is_source_verified: true }).eq("id", id);
-  if (error) return { ok: false, error: "Muren afviste verifikationen: " + error.message };
+  if (error) return { ok: false, error: messages.verifyWallRejected(error.message) };
   return { ok: true };
 }
 
 /** Fjern kilde-verifikationen igen (fortryd) — kun godkender/admin. */
-export async function unverifySource(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function unverifySource(
+  id: string,
+  messages: HistorieVaerkstedMessages,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const { error } = await supabase.from("content").update({ is_source_verified: false }).eq("id", id);
-  if (error) return { ok: false, error: "Ændringen kunne ikke gemmes: " + error.message };
+  if (error) return { ok: false, error: messages.unverifyFailed(error.message) };
   return { ok: true };
 }
 
@@ -187,11 +206,12 @@ export async function unverifySource(id: string): Promise<{ ok: true } | { ok: f
 export async function setPublished(
   id: string,
   published: boolean,
+  messages: HistorieVaerkstedMessages,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const { error } = await supabase
     .from("content")
     .update({ is_published: published, published_at: published ? new Date().toISOString() : null })
     .eq("id", id);
-  if (error) return { ok: false, error: "Muren afviste udgivelsen: " + error.message };
+  if (error) return { ok: false, error: messages.publishWallRejected(error.message) };
   return { ok: true };
 }

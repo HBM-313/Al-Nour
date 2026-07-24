@@ -14,35 +14,39 @@
 
 import { supabase } from "@/lib/supabase";
 import type { Account } from "@/lib/types";
+import type { Dictionary } from "@/lib/i18n";
 
 export type AuthResult =
   | { ok: true; account: Account; needsEmailConfirmation: false }
   | { ok: true; account: null; needsEmailConfirmation: true }
   | { ok: false; error: string };
 
+/** Oversatte beskeder — kaldestedet (useParentAuth.ts, som har `t = useT("da")`) leverer dem. */
+export type ParentAuthMessages = Dictionary["parentAuth"];
+
 /**
  * Oversætter Supabase/GoTrue's engelske fejlbeskeder til forståeligt dansk.
  * Matcher på indhold (ikke eksakt streng), da GoTrue's ordlyd kan ændre sig
  * på tværs af versioner.
  */
-function mapAuthError(message: string): string {
+function mapAuthError(message: string, messages: ParentAuthMessages): string {
   const m = message.toLowerCase();
   if (m.includes("invalid login credentials")) {
-    return "Forkert e-mail eller adgangskode.";
+    return messages.authWrongCredentials;
   }
   if (m.includes("already registered") || m.includes("already exists")) {
-    return "Denne e-mail er allerede registreret. Prøv at logge ind i stedet.";
+    return messages.authAlreadyRegistered;
   }
   if (m.includes("password") && (m.includes("least") || m.includes("short") || m.includes("weak"))) {
-    return "Adgangskoden er for kort eller for simpel. Prøv mindst 8 tegn.";
+    return messages.authPasswordTooWeak;
   }
   if (m.includes("rate limit") || m.includes("too many")) {
-    return "For mange forsøg lige nu — vent et øjeblik og prøv igen.";
+    return messages.authRateLimited;
   }
   if (m.includes("email") && (m.includes("invalid") || m.includes("format"))) {
-    return "Denne e-mailadresse ser ikke gyldig ud.";
+    return messages.authInvalidEmailFormat;
   }
-  return "Der skete en fejl. Prøv igen om lidt.";
+  return messages.authGenericError;
 }
 
 /** Henter/opretter accounts-rækken for den nu-indloggede bruger. Fail-closed: null ved fejl. */
@@ -52,10 +56,14 @@ async function ensureAccount(): Promise<Account | null> {
   return data as Account;
 }
 
-export async function signUpParent(email: string, password: string): Promise<AuthResult> {
+export async function signUpParent(
+  email: string,
+  password: string,
+  messages: ParentAuthMessages,
+): Promise<AuthResult> {
   try {
     const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) return { ok: false, error: mapAuthError(error.message) };
+    if (error) return { ok: false, error: mapAuthError(error.message, messages) };
 
     if (!data.session) {
       // E-mailbekræftelse er slået til for dette projekt — ingen session endnu,
@@ -67,30 +75,34 @@ export async function signUpParent(email: string, password: string): Promise<Aut
     if (!account) {
       return {
         ok: false,
-        error: "Kontoen blev oprettet, men kunne ikke sættes op. Prøv at logge ind igen.",
+        error: messages.accountSetupFailed,
       };
     }
     return { ok: true, account, needsEmailConfirmation: false };
   } catch {
-    return { ok: false, error: "Kunne ikke oprette forbindelse. Tjek din internetforbindelse." };
+    return { ok: false, error: messages.connectionError };
   }
 }
 
-export async function signInParent(email: string, password: string): Promise<AuthResult> {
+export async function signInParent(
+  email: string,
+  password: string,
+  messages: ParentAuthMessages,
+): Promise<AuthResult> {
   try {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { ok: false, error: mapAuthError(error.message) };
+    if (error) return { ok: false, error: mapAuthError(error.message, messages) };
     if (!data.session) {
-      return { ok: false, error: "Login lykkedes ikke. Prøv igen." };
+      return { ok: false, error: messages.loginFailed };
     }
 
     const account = await ensureAccount();
     if (!account) {
-      return { ok: false, error: "Kunne ikke hente din konto. Prøv igen." };
+      return { ok: false, error: messages.accountFetchFailed };
     }
     return { ok: true, account, needsEmailConfirmation: false };
   } catch {
-    return { ok: false, error: "Kunne ikke oprette forbindelse. Tjek din internetforbindelse." };
+    return { ok: false, error: messages.connectionError };
   }
 }
 
@@ -132,19 +144,21 @@ export async function verifyOwnPassword(password: string): Promise<boolean> {
  * sessionen eksplicit, da den nu-slettede brugers token ellers kan blive
  * siddende i browserens storage indtil det udløber.
  */
-export async function deleteOwnAccount(): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function deleteOwnAccount(
+  messages: ParentAuthMessages,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     const { error } = await supabase.rpc("delete_own_account");
     if (error) {
       return {
         ok: false,
-        error: "Kontoen kunne ikke slettes. Prøv igen, eller kontakt os hvis det gentager sig.",
+        error: messages.deleteAccountFailed,
       };
     }
     await supabase.auth.signOut();
     return { ok: true };
   } catch {
-    return { ok: false, error: "Kunne ikke oprette forbindelse. Tjek din internetforbindelse." };
+    return { ok: false, error: messages.connectionError };
   }
 }
 

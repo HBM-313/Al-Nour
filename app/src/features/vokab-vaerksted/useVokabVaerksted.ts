@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Letter, VocabularyWord } from "@/lib/types";
+import { useT } from "@/lib/i18n";
 import {
   fetchAiSuggestions,
   fetchLetters,
@@ -55,6 +56,7 @@ const INITIAL: VaerkstedState = {
 
 export function useVokabVaerksted() {
   const [state, setState] = useState<VaerkstedState>(INITIAL);
+  const t = useT("da");
 
   const patch = useCallback((p: Partial<VaerkstedState>) => {
     setState((s) => ({ ...s, ...p }));
@@ -62,7 +64,10 @@ export function useVokabVaerksted() {
 
   const reload = useCallback(async () => {
     patch({ loading: true, error: null });
-    const [vocabRes, lettersRes] = await Promise.all([fetchVocabulary(), fetchLetters()]);
+    const [vocabRes, lettersRes] = await Promise.all([
+      fetchVocabulary(t.vokabVaerksted),
+      fetchLetters(t.vokabVaerksted),
+    ]);
     if (!vocabRes.ok) {
       patch({ loading: false, error: vocabRes.error });
       return;
@@ -72,7 +77,7 @@ export function useVokabVaerksted() {
       return;
     }
     patch({ loading: false, words: vocabRes.words, letters: lettersRes.letters });
-  }, [patch]);
+  }, [patch, t]);
 
   useEffect(() => {
     void reload();
@@ -81,51 +86,54 @@ export function useVokabVaerksted() {
   /** Gem et menneske-skrevet ord som kladde. */
   const saveDraft = useCallback(
     async (input: VocabDraftInput): Promise<string | null> => {
-      const res = await insertDraft(input, "human");
+      const res = await insertDraft(input, "human", t.vokabVaerksted);
       if (!res.ok) return res.error;
       setState((s) => ({
         ...s,
         words: [...s.words, res.word],
         tab: "liste",
         statusFilter: "kladde",
-        notice: `„${res.word.word_da}" er gemt som kladde`,
+        notice: t.vokabVaerksted.draftSavedNotice(res.word.word_da),
       }));
       return null;
     },
-    [],
+    [t],
   );
 
   /** Tænd/sluk ordets lys (menneskelig udgivelses-handling). */
-  const togglePublish = useCallback(async (word: VocabularyWord) => {
-    const next = !word.is_published;
-    const res = await setPublished(word.id, next);
-    if (!res.ok) {
-      setState((s) => ({ ...s, notice: res.error }));
-      return;
-    }
-    setState((s) => ({
-      ...s,
-      words: s.words.map((w) => (w.id === word.id ? { ...w, is_published: next } : w)),
-      notice: next
-        ? word.audio_media_id
-          ? `„${word.word_da}" er udgivet 🏮`
-          : `„${word.word_da}" er udgivet 🏮 — lyd genereres ved næste kørsel`
-        : `„${word.word_da}" er nu en kladde igen`,
-    }));
-  }, []);
+  const togglePublish = useCallback(
+    async (word: VocabularyWord) => {
+      const next = !word.is_published;
+      const res = await setPublished(word.id, next, t.vokabVaerksted);
+      if (!res.ok) {
+        setState((s) => ({ ...s, notice: res.error }));
+        return;
+      }
+      setState((s) => ({
+        ...s,
+        words: s.words.map((w) => (w.id === word.id ? { ...w, is_published: next } : w)),
+        notice: next
+          ? word.audio_media_id
+            ? t.vokabVaerksted.publishedNotice(word.word_da)
+            : t.vokabVaerksted.publishedNoAudioNotice(word.word_da)
+          : t.vokabVaerksted.unpublishedNotice(word.word_da),
+      }));
+    },
+    [t],
+  );
 
   /** Hent AI-forslag (dublet-filtreret i funktionen OG her via engine). */
   const loadSuggestions = useCallback(
     async (category: VocabCategory, count: number) => {
       patch({ aiLoading: true, aiError: null, suggestions: [] });
-      const res = await fetchAiSuggestions(category, count, state.words);
+      const res = await fetchAiSuggestions(category, count, state.words, t.vokabVaerksted);
       if (!res.ok) {
         patch({ aiLoading: false, aiError: res.error });
         return;
       }
       patch({ aiLoading: false, suggestions: res.suggestions });
     },
-    [patch, state.words],
+    [patch, state.words, t],
   );
 
   /** Gem ét AI-forslag som kladde (proveniens 'ai' — kan aldrig fødes udgivet). */
@@ -143,16 +151,17 @@ export function useVokabVaerksted() {
           first_letter_id: firstLetterId,
         },
         "ai",
+        t.vokabVaerksted,
       );
       setState((s) => ({
         ...s,
         suggestions: s.suggestions.filter((x) => x.word_ar !== sugg.word_ar),
         ...(res.ok
-          ? { words: [...s.words, res.word], notice: `„${sugg.word_da}" gemt som AI-kladde` }
+          ? { words: [...s.words, res.word], notice: t.vokabVaerksted.aiDraftSavedNotice(sugg.word_da) }
           : { notice: res.error }),
       }));
     },
-    [],
+    [t],
   );
 
   const discardSuggestion = useCallback((sugg: AiSuggestion) => {

@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Profile } from "@/lib/types";
+import { useT } from "@/lib/i18n";
 import {
   deleteChildProfile,
   fetchChildren,
@@ -48,6 +49,7 @@ export function useDashboard() {
     provisioningId: null,
     toast: null,
   });
+  const t = useT("da");
 
   const patch = useCallback((p: Partial<DashboardState>) => {
     setState((s) => ({ ...s, ...p }));
@@ -55,13 +57,13 @@ export function useDashboard() {
 
   const reload = useCallback(async () => {
     setState((s) => ({ ...s, loading: true, error: null }));
-    const res = await fetchChildren();
+    const res = await fetchChildren(t.dashboard);
     setState((s) =>
       res.ok
         ? { ...s, loading: false, children: res.children }
         : { ...s, loading: false, error: res.error },
     );
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void reload();
@@ -72,33 +74,36 @@ export function useDashboard() {
     window.setTimeout(() => setState((s) => ({ ...s, toast: null })), 2600);
   }, []);
 
-  const toggleProgress = useCallback(async (child: Profile) => {
-    let shouldFetch = false;
-    setState((s) => {
-      if (s.openProgressId === child.id) return { ...s, openProgressId: null };
-      shouldFetch = s.progress[child.id] === undefined || s.progress[child.id] === "error";
-      return {
+  const toggleProgress = useCallback(
+    async (child: Profile) => {
+      let shouldFetch = false;
+      setState((s) => {
+        if (s.openProgressId === child.id) return { ...s, openProgressId: null };
+        shouldFetch = s.progress[child.id] === undefined || s.progress[child.id] === "error";
+        return {
+          ...s,
+          openProgressId: child.id,
+          progress: shouldFetch ? { ...s.progress, [child.id]: "loading" } : s.progress,
+        };
+      });
+      if (!shouldFetch) return;
+      const res = await fetchProgressSummary(child, t.dashboard);
+      setState((s) => ({
         ...s,
-        openProgressId: child.id,
-        progress: shouldFetch ? { ...s.progress, [child.id]: "loading" } : s.progress,
-      };
-    });
-    if (!shouldFetch) return;
-    const res = await fetchProgressSummary(child);
-    setState((s) => ({
-      ...s,
-      progress: { ...s.progress, [child.id]: res.ok ? res.summary : "error" },
-    }));
-  }, []);
+        progress: { ...s.progress, [child.id]: res.ok ? res.summary : "error" },
+      }));
+    },
+    [t],
+  );
 
   const confirmAndDelete = useCallback(async () => {
     const target = state.confirmDelete;
     if (!target) return;
     setState((s) => ({ ...s, deleting: true }));
-    const res = await deleteChildProfile(target.id);
+    const res = await deleteChildProfile(target.id, t.dashboard);
     if (!res.ok) {
       setState((s) => ({ ...s, deleting: false }));
-      showToast(res.error ?? "Sletning fejlede");
+      showToast(res.error ?? t.dashboard.deleteFailedToast);
       return;
     }
     setState((s) => ({
@@ -108,15 +113,15 @@ export function useDashboard() {
       openProgressId: s.openProgressId === target.id ? null : s.openProgressId,
       children: s.children.filter((c) => c.id !== target.id),
     }));
-    showToast(`${target.display_name}s profil og al data er slettet`);
-  }, [state.confirmDelete, showToast]);
+    showToast(t.dashboard.profileDeletedToast(target.display_name));
+  }, [state.confirmDelete, showToast, t]);
 
   const onCreated = useCallback(
     (profile: Profile) => {
       setState((s) => ({ ...s, children: [...s.children, profile] }));
-      showToast(`${profile.display_name}s lanterne er tændt 🏮`);
+      showToast(t.dashboard.lanternLitToast(profile.display_name));
     },
-    [showToast],
+    [showToast, t],
   );
 
   /**
@@ -128,7 +133,7 @@ export function useDashboard() {
     async (child: Profile) => {
       if (child.auth_user_id) return; // allerede aktiveret, knappen bør ikke vises
       setState((s) => ({ ...s, provisioningId: child.id }));
-      const res = await provisionChildAuth(child.id);
+      const res = await provisionChildAuth(child.id, t.dashboard);
       setState((s) => ({ ...s, provisioningId: null }));
       if (!res.ok) {
         showToast(res.error);
@@ -142,11 +147,11 @@ export function useDashboard() {
       }));
       showToast(
         res.alreadyProvisioned
-          ? `${child.display_name}s adgang var allerede aktiveret`
-          : `${child.display_name}s egen adgang er aktiveret 🔑`,
+          ? t.dashboard.accessAlreadyActiveToast(child.display_name)
+          : t.dashboard.accessActivatedToast(child.display_name),
       );
     },
-    [showToast],
+    [showToast, t],
   );
 
   const onPinSaved = useCallback(
@@ -158,9 +163,9 @@ export function useDashboard() {
           c.id === profile.id ? { ...c, pin_hash: "set" } : c,
         ),
       }));
-      showToast(`${profile.display_name}s dyre-kode er gemt 🔑`);
+      showToast(t.dashboard.pinSavedToast(profile.display_name));
     },
-    [showToast],
+    [showToast, t],
   );
 
   return {

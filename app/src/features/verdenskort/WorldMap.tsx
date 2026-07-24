@@ -22,6 +22,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { getAllLocalProgress } from "@/lib/localProgress";
+import { useT } from "@/lib/i18n";
 import {
   stepsForSkin,
   type AgeSkin,
@@ -82,6 +83,7 @@ export function WorldMap({
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const t = useT("da");
 
   const stars = useMemo(
     () =>
@@ -125,7 +127,7 @@ export function WorldMap({
       ]);
       if (cancelled) return;
       if (lessonsRes.error || !lessonsRes.data?.length) {
-        setError(lessonsRes.error?.message ?? "Ingen lektioner fundet.");
+        setError(lessonsRes.error?.message ?? t.worldMap.noLessonsFound);
         return;
       }
       const lessons = lessonsRes.data as Lesson[];
@@ -181,7 +183,7 @@ export function WorldMap({
     return () => {
       cancelled = true;
     };
-  }, [profileId, skin]);
+  }, [profileId, skin, t]);
 
   useEffect(
     () => () => {
@@ -262,7 +264,7 @@ export function WorldMap({
           style={{ color: "#b9c6da" }}
         >
           <span className="shrink-0 font-semibold" style={{ color: "#ffe3a1" }}>
-            Lys i landet
+            {t.worldMap.lightInTheLand}
           </span>
           <div
             className="h-2 flex-1 overflow-hidden rounded-full"
@@ -271,7 +273,7 @@ export function WorldMap({
             aria-valuenow={Math.round(lightRatio * 100)}
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-label="Lys i landet"
+            aria-label={t.worldMap.lightInTheLand}
           >
             <span
               className="block h-full rounded-full transition-all duration-700"
@@ -297,7 +299,7 @@ export function WorldMap({
       )}
       {!error && !nodes && (
         <p className="p-8 text-center text-sm" style={{ color: "#b9c6da" }}>
-          Landet vågner …
+          {t.worldMap.waking}
         </p>
       )}
 
@@ -306,7 +308,7 @@ export function WorldMap({
           viewBox="0 0 700 500"
           xmlns="http://www.w3.org/2000/svg"
           role="img"
-          aria-label="Kort over Nour-landet: syv lanterner i Bogstavernes Dal"
+          aria-label={t.worldMap.mapAriaLabel}
           className="relative block w-full"
         >
           <defs>
@@ -365,13 +367,13 @@ export function WorldMap({
             tabIndex={0}
             aria-label={
               onOpenHistorier
-                ? "Historiernes Bjerge — åbn fortællinger"
-                : "Historiernes Bjerge — vågner i fase 2"
+                ? t.worldMap.mountainsAriaOpen
+                : t.worldMap.mountainsAriaSleeping
             }
             onClick={() =>
               onOpenHistorier
                 ? onOpenHistorier()
-                : showToast("Historiernes Bjerge — fortællinger venter her (fase 2)")
+                : showToast(t.worldMap.mountainsToast)
             }
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
@@ -379,9 +381,7 @@ export function WorldMap({
                 if (onOpenHistorier) {
                   onOpenHistorier();
                 } else {
-                  showToast(
-                    "Historiernes Bjerge — fortællinger venter her (fase 2)",
-                  );
+                  showToast(t.worldMap.mountainsToast);
                 }
               }
             }}
@@ -428,16 +428,12 @@ export function WorldMap({
             className="vk-node"
             role="button"
             tabIndex={0}
-            aria-label="Hverdagshaven — vågner i fase 2"
-            onClick={() =>
-              showToast("Hverdagshaven — gode handlinger får ting til at gro (fase 2)")
-            }
+            aria-label={t.worldMap.gardenAriaSleeping}
+            onClick={() => showToast(t.worldMap.gardenToast)}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
-                showToast(
-                  "Hverdagshaven — gode handlinger får ting til at gro (fase 2)",
-                );
+                showToast(t.worldMap.gardenToast);
               }
             }}
           >
@@ -550,11 +546,11 @@ export function WorldMap({
                 } ${i === recIdx && !allDone ? "vk-rec" : ""}`}
                 role="button"
                 tabIndex={0}
-                aria-label={`Lektion ${n.lesson.order_index}: ${n.lesson.title_da}${
+                aria-label={`${t.worldMap.lessonLabel(n.lesson.order_index, n.lesson.title_da)}${
                   n.completed
-                    ? " — fuldført"
+                    ? t.worldMap.lessonDoneSuffix
                     : started
-                      ? ` — ${n.litSteps} af ${n.totalSteps} trin tændt`
+                      ? t.worldMap.lessonStartedSuffix(n.litSteps, n.totalSteps)
                       : ""
                 }`}
                 onClick={() => onOpenLesson(n.lesson.id)}
@@ -673,7 +669,7 @@ export function WorldMap({
           className="relative pb-4 text-center text-sm font-semibold"
           style={{ color: "#ffe3a1" }}
         >
-          Hele dalen lyser ✦ Bjergene og haven vågner i fase 2 …
+          {t.worldMap.allDoneText}
         </p>
       )}
     </div>
