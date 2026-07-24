@@ -22,6 +22,8 @@
  *    gang, og glemte den straks). Sessionen udstedes i stedet via Supabase's
  *    admin generateLink ("magiclink"), som klienten selv indløser med
  *    supabase.auth.verifyOtp() — service-nøglen forlader aldrig denne funktion.
+ *    VIGTIGT: klienten skal indløse med `token_hash`-varianten, ikke
+ *    `{ email, token }` — se useAppShell.completeChildSignin.
  *  - Et forkert pin-forsøg giver ALDRIG lockout, kun stigende forsinkelse
  *    (se attempt_child_pin). "hent en voksen"-beskeden er en frontend-
  *    beslutning baseret på attempt_count >= 5, som denne funktion blot
@@ -95,13 +97,29 @@ Deno.serve(async (req) => {
     return json({ error: MESSAGES.badInput }, 400);
   }
 
-  const serviceKey =
-    (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "").trim() ||
-    (Deno.env.get("CHILD_AUTH_SERVICE_ROLE_KEY") ?? "").trim();
-  if (!serviceKey) {
+  // To mulige service-nøgler, og de er IKKE nødvendigvis lige gyldige.
+  // Auth-admin-endpointet (/admin/generate_link) afviste 2026-07-24 den ene
+  // med `bad_jwt: unrecognized JWT kid <nil> for algorithm ES256` — altså en
+  // legacy-signeret nøgle mod et projekt der verificerer asymmetrisk. Fordi
+  // SUPABASE_SERVICE_ROLE_KEY desuden ikke er pålideligt auto-injiceret her
+  // (kendt fund fra generate-audio-sessionen), skiftede den brugte nøgle fra
+  // kald til kald, og barnets login fejlede uforudsigeligt.
+  //
+  // Vi holder derfor begge kandidater og prøver dem i rækkefølge dér hvor
+  // det viste sig at betyde noget (generateLink). PostgREST-kaldene nedenfor
+  // accepterede begge nøgler, så de bruger blot den første.
+  const serviceKeys = [
+    ...new Set(
+      [
+        (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "").trim(),
+        (Deno.env.get("CHILD_AUTH_SERVICE_ROLE_KEY") ?? "").trim(),
+      ].filter((k) => k.length > 0),
+    ),
+  ];
+  if (serviceKeys.length === 0) {
     return json({ error: MESSAGES.serverIssue }, 500);
   }
-  const adminClient = createClient(supabaseUrl, serviceKey);
+  const adminClient = createClient(supabaseUrl, serviceKeys[0]);
 
   // --------------------------------------------------------------------------
   // Atomisk rate-tjek + pin-verifikation i databasen. Denne funktion har
@@ -166,19 +184,41 @@ Deno.serve(async (req) => {
   }
 
   const syntheticEmail = `c-${profileId}@child.nour.invalid`;
-  const { data: link, error: linkErr } = await adminClient.auth.admin.generateLink({
-    type: "magiclink",
-    email: syntheticEmail,
-  });
 
-  if (linkErr || !link?.properties?.hashed_token) {
+  // Prøv hver service-nøgle indtil auth-serveren accepterer én. Ved succes
+  // med en anden nøgle end den første logges det (uden at afsløre nøglen),
+  // så en forældet hemmelighed kan ryddes op bevidst i stedet for at leve
+  // videre som en intermitterende login-fejl for et barn.
+  let hashedToken: string | undefined;
+  let lastLinkErr: unknown = null;
+  for (let i = 0; i < serviceKeys.length; i++) {
+    const client =
+      i === 0 ? adminClient : createClient(supabaseUrl, serviceKeys[i]);
+    const { data: link, error: linkErr } = await client.auth.admin.generateLink({
+      type: "magiclink",
+      email: syntheticEmail,
+    });
+    if (!linkErr && link?.properties?.hashed_token) {
+      hashedToken = link.properties.hashed_token;
+      if (i > 0) {
+        console.warn(
+          `child-signin: service-nøgle #${i} virkede, #0 blev afvist af auth — ryd op i den forældede hemmelighed.`,
+        );
+      }
+      break;
+    }
+    lastLinkErr = linkErr;
+  }
+
+  if (!hashedToken) {
+    console.error("child-signin: generateLink fejlede for alle service-nøgler", lastLinkErr);
     return json({ error: MESSAGES.serverIssue }, 500);
   }
 
   return json({
     success: true,
     email: syntheticEmail,
-    token_hash: link.properties.hashed_token,
+    token_hash: hashedToken,
     otp_type: "magiclink",
     display_name: profile.display_name,
   });

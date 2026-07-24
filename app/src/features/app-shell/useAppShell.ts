@@ -51,6 +51,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { EmailOtpType } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { setVoicePref } from "@/lib/voicePref";
 import { startSyncEngine } from "@/lib/progressQueue";
@@ -232,10 +233,16 @@ export function useAppShell() {
       let ok = false;
       try {
         await supabase.auth.signOut();
+        // VIGTIGT: child-signin returnerer `hashed_token` fra admin
+        // generateLink — det er et HASHET token og skal derfor indløses via
+        // `token_hash`-varianten af verifyOtp. Sender man det i stedet som
+        // `{ email, token }`, behandler serveren værdien som en rå OTP-kode
+        // og hasher den én gang til; den hash matcher så intet, og svaret
+        // bliver `otp_expired` i samme sekund som tokenet blev udstedt.
+        // (Produktionsfejl fundet 2026-07-24 — barnet kunne aldrig logge ind.)
         const { error } = await supabase.auth.verifyOtp({
-          email: credentials.email,
-          token: credentials.tokenHash,
-          type: "magiclink",
+          token_hash: credentials.tokenHash,
+          type: credentials.otpType as EmailOtpType,
         });
         ok = !error;
       } catch {
