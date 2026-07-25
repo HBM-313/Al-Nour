@@ -39,7 +39,31 @@ Admin (mig) · Indholds-redaktør (kan ikke udgive aqidah) · Godkender (eneste 
 
 ## Hvor jeg er nu (opdater dette felt løbende)
 
-**Status (2026-07-24, session 24 — Leverance D2: læringstal i forældre-dashboardet. FULDT GENNEMFØRT. PUSH AFVENTER GitHub-token i chatten.)**
+**Status (2026-07-24, session 25 — Leverance D3: indstillinger (transskription, niveau, dagens mål, sprog) + automatisk niveau-fremgang. FULDT GENNEMFØRT, commit `d1eef4f`, pushet.)**
+
+Ejeren traf tre beslutninger ved sessionens start, klikbart: (1) niveau-fremgang skal være **AUTOMATISK** ud fra mestring, forælderen kan overstyre — IKKE Claudes anbefalede "forælder-styret nu, automatik senere"; (2) de tre eksisterende profiler rykkes op til niveau 2 MED DET SAMME i migrationen; (3) dagens mål skal være synligt for barnet (lys-metafor, ikke tal). D3.3's placering (barnets transskriptions-kontakt) blev spurgt separat efter D3.1/D3.2 var bygget: **på verdenskortets faste topbjælke, ved siden af stemme-pillen**.
+
+**D3.1 — migration (`20260724_d3_settings_daily_goal_level_autoadvance.sql`), allerede anvendt og bevist på live-DB i denne session:**
+- `profiles.daily_goal_lessons` (1-5, default 1, MÅL ikke spærring — §6.4) + `profiles.level_auto_advance_enabled` (boolean, default true).
+- **`evaluate_level_advance(profile_id)`** (SECURITY DEFINER, intet grant til klienten — kaldes KUN internt fra `record_item_stat()`): rykker `current_level` automatisk når ≥70% af BÅDE bogstaverne OG ordforrådet PÅ netop det niveau er "kendt" (samme `MIN_SEEN=3`/`KNOWN_RATE=0.70`-definition som D2's `learning.ts` — ⚠️ duplikeret i SQL, hold dem synkrone hvis tærsklerne nogensinde ændres). Ingen indhold af en kategori på niveauet → den kategori er vacuously opfyldt (fx niveau 2/3 har i dag 0 bogstaver); INGEN indhold overhovedet → ryk aldrig frem.
+- **Claudes konkrete udmøntning af "forælder kan overstyre":** `level_auto_advance_enabled` slås fra AF KLIENTEN, når en forælder vælger et niveau manuelt i D3.2 — ellers ville samme mestringsdata bare rykke niveauet op igen ved næste spillede runde, og overstyringen ville være kosmetisk. Bevist eksplicit i test 10 (fuld mestring + flaget slukket → ingen fremgang).
+- `record_item_stat()` udvidet (samme signatur/grants) til at kalde niveau-fremgangen i sin egen fejl-isolerede blok EFTER selve tælle-skrivningen — fail-soft med vilje.
+- `protect_profile_child_columns()` udvidet (sortliste, ikke hvidliste) med begge nye kolonner.
+- **10 rollback-markør-regressionstests, migrationen selv fejler hvis én fejler** (0 rækker persisteret): forælder sætter mål ✓ · barn kan ikke ✓ · barn kan STADIG ændre transskription/stemme (ingen regression) ✓ · barn kan fortsat ikke ændre niveau ✓ · barn kan ikke ændre auto-flaget ✓ · fremmed forælder 0 effekt ✓ · `record_progress`s postgres-undtagelse intakt ✓ · fuld mestring niveau 1→2 ✓ · delvis mestring rykker IKKE ✓ · auto-flag slukket blokerer selv ved fuld mestring ✓.
+- **Fund (ingen handling):** live `record_progress()` har et ubrugt `p_items jsonb`-parameter der (hvis brugt) også kunne skrive item-stats. Frontend kalder aldrig med `p_items` — al skrivning går gennem `record_item_stat()`. Dødt, harmløst, men værd at kende hvis `record_progress` nogensinde ændres.
+- **Engangs-oprykning (ejer-valgt):** Ali, Zainab og Hassan rykket fra niveau 1 til 2 i samme migration — låser 36 tidligere usynlige niveau-2-ord op med det samme.
+
+**D3.2 — forælder-dashboard (`features/dashboard/`):** fjerde knap "Indstillinger" i barnekortets knap-grid (nu `grid-cols-2` med 4 knapper i stedet for `grid-cols-3` med 3 — mobilvenligt, gensidigt udelukkende med "Fremskridt"-panelet, kun ét panel åbent ad gangen pr. kort). `SettingsBox` med fire kontroller, ALLE skrevet direkte via den eksisterende `profiles_owner_all`-policy (ingen ny RPC): transskription til/fra, sprogniveau 1-4 (med forklarende tekst pr. niveau + rigtige ordtal fra `vocabulary`, plus automatik-til/fra-kontakten), dagens mål 1-5, barnets sprog da/ar. `fetchLevelWordCounts()` henter katalog-tal dovent, én gang pr. dashboard-session (ikke profil-specifikt). Ejer-godkendt via to isolerede HTML-demoer (samme CSS-tokens som de rigtige `.css`-filer) før porting.
+
+**D3.3 — børne-UI (`features/app-shell/`):** ikon-kontakt (lucide-react's `Captions`, INGEN tekst — virker for soft-skindet 3-6 år uden læsning) i `shell-worldbar`, lige efter stemme-pillen (samme `margin-inline-start:auto`-gruppe). Synlig i BÅDE lektioner og på verdenskortet (worldbar'en er fælles for hele `ChildMode`). `useAppShell.ts`s nye `toggleTransliteration()` opdaterer `activeChild`-state optimistisk (så `LessonScreen`s `showTransliteration`-prop reagerer med det samme) og skriver fail-soft i baggrunden via `updateOwnTransliteration()` — fejler skrivningen, fortsætter barnet uanfægtet med værdien i hukommelsen for resten af sessionen. RLS/triggeren tillader det allerede (`transliteration_enabled` var aldrig på sortlisten).
+
+Build-kæde grøn efter alle tre leverancer: `tsc --noEmit` 0 · `oxlint` 0/0 · **133/133 tests** (uændret — ren i18n/UI-udvidelse af allerede testet infrastruktur, ingen ny forgrening at teste) · `npm run build` ✓.
+
+**Næste skridt:** D4 (forælderens egne ord, `custom_words` — egen tabel, ALDRIG i `vocabulary`, §6.5). Fejlrapport-knappens placering er stadig uafklaret siden session 18.
+
+---
+
+**Tidligere status (2026-07-24, session 24 — Leverance D2: læringstal i forældre-dashboardet. FULDT GENNEMFØRT. PUSH AFVENTER GitHub-token i chatten.)**
 
 Ejeren valgte D2. Dashboardet svarer nu på det en forælder faktisk spørger om (§6.1) i stedet for kun at vise spilvaluta: **"Bogstaver 8 af 28"** og **"Ord 15 af 107"** med guld-bjælker, en foldbar liste over *hvilke* bogstaver barnet kan, og **"Her øver X stadig"** med op til tre linjer. Sektionen ligger nederst i den eksisterende, udfoldede fremskridt-boks — ingen ny knap, intet nyt layout. Ejer-godkendt via demo før porting.
 
