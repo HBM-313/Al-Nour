@@ -39,7 +39,33 @@ Admin (mig) · Indholds-redaktør (kan ikke udgive aqidah) · Godkender (eneste 
 
 ## Hvor jeg er nu (opdater dette felt løbende)
 
-**Status (2026-07-24, session 25 — Leverance D3: indstillinger (transskription, niveau, dagens mål, sprog) + automatisk niveau-fremgang. FULDT GENNEMFØRT, commit `d1eef4f`, pushet.)**
+**Status (2026-07-25, session 26 — Leverance D4: forælderens egne ord (`custom_words`). FULDT GENNEMFØRT, commits `d525f88` + `a266af6`, pushet.)**
+
+Ejeren valgte D4 og traf ét afgørende designvalg klikbart ved sessionens start: familiens egne ord **skal kunne indgå i spillene** (Match-par/Lyt & Find) som almindeligt spilindhold — ikke kun være en liste forælderen læser højt uden for spillene. Det valg bestemte hele databasedesignet (se D4.1).
+
+**D4.1 — migration (`20260725_custom_words_d4.sql`), anvendt og bevist på live-DB i denne session:**
+- Ny tabel `custom_words`, ejet af `account_id` (FORÆLDERENS konto — ordene er familiens, ikke ét barns). **ALDRIG i `vocabulary`** (admin/editor-only, godkendt katalog-mur, planens §6.5-krav).
+- Fordi ordene skal bruges i spillene, har tabellen **samme form som `vocabulary`** (`category`/`level`/`register`/`first_letter_id`/`emoji`/`image_media_id`/`audio_media_id`+`_male`) — så et familieord kan mappes 1:1 til `VocabularyWord` på klienten og blandes ind i ordpuljerne uden at røre spillenes `engine.ts`-logik.
+- RLS: `custom_words_owner_all` (forælder/admin fuld CRUD) + `custom_words_child_select_own` (barnet KUN læsning af egen families ord, bundet via `profiles.auth_user_id = auth.uid()` — samme stærkere konstruktion som `profile_item_stats_child_select_own`, ikke et klient-styret claim). `ai_service` har intet grant overhovedet.
+- **10 rollback-markør-regressionstests, migrationen selv fejler hvis én fejler** (0 rækker persisteret): forælder INSERT/SELECT ✓ · UPDATE ✓ · DELETE ✓ · fremmed forælder kan ikke indsætte under andens konto ✓ · fremmed forælder ser 0 rækker ✓ · barnets session ser familiens ord ✓ · barnets session kan IKKE skrive ✓ · anden families barn ser 0 rækker ✓ · admin kan alt ✓ · `ai_service` 0 privilegier ✓.
+- **Bevidst scope-grænse (dokumenteret i migrationens header, så den ikke er tilfældig):** item-statistik for familieord skrives med det eksisterende `item_type='vocabulary'`. Harmløst: der er ingen FK fra `profile_item_stats.item_id`, og både `evaluate_level_advance()` og D2's `learning.ts` joiner eksplicit mod `vocabulary`-tabellen — et `custom_words`-id matcher aldrig en række dér, så familieord bidrager hverken til "ord X af 107" eller til automatisk niveau-fremgang. De er **usynlige** for D2/D3.1, ikke forkert talt med. Vil man senere vise familieordenes egne læringstal, er det en ren udvidelse (ny item_type + dashboard-gren).
+- **Fund (rettet i selve migrationen):** `set local role ai_service` virker IKKE via MCP-forbindelsen (`permission denied to set role` — forbindelsens rolle har ikke medlemskab af nologin-rollen). Test 10 bruger derfor `has_table_privilege('ai_service', ...)` på alle fire operationer i stedet. **Brug dette mønster fremover** i stedet for rolleskift, når `ai_service`-adgang skal bevises.
+
+**D4.2 — `features/familie-ord/` (portet 1:1 fra ejer-godkendt `nour-familieord-demo.html`):** kollapsibel "Familieord"-sektion i forældre-dashboardets **scene-rod** (ved siden af børnelisten, IKKE inde i et `ChildCard` — ordene er familiens, ikke ét barns). Liste med emoji/arabisk/translitteration/dansk + kategori-, niveau- og fusha-badges; tilføj/rediger/slet-formular med live bogstav-detektion og dublet-advarsel. **Genbruger** `normalizeArabic`/`detectFirstLetter`/`isDuplicateWord`/`VOCAB_CATEGORIES` fra `vokab-vaerksted/engine.ts` frem for at duplikere dem — hamza-normaliseringen skal gælde begge steder, ellers driver de fra hinanden. Ingen godkendelses-workflow (AI-tilladt-kategori, familiens eget ord). Data hentes dovent, først når sektionen åbnes. Nyt `familieOrd`-navnerum i `da.ts` + `ar.ts`.
+
+**D4.3 — spil-kobling:** `useMatchPairs.ts` og `useListenFind.ts` henter nu også `custom_words` (samme `level`-filter som `vocabulary`, parallelt i det eksisterende `Promise.all`) og fletter dem ind via `mergeCustomWords()`/`customWordToVocabularyWord()`. **Spillenes `engine.ts` er urørt** — `pickRoundWords`/`buildDeck`/`isMatch` kender kun `VocabularyWord`-formen, ikke kilden. Fail-soft: fejler eller er `custom_words`-kaldet tomt, kører spillet præcis som før.
+
+Build-kæde grøn: `tsc -b` 0 · `oxlint` 0/0 · **133/133 tests** (uændret — ren IO/UI-udvidelse af allerede testet infrastruktur) · `npm run build` ✓.
+
+**⚠️ Fund i CI (IKKE rettet — næste sessions oplagte lille opgave):** CI'ens `npx tsc --noEmit`-skridt **tjekker reelt ingenting**. `app/tsconfig.json` er solution-style (`"files": []` + `references`), så `tsc --noEmit` no-op'er stille og returnerer 0 uanset fejl. En ægte syntaksfejl i `da.ts` slap igennem `tsc --noEmit` i denne session og blev først fanget af `oxlint`. Den rigtige typecheck sker kun via `npm run build`s `tsc -b` (som CI heldigvis også kører, så intet er sluppet ud i produktion). Ret CI-skridtet til `tsc -b --noEmit` — og vær opmærksom på at ALLE tidligere sessioners "tsc --noEmit 0"-noter i denne fil er værdiløse af samme grund.
+
+**Åbent, uændret:** familieord har **ingen lyd** endnu (skrevet eksplicit i UI'ens mur-note) — kobling til Google Cloud TTS-vejen er ikke bygget. Fejlrapport-knappens placering er stadig uafklaret siden session 18.
+
+**Næste skridt:** ejer-valg. Kandidater: lyd på familieord (TTS-kobling), fejlrapport-knappen (§2.3, kræver placeringsbeslutning), CI-typecheck-fixet ovenfor, eller noget fra `plan-platformsmodning.md`s fase 3.
+
+---
+
+**Tidligere status (2026-07-24, session 25 — Leverance D3: indstillinger (transskription, niveau, dagens mål, sprog) + automatisk niveau-fremgang. FULDT GENNEMFØRT, commit `d1eef4f`, pushet.)**
 
 Ejeren traf tre beslutninger ved sessionens start, klikbart: (1) niveau-fremgang skal være **AUTOMATISK** ud fra mestring, forælderen kan overstyre — IKKE Claudes anbefalede "forælder-styret nu, automatik senere"; (2) de tre eksisterende profiler rykkes op til niveau 2 MED DET SAMME i migrationen; (3) dagens mål skal være synligt for barnet (lys-metafor, ikke tal). D3.3's placering (barnets transskriptions-kontakt) blev spurgt separat efter D3.1/D3.2 var bygget: **på verdenskortets faste topbjælke, ved siden af stemme-pillen**.
 
