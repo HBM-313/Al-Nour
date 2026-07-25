@@ -39,7 +39,25 @@ Admin (mig) · Indholds-redaktør (kan ikke udgive aqidah) · Godkender (eneste 
 
 ## Hvor jeg er nu (opdater dette felt løbende)
 
-**Status (2026-07-25, session 26 — Leverance D4: forælderens egne ord (`custom_words`). FULDT GENNEMFØRT, commits `d525f88` + `a266af6`, pushet.)**
+**Status (2026-07-25, session 27 — CI-typecheck-fixet. FULDT GENNEMFØRT.)**
+
+Session 26's fund lukket: CI's `npx tsc --noEmit`-skridt tjekkede reelt ingenting (solution-style `tsconfig.json` med `"files": []` — kommandoen no-op'er stille, exit 0, uanset fejl i koden). Rettet til `npx tsc -b --force`, som følger `references` til `tsconfig.app.json`/`tsconfig.node.json` og faktisk typechecker begge.
+
+**Bevist lokalt før commit (den ægte verifikation ejer-kravet beder om):**
+- Indsatte en bevidst typefejl (`const x: number = "streng"`) i `src/lib/voicePref.ts`.
+- `npx tsc --noEmit` (den gamle kommando): exit 0, fangede intet — bekræfter fundet.
+- `npx tsc -b` / `npx tsc -b --force`: exit 2, to fejl (`TS2322` type-mismatch + `TS6133` ubrugt variabel) — bekræfter fixet virker.
+- Fjernede testfejlen igen, verificerede ren `tsc -b --force` (exit 0) og hele build-kæden (`oxlint` 0/0, **133/133 tests**, `npm run build` ✓) før push.
+
+**Rettelse:** `.github/workflows/ci.yml`s `Typecheck`-skridt ændret fra `npx tsc --noEmit` til `npx tsc -b --force`. Ingen andre filer rørt. `--force` valgt (ikke bare `-b`) for at undgå enhver tvivl om incremental-cache — matcher den lokale anbefaling fra session 26's fund ("Brug `npx tsc -b --force` lokalt").
+
+**Ikke rørt:** branch protection på `main` er stadig ikke slået til (ejerens eget valg, uændret) — en rød CI blokerer altså stadig ikke selve pushet/mergen, den er nu bare et pålideligt SIGNAL.
+
+**Næste skridt:** ejer-valg mellem de resterende spor — lyd på familieord (TTS-kobling), fejlrapport-knappens placering, eller noget fra `plan-platformsmodning.md`s fase 3.
+
+---
+
+**Tidligere status (2026-07-25, session 26 — Leverance D4: forælderens egne ord (`custom_words`). FULDT GENNEMFØRT, commits `d525f88` + `a266af6`, pushet.)**
 
 Ejeren valgte D4 og traf ét afgørende designvalg klikbart ved sessionens start: familiens egne ord **skal kunne indgå i spillene** (Match-par/Lyt & Find) som almindeligt spilindhold — ikke kun være en liste forælderen læser højt uden for spillene. Det valg bestemte hele databasedesignet (se D4.1).
 
