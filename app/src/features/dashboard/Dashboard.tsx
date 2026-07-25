@@ -10,6 +10,7 @@ import type { Account, Profile } from "@/lib/types";
 import { ANIMAL_POOL, setPin } from "@/features/pin-login";
 import { OpretProfil } from "@/features/opret-profil";
 import { PIN_MAX, PIN_MIN, ageOf } from "@/features/opret-profil/engine";
+import { FamilieOrd } from "@/features/familie-ord";
 import { useLanguage, type Dictionary } from "@/lib/i18n";
 import type { ChildSettingsPatch, ProgressSummary } from "./engine";
 import type { LearningSummary } from "./learning";
@@ -102,6 +103,8 @@ export function Dashboard({ account }: DashboardProps) {
       >
         {t.dashboard.createProfileButton}
       </button>
+
+      <FamilieOrd accountId={account.id} />
 
       {state.confirmDelete && (
         <DeleteOverlay

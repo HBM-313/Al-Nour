@@ -364,3 +364,29 @@ export interface VocabularyWord {
   created_at: string;
   updated_at: string;
 }
+
+/**
+ * Familiens egne ord (Leverance D4, migration 20260725_custom_words_d4).
+ * Ejet af `account_id` (forælderens konto — ordene er familiens, ikke ét
+ * barns), RLS-afgrænset til familien. ALDRIG i `vocabulary` (godkendt
+ * katalog-mur, se SKILL.md kerneviden 1). Samme form som VocabularyWord
+ * (minus is_published/suggested_by) så et ord kan mappes 1:1 og bruges i
+ * Match-par/Lyt & Find — se familie-ord/engine.ts's customWordToVocabularyWord.
+ */
+export interface CustomWord {
+  id: string;
+  account_id: string;
+  word_ar: string;
+  transliteration: string;
+  word_da: string;
+  category: VocabularyCategory;
+  register: VocabularyRegister;
+  level: number;
+  first_letter_id: string | null;
+  emoji: string | null;
+  image_media_id: string | null;
+  audio_media_id: string | null;
+  audio_media_id_male: string | null;
+  created_at: string;
+  updated_at: string;
+}

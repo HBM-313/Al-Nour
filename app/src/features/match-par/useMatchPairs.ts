@@ -1,9 +1,12 @@
 /**
  * useMatchPairs — datahentning + spiltilstand + progress-gem for Match-par.
  *
- * Datahentning (op til 2 kald ved spilstart, derefter alt i hukommelsen):
+ * Datahentning (op til 3 kald ved spilstart, derefter alt i hukommelsen):
  *   1. vocabulary (is_published, level <= barnets niveau)
- *   2. media-URL'er for alle audio_media_id/image_media_id i ét in()-opslag
+ *   2. custom_words (D4 — familiens egne ord, samme niveau-filter; RLS
+ *      afgrænser automatisk til familien/barnets egen session, fail-soft
+ *      hvis tom/fejlende — spillet virker uændret uden familieord)
+ *   3. media-URL'er for alle audio_media_id/image_media_id i ét in()-opslag
  *
  * Lyd følger lyd-reglen (2026-07-14): medie-fil vinder ALTID; browser-TTS
  * er kun pladsholder; tavshed er acceptabel fallback (dansk tekst står der).
@@ -11,17 +14,18 @@
  * Progress (valgfrit — kun når profileId + lessonId er givet):
  *   saveRoundProgress fra lib/progress (samme som de andre spil).
  *
- * MUREN: kun vocabulary/media/progress berøres. `content` (og dermed
- * aqidah) læses/skrives aldrig fra dette spil.
+ * MUREN: kun vocabulary/custom_words/media/progress berøres. `content`
+ * (og dermed aqidah) læses/skrives aldrig fra dette spil.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { preferredAudioId } from "@/lib/voicePref";
-import type { AgeSkin, LessonStepParams, Letter, VocabularyWord } from "@/lib/types";
+import type { AgeSkin, CustomWord, LessonStepParams, Letter, VocabularyWord } from "@/lib/types";
 import { canSpeak, createAudioPlayer, speak, stopSpeaking } from "@/lib/audio";
 import { saveRoundProgress } from "@/lib/progress";
 import { recordItemStat } from "@/lib/itemStats";
+import { mergeCustomWords } from "@/features/familie-ord";
 import { useT } from "@/lib/i18n";
 import {
   SKIN_CONFIG,
@@ -172,11 +176,10 @@ export function useMatchPairs(options: UseMatchPairsOptions) {
     async function load() {
       setLoadState({ status: "loading" });
 
-      const vocabRes = await supabase
-        .from("vocabulary")
-        .select("*")
-        .eq("is_published", true)
-        .lte("level", level);
+      const [vocabRes, customWordsRes] = await Promise.all([
+        supabase.from("vocabulary").select("*").eq("is_published", true).lte("level", level),
+        supabase.from("custom_words").select("*").lte("level", level),
+      ]);
 
       if (cancelled) return;
       if (vocabRes.error || !vocabRes.data || vocabRes.data.length < 2) {
@@ -187,8 +190,15 @@ export function useMatchPairs(options: UseMatchPairsOptions) {
         return;
       }
 
+      // D4: familiens egne ord flettes ind på samme vilkår som vocabulary —
+      // fail-soft, hvis kaldet fejler/er tomt fortsætter spillet uændret.
+      const mergedVocab = mergeCustomWords(
+        vocabRes.data as VocabularyWord[],
+        (customWordsRes.data ?? []) as CustomWord[],
+      );
+
       // Stemmevalg (Habibah/Ahmed): foretrukket spor vælges ved hentning
-      const vocabulary = (vocabRes.data as VocabularyWord[]).map((w) => ({
+      const vocabulary = mergedVocab.map((w) => ({
         ...w,
         audio_media_id: preferredAudioId(w),
       }));

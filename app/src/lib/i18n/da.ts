@@ -798,6 +798,69 @@ export const da = {
     unpublishedNotice: (word: string) => `„${word}" er nu en kladde igen`,
     aiDraftSavedNotice: (word: string) => `„${word}" gemt som AI-kladde`,
   },
+
+  /**
+   * Familieord — Leverance D4 (plan-boernesession-og-dashboard.md §6.5).
+   * Bevidst IKKE oversat: kategori-værdien (samme 9 faste nøgler som
+   * vokabVaerksted) — kun UI-chrome omkring dem oversættes.
+   */
+  familieOrd: {
+    heading: "Familieord",
+    subtitle:
+      "Jeres egne ord — navne, mad, ord bedstemor bruger. De dukker op i Match-par og Lyt & Find, ligesom appens andre ord — I skal ikke godkende noget først.",
+    toggleShow: "Vis familieord",
+    toggleHide: "Skjul familieord",
+    loading: "Henter jeres ord…",
+    emptyListLine1: "I har ikke tilføjet nogen ord endnu.",
+    emptyListLine2: "Tryk \"Tilføj et ord\" for at komme i gang.",
+    addButton: "+ Tilføj et ord",
+    editAriaLabel: (word: string) => `Rediger ${word}`,
+    deleteAriaLabel: (word: string) => `Slet ${word}`,
+    levelBadge: (level: number) => `Niveau ${level}`,
+    fushaBadge: "Fusha",
+
+    formHeadingNew: "Nyt familieord",
+    formHeadingEdit: "Rediger familieord",
+    formSubtitle: "Udfyld det I ved — I kan altid rette det bagefter.",
+    danishWordLabel: "Dansk ord",
+    arabicWordLabel: "Arabisk ord",
+    arabicWordHint: "(med harakat hvis muligt)",
+    letterHintPrefix: "Hører til bogstavet ",
+    letterHintEmpty: "Skriv det arabiske ord, så viser vi hvilket bogstav det hører til.",
+    letterHintUnknown: "Første tegn ser ikke ud til at være et arabisk bogstav — tjek stavningen.",
+    transliterationLabel: "Udtale (translitteration)",
+    categoryLabel: "Kategori",
+    levelLabel: "Hvornår skal barnet møde ordet?",
+    registerLabel: "Sprogtone",
+    registerFusha: "Fusha",
+    registerEveryday: "Hverdagssprog",
+    emojiLabel: "Emoji",
+    emojiHint: "(valgfri — bruges til de mindste)",
+    saveButton: "Gem ord",
+    saveChangesButton: "Gem ændringer",
+    saving: "Gemmer…",
+    cancelButton: "Annullér",
+
+    validationDanishRequired: "Skriv det danske ord.",
+    validationArabicRequired: "Skriv det arabiske ord (med arabiske bogstaver).",
+    validationTransliterationRequired: "Skriv udtalen (translitteration).",
+    duplicateWarning: (word: string, ar: string) =>
+      `I har allerede ordet „${word}" (${ar}) på jeres liste.`,
+
+    wallNoteBold: "Om jeres ord:",
+    wallNoteText:
+      "de er kun jeres — ingen andre familier kan se dem. De går aldrig ind i appens fælles ordbog, og de kræver ingen godkendelse. Lyd bliver først lagt på, når vi kobler familieord til lyd-systemet i en senere leverance — indtil da læser appen ordet højt med telefonens indbyggede stemme.",
+
+    /** Fejlbeskeder fra engine.ts (parametriseret fra useFamilieOrd.ts, ikke useT direkte i ikke-hook-funktioner). */
+    fetchError: "Jeres ord kunne ikke hentes. Prøv igen.",
+    saveFailed: "Ordet kunne ikke gemmes. Prøv igen.",
+    deleteFailed: "Ordet kunne ikke slettes. Prøv igen.",
+
+    /** Notice-beskeder (toast) fra useFamilieOrd.ts. */
+    addedNotice: (word: string) => `„${word}" tilføjet`,
+    updatedNotice: (word: string) => `„${word}" opdateret`,
+    deletedNotice: (word: string) => `„${word}" slettet`,
+  },
 };
 
 export type Dictionary = typeof da;

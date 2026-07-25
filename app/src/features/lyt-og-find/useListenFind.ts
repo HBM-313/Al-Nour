@@ -1,27 +1,31 @@
 /**
  * useListenFind — datahentning + spiltilstand + progress-gem.
  *
- * Datahentning (3 kald ved spilstart, derefter alt i hukommelsen):
+ * Datahentning (4 kald ved spilstart, derefter alt i hukommelsen):
  *   1. letters (alle, hija'i-orden)
  *   2. vocabulary (is_published, level <= barnets niveau)
- *   3. media-URL'er for alle fundne audio_media_id i ét in()-opslag
+ *   3. custom_words (D4 — familiens egne ord, samme niveau-filter; RLS
+ *      afgrænser automatisk til familien/barnets egen session, fail-soft
+ *      hvis tom/fejlende — spillet virker uændret uden familieord)
+ *   4. media-URL'er for alle fundne audio_media_id i ét in()-opslag
  *
  * Progress (valgfrit — kun når profileId + lessonId er givet):
  *   Læs eksisterende række → dags-baseret streak → upsert på
  *   UNIQUE(profile_id, lesson_id). XP akkumuleres.
  *
- * MUREN: kun letters/vocabulary/media/progress berøres. `content` (og dermed
- * aqidah) læses/skrives aldrig fra dette spil.
+ * MUREN: kun letters/vocabulary/custom_words/media/progress berøres.
+ * `content` (og dermed aqidah) læses/skrives aldrig fra dette spil.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { preferredAudioId } from "@/lib/voicePref";
-import type { AgeSkin, LessonStepParams, Letter, VocabularyWord } from "@/lib/types";
+import type { AgeSkin, CustomWord, LessonStepParams, Letter, VocabularyWord } from "@/lib/types";
 import { buildRound, buildStepRound, type Question } from "./engine";
 import { canSpeak, createAudioPlayer, speakArabic, stopSpeaking } from "@/lib/audio";
 import { saveRoundProgress } from "@/lib/progress";
 import { recordItemStat } from "@/lib/itemStats";
+import { mergeCustomWords } from "@/features/familie-ord";
 import { useT } from "@/lib/i18n";
 
 export type LoadState =
@@ -110,13 +114,14 @@ export function useListenFind(options: UseListenFindOptions) {
     async function load() {
       setLoadState({ status: "loading" });
 
-      const [lettersRes, vocabRes] = await Promise.all([
+      const [lettersRes, vocabRes, customWordsRes] = await Promise.all([
         supabase.from("letters").select("*").order("position"),
         supabase
           .from("vocabulary")
           .select("*")
           .eq("is_published", true)
           .lte("level", level),
+        supabase.from("custom_words").select("*").lte("level", level),
       ]);
 
       if (cancelled) return;
@@ -134,9 +139,13 @@ export function useListenFind(options: UseListenFindOptions) {
         ...l,
         audio_media_id: preferredAudioId(l),
       }));
-      const vocabulary = ((vocabRes.data ?? []) as VocabularyWord[]).map(
-        (w) => ({ ...w, audio_media_id: preferredAudioId(w) }),
+      // D4: familiens egne ord flettes ind på samme vilkår som vocabulary —
+      // fail-soft, hvis kaldet fejler/er tomt fortsætter spillet uændret.
+      const mergedVocab = mergeCustomWords(
+        (vocabRes.data ?? []) as VocabularyWord[],
+        (customWordsRes.data ?? []) as CustomWord[],
       );
+      const vocabulary = mergedVocab.map((w) => ({ ...w, audio_media_id: preferredAudioId(w) }));
 
       // Slå lyd-URL'er op i ét kald. Lyd-reglen: filer er frit udskiftelige
       // (TTS/AI eller human) — triggeren garanterer aldrig-recitation.
