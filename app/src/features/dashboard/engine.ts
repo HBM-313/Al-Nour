@@ -201,6 +201,58 @@ export async function provisionChildAuth(
 }
 
 /**
+ * D3.2 — hvor mange UDGIVNE ord findes der på hvert niveau. Bruges kun til
+ * at vise forælderen hvad et niveau-valg reelt åbner ("36 ord tilgængelige
+ * på dette niveau") — ét katalog-opslag, delt af alle børnekort i samme
+ * dashboard-session (ikke profil-specifikt).
+ */
+export async function fetchLevelWordCounts(): Promise<Record<1 | 2 | 3 | 4, number>> {
+  const counts: Record<1 | 2 | 3 | 4, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  const { data, error } = await supabase.from("vocabulary").select("level").eq("is_published", true);
+  if (error || !data) return counts;
+  for (const row of data as { level: number }[]) {
+    if (row.level === 1 || row.level === 2 || row.level === 3 || row.level === 4) {
+      counts[row.level] += 1;
+    }
+  }
+  return counts;
+}
+
+/**
+ * D3.2 — indstillinger pr. barn (§6.4/§2.2): transskription, sprogniveau,
+ * dagens mål, barnets sprog. Skrives direkte via den eksisterende
+ * `profiles_owner_all`-policy (forælder/admin) — INGEN ny RPC nødvendig,
+ * database-drift-tjekket bekræftede at policyen allerede dækker kolonnerne.
+ *
+ * Vælges niveauet manuelt herfra, slukkes `level_auto_advance_enabled`
+ * SAMTIDIG af kaldestedet (Dashboard.tsx) — se
+ * supabase/migrations/README.md → "D3.1" for hvorfor det er nødvendigt for
+ * at "forælder kan overstyre" er reelt og ikke kun kosmetisk.
+ */
+export interface ChildSettingsPatch {
+  transliteration_enabled?: boolean;
+  ui_language?: "da" | "ar";
+  daily_goal_lessons?: 1 | 2 | 3 | 4 | 5;
+  current_level?: 1 | 2 | 3 | 4;
+  level_auto_advance_enabled?: boolean;
+}
+
+export async function updateChildSettings(
+  profileId: string,
+  patch: ChildSettingsPatch,
+  messages: DashboardMessages,
+): Promise<{ ok: true; profile: Profile } | { ok: false; error: string }> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .update(patch)
+    .eq("id", profileId)
+    .select()
+    .single();
+  if (error || !data) return { ok: false, error: messages.settingsSaveError };
+  return { ok: true, profile: data as Profile };
+}
+
+/**
  * GDPR ét-kliks-sletning: sletter profilen og — via ON DELETE CASCADE —
  * alt fremskridt og klasse-medlemskab. Pin-hashen bor på selve rækken og
  * forsvinder med den. Kan ikke fortrydes; UI'et SKAL bekræfte først.

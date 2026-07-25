@@ -11,8 +11,11 @@ import {
   deleteChildProfile,
   fetchChildren,
   fetchLearningSummary,
+  fetchLevelWordCounts,
   fetchProgressSummary,
   provisionChildAuth,
+  updateChildSettings,
+  type ChildSettingsPatch,
   type ProgressSummary,
 } from "./engine";
 import type { LearningSummary } from "./learning";
@@ -24,11 +27,17 @@ export interface DashboardState {
   loading: boolean;
   children: Profile[];
   error: string | null;
-  /** Profil-id med udfoldet fremskridt (én ad gangen) */
+  /** Profil-id med udfoldet fremskridt (én ad gangen, udelukker openSettingsId) */
   openProgressId: string | null;
   progress: Record<string, ProgressSummary | "loading" | "error">;
   /** D2 — læringstal pr. barn, hentet sammen med fremskridtet */
   learning: Record<string, LearningSummary | "loading" | "error">;
+  /** D3.2 — profil-id med udfoldede indstillinger (én ad gangen, udelukker openProgressId) */
+  openSettingsId: string | null;
+  /** Katalog-tal (ikke profil-specifikt), hentet dovent én gang ved første åbning */
+  levelWordCounts: Record<1 | 2 | 3 | 4, number> | null;
+  /** Profil-id der lige nu gemmer en indstilling (deaktiverer den kortets knapper) */
+  savingSettingsId: string | null;
   /** Profil der afventer slette-bekræftelse */
   confirmDelete: Profile | null;
   deleting: boolean;
@@ -48,6 +57,9 @@ export function useDashboard() {
     openProgressId: null,
     progress: {},
     learning: {},
+    openSettingsId: null,
+    levelWordCounts: null,
+    savingSettingsId: null,
     confirmDelete: null,
     deleting: false,
     pinTarget: null,
@@ -88,6 +100,7 @@ export function useDashboard() {
         return {
           ...s,
           openProgressId: child.id,
+          openSettingsId: null, // gensidigt udelukkende paneler — hold barnekortet overskueligt
           progress: shouldFetch ? { ...s.progress, [child.id]: "loading" } : s.progress,
           learning: shouldFetch ? { ...s.learning, [child.id]: "loading" } : s.learning,
         };
@@ -113,6 +126,45 @@ export function useDashboard() {
       }));
     },
     [t],
+  );
+
+  /**
+   * D3.2 — fold indstillingspanelet ud/ind. Katalog-tallene (ord pr.
+   * niveau) hentes dovent, kun én gang for hele dashboardet — de er ikke
+   * profil-specifikke og ændrer sig ikke mens dashboardet er åbent.
+   */
+  const toggleSettings = useCallback(
+    async (child: Profile) => {
+      let shouldFetchCounts = false;
+      setState((s) => {
+        if (s.openSettingsId === child.id) return { ...s, openSettingsId: null };
+        shouldFetchCounts = s.levelWordCounts === null;
+        return { ...s, openSettingsId: child.id, openProgressId: null };
+      });
+      if (!shouldFetchCounts) return;
+      const counts = await fetchLevelWordCounts();
+      setState((s) => ({ ...s, levelWordCounts: counts }));
+    },
+    [],
+  );
+
+  /** D3.2 — gem én indstilling for et barn. Optimistisk fejlfri: skriver, opdaterer kortet fra det RETURNEREDE (autoritative) profil-objekt. */
+  const saveChildSetting = useCallback(
+    async (child: Profile, patch: ChildSettingsPatch) => {
+      setState((s) => ({ ...s, savingSettingsId: child.id }));
+      const res = await updateChildSettings(child.id, patch, t.dashboard);
+      setState((s) => ({ ...s, savingSettingsId: null }));
+      if (!res.ok) {
+        showToast(res.error);
+        return;
+      }
+      setState((s) => ({
+        ...s,
+        children: s.children.map((c) => (c.id === child.id ? res.profile : c)),
+      }));
+      showToast(t.dashboard.settingsSavedToast(child.display_name));
+    },
+    [t, showToast],
   );
 
   const confirmAndDelete = useCallback(async () => {
@@ -192,6 +244,8 @@ export function useDashboard() {
     patch,
     reload,
     toggleProgress,
+    toggleSettings,
+    saveChildSetting,
     confirmAndDelete,
     onCreated,
     onPinSaved,

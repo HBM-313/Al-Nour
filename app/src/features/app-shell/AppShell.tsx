@@ -16,6 +16,7 @@
  */
 
 import { useMemo, useState } from "react";
+import { Captions } from "lucide-react";
 import { ParentAuth } from "@/features/parent-auth";
 import {
   PinLogin,
@@ -90,6 +91,7 @@ export function AppShell() {
           <ChildMode
             profile={shell.activeChild}
             onSwitchUser={() => shell.goTo("picker")}
+            onToggleTransliteration={shell.toggleTransliteration}
             t={t}
           />
         )}
@@ -273,10 +275,12 @@ function ParentGate({
 function ChildMode({
   profile,
   onSwitchUser,
+  onToggleTransliteration,
   t,
 }: {
   profile: Profile;
   onSwitchUser: () => void;
+  onToggleTransliteration: () => void;
   t: Dictionary;
 }) {
   const skin: AgeSkin = ageSkinForBirthYear(profile.birth_year);
@@ -292,6 +296,19 @@ function ChildMode({
         </span>
         <span className="shell-who">{profile.display_name}</span>
         <span className="shell-voice-pill">{voiceLabel(profile.preferred_voice, t)}</span>
+        {/* D3.3: barnets egen kontakt — kan altid selv slå transskription
+            til igen, uanset forælderens valg i dashboardet (§6.4). Rent
+            ikon-båret, så det virker uden læsning i soft-skindet (3-6 år). */}
+        <button
+          type="button"
+          onClick={onToggleTransliteration}
+          aria-pressed={profile.transliteration_enabled}
+          aria-label={t.appShell.transliterationToggleLabel}
+          title={t.appShell.transliterationToggleLabel}
+          className={`shell-translit-toggle ${profile.transliteration_enabled ? "" : "shell-translit-off"}`}
+        >
+          <Captions size={16} aria-hidden />
+        </button>
       </div>
 
       {activeLessonId ? (

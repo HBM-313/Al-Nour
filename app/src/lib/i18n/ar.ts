@@ -277,6 +277,7 @@ export const ar: Dictionary = {
   appShell: {
     voiceLabelFemale: "🔊 حبيبة ♀",
     voiceLabelMale: "🔊 أحمد ♂",
+    transliterationToggleLabel: "إظهار الأحرف اللاتينية تحت الكلمة",
     loadingLanterns: "جارٍ إشعال الفوانيس …",
     backToChildEntry: "‹ إلى مدخل الأطفال",
     loadingProfiles: "جارٍ تحميل الملفات …",
@@ -542,6 +543,8 @@ export const ar: Dictionary = {
 
     toggleProgressHide: "إخفاء",
     toggleProgressShow: "التقدّم",
+    toggleSettingsHide: "إخفاء",
+    toggleSettingsShow: "الإعدادات",
     pinButton: "رمز الحيوانات",
     deleteButton: "حذف",
 
@@ -603,6 +606,46 @@ export const ar: Dictionary = {
     struggleWord: (wordAr, translit, wordDa) =>
       `${wordAr} (${translit} — ${wordDa}) ما زالت صعبة. جرّبا نطق الكلمة بصوت عالٍ خلال اليوم.`,
     fetchLearningError: "تعذّر جلب أرقام التعلّم. حاول مرة أخرى.",
+
+    /** D3.2 — إعدادات لكل طفل */
+    settingsOn: "مفعّل",
+    settingsOff: "غير مفعّل",
+    saved: "تم الحفظ",
+
+    settingsTransliterationLabel: "النقل الصوتي",
+    settingsTransliterationHint:
+      "يعرض الأحرف اللاتينية تحت الكلمة العربية (مثل \"kitab\"). يمكن لطفلك دائماً إعادة تفعيله بنفسه داخل التطبيق.",
+
+    settingsLevelLabel: "المستوى اللغوي",
+    settingsLevelDescription: (level: number): string => {
+      switch (level) {
+        case 1:
+          return "المستوى ١: كلمات مفردة بالصوت والصورة — الدنماركية تشرح كل شيء.";
+        case 2:
+          return "المستوى ٢: عبارات عربية قصيرة — الدنماركية ما زالت تشرح.";
+        case 3:
+          return "المستوى ٣: الكتابة العربية بدون نقل صوتي للكلمات المعروفة.";
+        case 4:
+          return "المستوى ٤: جمل عربية صغيرة كاملة.";
+        default:
+          return "";
+      }
+    },
+    settingsLevelWordCount: (count) => `${count} كلمة متاحة في هذا المستوى`,
+    settingsAutoAdvanceLabel: "التقدّم التلقائي في المستوى",
+    settingsAutoAdvanceHint:
+      "يرفع المستوى تلقائياً عندما يتقن طفلك معظم حروف وكلمات المستوى. عند اختيار مستوى يدوياً أعلاه، يُطفأ التلقائي من تلقاء نفسه — يمكنك تشغيله مجدداً هنا في أي وقت.",
+
+    settingsGoalLabel: "هدف اليوم",
+    settingsGoalUnit: (n) => (n === 1 ? "درس واحد" : `${n} دروس`),
+    settingsGoalHint: "هدف هادئ، وليس حاجزاً — يمكن لطفلك دائماً تعلّم أكثر، حتى بعد بلوغ الهدف.",
+
+    settingsLanguageLabel: "لغة الطفل في التطبيق",
+    settingsLanguageDa: "الدنماركية",
+    settingsLanguageAr: "العربية",
+
+    settingsSaveError: "تعذّر الحفظ. تحقّق من الاتصال وحاول مرة أخرى.",
+    settingsSavedToast: (name) => `تم حفظ إعدادات ${name}`,
 
     fetchChildrenError: "تعذّر جلب الأطفال. حاول مرة أخرى.",
     fetchProgressError: "تعذّر جلب التقدّم. حاول مرة أخرى.",

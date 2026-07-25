@@ -302,6 +302,8 @@ export const da = {
   appShell: {
     voiceLabelFemale: "🔊 Habibah ♀",
     voiceLabelMale: "🔊 Ahmed ♂",
+    /** D3.3 — barnets egen kontakt, kan altid selv slå transskription til/fra igen (§6.4). */
+    transliterationToggleLabel: "Vis latinske bogstaver under ordet",
     loadingLanterns: "Tænder lanternerne …",
     backToChildEntry: "‹ Til børne-indgangen",
     loadingProfiles: "Henter profiler …",
@@ -589,6 +591,8 @@ export const da = {
 
     toggleProgressHide: "Skjul",
     toggleProgressShow: "Fremskridt",
+    toggleSettingsHide: "Skjul",
+    toggleSettingsShow: "Indstillinger",
     pinButton: "Dyre-kode",
     deleteButton: "Slet",
 
@@ -654,6 +658,47 @@ export const da = {
     struggleWord: (wordAr: string, translit: string, wordDa: string) =>
       `${wordAr} (${translit} — ${wordDa}) er stadig svært. Prøv at sige ordet højt sammen i løbet af dagen.`,
     fetchLearningError: "Læringstallene kunne ikke hentes. Prøv igen.",
+
+    /** D3.2 — indstillinger pr. barn (§6.4/§2.2). Skrives direkte via
+     * profiles_owner_all, ingen ny RPC. */
+    settingsOn: "Til",
+    settingsOff: "Fra",
+    saved: "Gemt",
+
+    settingsTransliterationLabel: "Transskription",
+    settingsTransliterationHint:
+      "Viser latinske bogstaver under det arabiske ord (fx \"kitab\"). Dit barn kan altid selv slå den til igen inde i appen.",
+
+    settingsLevelLabel: "Sprogniveau",
+    settingsLevelDescription: (level: number): string => {
+      switch (level) {
+        case 1:
+          return "Niveau 1: enkeltord med lyd og billede — dansk forklarer alt.";
+        case 2:
+          return "Niveau 2: korte arabiske fraser — dansk forklarer stadig.";
+        case 3:
+          return "Niveau 3: arabisk skrift uden transskription på kendte ord.";
+        case 4:
+          return "Niveau 4: hele små sætninger på arabisk.";
+        default:
+          return "";
+      }
+    },
+    settingsLevelWordCount: (count: number) => `${count} ord tilgængelige på dette niveau`,
+    settingsAutoAdvanceLabel: "Automatisk niveau-fremgang",
+    settingsAutoAdvanceHint:
+      "Rykker niveauet frem af sig selv, når dit barn kan det meste af niveauets bogstaver og ord. Vælger du et niveau manuelt herover, slås automatikken fra af sig selv — du kan altid tænde den igen her.",
+
+    settingsGoalLabel: "Dagens mål",
+    settingsGoalUnit: (n: number) => (n === 1 ? "1 lektion" : `${n} lektioner`),
+    settingsGoalHint: "Et roligt mål, ikke en spærring — dit barn kan altid lære mere, også efter målet er nået.",
+
+    settingsLanguageLabel: "Barnets sprog i appen",
+    settingsLanguageDa: "Dansk",
+    settingsLanguageAr: "العربية",
+
+    settingsSaveError: "Kunne ikke gemme. Tjek forbindelsen og prøv igen.",
+    settingsSavedToast: (name: string) => `${name}s indstillinger er gemt`,
 
     /** Fejlbeskeder fra engine.ts (parametriseret fra useDashboard.ts, ikke useT direkte i ikke-hook-funktioner) + toasts. */
     fetchChildrenError: "Børnene kunne ikke hentes. Prøv igen.",

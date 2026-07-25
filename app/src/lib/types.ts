@@ -84,6 +84,15 @@ export interface Profile {
   streak_count: number;
   /** Sidste dag barnet fuldførte noget (dato, ikke tidsstempel) — bruges kun af record_progress()'s streak-regel. */
   last_active_day: string | null;
+  /** Forælder-sat dagligt MÅL (1-5 lektioner), ikke en spærring (D3.1, §6.4). */
+  daily_goal_lessons: 1 | 2 | 3 | 4 | 5;
+  /**
+   * Styrer om DB-funktionen evaluate_level_advance() må rykke current_level
+   * op automatisk ud fra mestring (D3.1). Sættes til false af klienten når
+   * en forælder manuelt vælger et niveau i dashboardet — ellers ville samme
+   * mestringsdata bare rykke niveauet op igen ved næste spillede runde.
+   */
+  level_auto_advance_enabled: boolean;
   /**
    * Barnets EGEN auth.users-id (Leverance B1, plan-boernesession-og-dashboard.md).
    * NULL indtil profilen er aktiveret via Edge Function provision-child-auth.

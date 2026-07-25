@@ -616,3 +616,67 @@ hver gang der oprettes en kladde.
 
 Build-kæde grøn: `tsc --noEmit` 0 · `oxlint` 0/0 · **133/133 tests**
 (117 → 133, +16 nye i `learning.test.ts`) · build ✓.
+
+
+## D3.1 — indstillinger: dagens mål + automatisk niveau-fremgang (2026-07-24)
+
+`20260724_d3_settings_daily_goal_level_autoadvance.sql`. To nye kolonner på
+`profiles`: `daily_goal_lessons` (1-5, default 1, MÅL ikke spærring — §6.4)
+og `level_auto_advance_enabled` (boolean, default true).
+
+**Ejer-beslutning (session 25):** niveau-fremgang er AUTOMATISK ud fra
+mestring, forælderen kan overstyre. `level_auto_advance_enabled` er Claudes
+konkrete udmøntning af "kan overstyre" — uden det flag ville en forælders
+manuelle nedjustering af niveauet blive rykket op igen af den samme
+mestringsdata ved næste spillede runde, og overstyringen ville være
+kosmetisk. Klienten (D3.2) sætter flaget til `false`, når en forælder
+manuelt vælger et niveau; forælderen kan slå automatikken til igen samme
+sted.
+
+**`evaluate_level_advance(profile_id)`** (SECURITY DEFINER, intet
+execute-grant til authenticated/anon — kaldes KUN internt fra
+`record_item_stat()`): for barnets nuværende niveau L (< 4), hvis mindst
+70% af BÅDE bogstaverne OG ordforrådet PÅ NETOP niveau L er "kendt" (samme
+definition som D2: mindst 3 eksponeringer, mindst 70% rigtige), rykkes
+`current_level` til L+1. Ingen bogstaver/ord på niveauet → den kategori er
+vacuously opfyldt (fx niveau 2/3 har i dag 0 bogstaver); INGEN indhold på
+niveauet overhovedet → ryk aldrig frem (gætværk, ikke mestring).
+
+⚠️ **Duplikeret tærskel-definition, læs før du ændrer learning.ts:**
+`MIN_SEEN=3`/`KNOWN_RATE=0.70` er hardkodet igen i SQL her, fordi SQL og
+TypeScript ikke kan dele kode. Ændres tærsklerne ét sted, skal de ændres
+begge steder, ellers modsiger dashboardets tal og niveau-fremgangen
+hinanden.
+
+**`record_item_stat()` udvidet** (samme signatur/grants, kirurgisk
+tilføjelse): kalder `evaluate_level_advance()` i sin egen fejl-isolerede
+blok EFTER selve tælle-skrivningen — fail-soft med vilje, en fremtidig bug
+i niveau-fremgangen må aldrig koste selve stat-skrivningen.
+
+**`protect_profile_child_columns()` udvidet** (sortliste, ikke hvidliste —
+se B1-sektionen ovenfor): begge nye kolonner tilføjet til blacklisten,
+ellers ville de som udgangspunkt være frit skrivbare for et barns egen
+session.
+
+**Fund undervejs (ingen handling krævet):** den live `record_progress()`
+har et `p_items jsonb default null`-parameter der (hvis brugt) også kan
+skrive `profile_item_stats`. Frontend kalder aldrig med `p_items` — al
+skrivning går gennem `record_item_stat()` (D1). Dødt, ufarligt, men
+bemærk det hvis `record_progress` nogensinde ændres.
+
+**Bevist med rollback-markør-regressionstest mod live-DB (0 rækker
+efterladt), 10 punkter — migrationen selv fejler hvis nogen fejler:**
+forælder sætter `daily_goal_lessons` ✓ · barn kan ikke ✓ · barn kan
+STADIG ændre `transliteration_enabled`/`preferred_voice` (ingen
+regression) ✓ · barn kan fortsat ikke ændre `current_level` ✓ · barn kan
+ikke ændre `level_auto_advance_enabled` ✓ · fremmed forælder 0 effekt ✓ ·
+`record_progress` kan stadig skrive streak/last_active_day
+(postgres-undtagelsen intakt) ✓ · fuld mestring af niveau 1 rykker
+automatisk til niveau 2 ✓ · delvis mestring (5/28 bogstaver) rykker IKKE
+niveauet ✓ · `level_auto_advance_enabled=false` blokerer fremgangen helt
+selv ved fuld mestring ✓.
+
+**Ejer-valgt engangs-oprykning:** de 3 eksisterende profiler (Ali, Zainab,
+Hassan) rykket fra niveau 1 til 2 i samme migration — de har reelt spillet
+i flere sessioner på niveau 1 allerede. Låser 36 tidligere usynlige
+niveau-2-ord op med det samme.

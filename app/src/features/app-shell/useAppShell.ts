@@ -67,6 +67,7 @@ import {
   checkGuestMigration,
   fetchOwnProfiles,
   migrateGuestProgress,
+  updateOwnTransliteration,
 } from "./engine";
 
 export type ShellView =
@@ -281,6 +282,24 @@ export function useAppShell() {
     [onChildLoggedIn],
   );
 
+  /**
+   * D3.3 — barnets egen transskriptions-kontakt (§6.4, plan-boernesession-
+   * og-dashboard.md). Optimistisk: `activeChild` opdateres med det samme
+   * (spillene læser `showTransliteration` fra denne profil, se
+   * AppShell/ChildMode), og skrivningen til databasen sker fail-soft i
+   * baggrunden — fejler den, fortsætter barnet uden afbrydelse med
+   * værdien i hukommelsen for resten af sessionen (samme princip som
+   * voicePref/localProgress andre steder i skallen).
+   */
+  const toggleTransliteration = useCallback(() => {
+    setActiveChild((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, transliteration_enabled: !prev.transliteration_enabled };
+      void updateOwnTransliteration(next.id, next.transliteration_enabled);
+      return next;
+    });
+  }, []);
+
   /** "Ja — tag lyset med": flyt gæste-fremskridt ind på profilen. */
   const acceptMigration = useCallback(async () => {
     if (!migrationOffer) return;
@@ -414,6 +433,7 @@ export function useAppShell() {
     gateStatus,
     onChildLoggedIn,
     completeChildSignin,
+    toggleTransliteration,
     acceptMigration,
     declineMigration,
     submitGate,

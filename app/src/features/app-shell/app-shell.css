@@ -210,6 +210,34 @@
   padding: 3px 9px;
   white-space: nowrap;
 }
+.shell-translit-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(245, 185, 66, 0.4);
+  background: rgba(245, 185, 66, 0.14);
+  color: var(--sh-gold);
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease,
+    transform 0.12s ease;
+}
+.shell-translit-toggle:active {
+  transform: scale(0.92);
+}
+.shell-translit-toggle:focus-visible {
+  outline: 2px solid var(--sh-gold);
+  outline-offset: 2px;
+}
+.shell-translit-off {
+  background: transparent;
+  color: var(--sh-ink-soft);
+  opacity: 0.55;
+}
 
 /* --- Gæste-sti ------------------------------------------------------------ */
 .shell-guest-banner {

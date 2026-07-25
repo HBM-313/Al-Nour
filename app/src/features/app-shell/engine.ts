@@ -35,6 +35,25 @@ export async function fetchOwnProfiles(): Promise<Profile[] | null> {
   return (data ?? []) as Profile[];
 }
 
+/**
+ * D3.3 — barnets egen transskriptions-kontakt (§6.4: barnet kan ALTID selv
+ * slå den til igen, uanset forælderens indstilling i D3.2). Skrives via
+ * `profiles_child_update_own` (RLS + triggerens hvidliste tillader netop
+ * transliteration_enabled fra barnets egen session). Fail-soft med vilje:
+ * fejler skrivningen, fortsætter spillet med værdien i hukommelsen — en
+ * fejl her må ALDRIG stoppe barnet midt i en lektion.
+ */
+export async function updateOwnTransliteration(
+  profileId: string,
+  enabled: boolean,
+): Promise<void> {
+  try {
+    await supabase.from("profiles").update({ transliteration_enabled: enabled }).eq("id", profileId);
+  } catch {
+    // fail-soft — se kommentar ovenfor, ingen fejlhåndtering nødvendig
+  }
+}
+
 export interface MigrationCheck {
   /** true når prompten "tag dit lys med" skal vises for denne profil */
   shouldOffer: boolean;

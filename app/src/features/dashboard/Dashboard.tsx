@@ -11,7 +11,7 @@ import { ANIMAL_POOL, setPin } from "@/features/pin-login";
 import { OpretProfil } from "@/features/opret-profil";
 import { PIN_MAX, PIN_MIN, ageOf } from "@/features/opret-profil/engine";
 import { useLanguage, type Dictionary } from "@/lib/i18n";
-import type { ProgressSummary } from "./engine";
+import type { ChildSettingsPatch, ProgressSummary } from "./engine";
 import type { LearningSummary } from "./learning";
 import { useDashboard } from "./useDashboard";
 import "./dashboard.css";
@@ -21,8 +21,17 @@ export interface DashboardProps {
 }
 
 export function Dashboard({ account }: DashboardProps) {
-  const { state, patch, toggleProgress, confirmAndDelete, onCreated, onPinSaved, activateAccess } =
-    useDashboard();
+  const {
+    state,
+    patch,
+    toggleProgress,
+    toggleSettings,
+    saveChildSetting,
+    confirmAndDelete,
+    onCreated,
+    onPinSaved,
+    activateAccess,
+  } = useDashboard();
   const { t } = useLanguage();
 
   if (state.view === "create") {
@@ -73,7 +82,12 @@ export function Dashboard({ account }: DashboardProps) {
           summary={state.progress[c.id]}
           learning={state.learning[c.id]}
           activating={state.provisioningId === c.id}
+          settingsOpen={state.openSettingsId === c.id}
+          levelWordCounts={state.levelWordCounts}
+          savingSettings={state.savingSettingsId === c.id}
           onToggleProgress={() => void toggleProgress(c)}
+          onToggleSettings={() => void toggleSettings(c)}
+          onSaveSetting={(p) => void saveChildSetting(c, p)}
           onPin={() => patch({ pinTarget: c })}
           onDelete={() => patch({ confirmDelete: c })}
           onActivateAccess={() => void activateAccess(c)}
@@ -127,7 +141,12 @@ function ChildCard({
   summary,
   learning,
   activating,
+  settingsOpen,
+  levelWordCounts,
+  savingSettings,
   onToggleProgress,
+  onToggleSettings,
+  onSaveSetting,
   onPin,
   onDelete,
   onActivateAccess,
@@ -138,7 +157,12 @@ function ChildCard({
   summary: ProgressSummary | "loading" | "error" | undefined;
   learning: LearningSummary | "loading" | "error" | undefined;
   activating: boolean;
+  settingsOpen: boolean;
+  levelWordCounts: Record<1 | 2 | 3 | 4, number> | null;
+  savingSettings: boolean;
   onToggleProgress: () => void;
+  onToggleSettings: () => void;
+  onSaveSetting: (patch: ChildSettingsPatch) => void;
   onPin: () => void;
   onDelete: () => void;
   onActivateAccess: () => void;
@@ -182,13 +206,20 @@ function ChildCard({
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-3 gap-2">
+      <div className="mt-3 grid grid-cols-2 gap-2">
         <button
           type="button"
           onClick={onToggleProgress}
           className={`db-abtn rounded-xl px-1 py-2.5 text-[12.5px] font-semibold ${open ? "db-abtn-on" : ""}`}
         >
           {open ? t.dashboard.toggleProgressHide : t.dashboard.toggleProgressShow}
+        </button>
+        <button
+          type="button"
+          onClick={onToggleSettings}
+          className={`db-abtn rounded-xl px-1 py-2.5 text-[12.5px] font-semibold ${settingsOpen ? "db-abtn-on" : ""}`}
+        >
+          {settingsOpen ? t.dashboard.toggleSettingsHide : t.dashboard.toggleSettingsShow}
         </button>
         <button type="button" onClick={onPin} className="db-abtn rounded-xl px-1 py-2.5 text-[12.5px] font-semibold">
           {t.dashboard.pinButton}
@@ -204,6 +235,16 @@ function ChildCard({
 
       {open && (
         <ProgressBox childName={child.display_name} summary={summary} learning={learning} t={t} />
+      )}
+
+      {settingsOpen && (
+        <SettingsBox
+          child={child}
+          levelWordCounts={levelWordCounts}
+          saving={savingSettings}
+          onSave={onSaveSetting}
+          t={t}
+        />
       )}
     </div>
   );
@@ -396,6 +437,137 @@ function StatRow({ k, v }: { k: string; v: string }) {
     <div className="flex justify-between px-0.5 py-1 text-[13px]">
       <span className="db-stat-k">{k}</span>
       <b className="font-semibold">{v}</b>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Indstillinger pr. barn (D3.2, §6.4/§2.2): transskription, sprogniveau
+// (+ automatisk niveau-fremgang), dagens mål, barnets sprog. Alle fire
+// skrives via profiles_owner_all — ingen ny RPC.
+// ----------------------------------------------------------------------------
+
+const GOAL_OPTIONS = [1, 2, 3, 4, 5] as const;
+const LEVEL_OPTIONS = [1, 2, 3, 4] as const;
+
+function SettingsBox({
+  child,
+  levelWordCounts,
+  saving,
+  onSave,
+  t,
+}: {
+  child: Profile;
+  levelWordCounts: Record<1 | 2 | 3 | 4, number> | null;
+  saving: boolean;
+  onSave: (patch: ChildSettingsPatch) => void;
+  t: Dictionary;
+}) {
+  return (
+    <div className="db-settings mt-3 pt-3">
+      {/* Transskription */}
+      <div className="mb-3.5">
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <span className="text-[13px] font-semibold">{t.dashboard.settingsTransliterationLabel}</span>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => onSave({ transliteration_enabled: !child.transliteration_enabled })}
+            className={`db-abtn shrink-0 rounded-full px-3 py-1 text-[12px] font-semibold disabled:opacity-50 ${child.transliteration_enabled ? "db-abtn-on" : ""}`}
+          >
+            {child.transliteration_enabled ? t.dashboard.settingsOn : t.dashboard.settingsOff}
+          </button>
+        </div>
+        <p className="db-hint text-[12px] leading-relaxed">{t.dashboard.settingsTransliterationHint}</p>
+      </div>
+
+      {/* Sprogniveau + automatisk fremgang */}
+      <div className="mb-3.5">
+        <div className="mb-1.5 text-[13px] font-semibold">{t.dashboard.settingsLevelLabel}</div>
+        <div className="grid grid-cols-4 gap-1.5">
+          {LEVEL_OPTIONS.map((lvl) => (
+            <button
+              key={lvl}
+              type="button"
+              disabled={saving}
+              aria-pressed={child.current_level === lvl}
+              onClick={() => onSave({ current_level: lvl, level_auto_advance_enabled: false })}
+              className={`db-abtn rounded-xl py-2 text-[14px] font-bold disabled:opacity-50 ${child.current_level === lvl ? "db-abtn-on" : ""}`}
+            >
+              {lvl}
+            </button>
+          ))}
+        </div>
+        <p className="db-hint mt-1.5 text-[12px] leading-relaxed">
+          {t.dashboard.settingsLevelDescription(child.current_level)}
+        </p>
+        {levelWordCounts && (
+          <p className="db-hint text-[11.5px]">
+            {t.dashboard.settingsLevelWordCount(levelWordCounts[child.current_level])}
+          </p>
+        )}
+
+        <div className="mt-2.5 flex items-center justify-between gap-2">
+          <span className="text-[12.5px] font-semibold">{t.dashboard.settingsAutoAdvanceLabel}</span>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => onSave({ level_auto_advance_enabled: !child.level_auto_advance_enabled })}
+            className={`db-abtn shrink-0 rounded-full px-3 py-1 text-[12px] font-semibold disabled:opacity-50 ${child.level_auto_advance_enabled ? "db-abtn-on" : ""}`}
+          >
+            {child.level_auto_advance_enabled ? t.dashboard.settingsOn : t.dashboard.settingsOff}
+          </button>
+        </div>
+        <p className="db-hint mt-1 text-[11.5px] leading-relaxed">{t.dashboard.settingsAutoAdvanceHint}</p>
+      </div>
+
+      {/* Dagens mål */}
+      <div className="mb-3.5">
+        <div className="mb-1.5 flex items-center justify-between">
+          <span className="text-[13px] font-semibold">{t.dashboard.settingsGoalLabel}</span>
+          <b className="db-learn-val text-[13px] font-bold">{t.dashboard.settingsGoalUnit(child.daily_goal_lessons)}</b>
+        </div>
+        <div className="grid grid-cols-5 gap-1.5">
+          {GOAL_OPTIONS.map((n) => (
+            <button
+              key={n}
+              type="button"
+              disabled={saving}
+              aria-pressed={child.daily_goal_lessons === n}
+              onClick={() => onSave({ daily_goal_lessons: n })}
+              className={`db-abtn rounded-xl py-2 text-[14px] font-bold disabled:opacity-50 ${child.daily_goal_lessons === n ? "db-abtn-on" : ""}`}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+        <p className="db-hint mt-1.5 text-[12px] leading-relaxed">{t.dashboard.settingsGoalHint}</p>
+      </div>
+
+      {/* Barnets sprog i appen */}
+      <div>
+        <div className="mb-1.5 text-[13px] font-semibold">{t.dashboard.settingsLanguageLabel}</div>
+        <div className="grid grid-cols-2 gap-1.5">
+          <button
+            type="button"
+            disabled={saving}
+            aria-pressed={child.ui_language === "da"}
+            onClick={() => onSave({ ui_language: "da" })}
+            className={`db-abtn rounded-xl py-2 text-[13px] font-semibold disabled:opacity-50 ${child.ui_language === "da" ? "db-abtn-on" : ""}`}
+          >
+            {t.dashboard.settingsLanguageDa}
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            aria-pressed={child.ui_language === "ar"}
+            onClick={() => onSave({ ui_language: "ar" })}
+            className={`db-abtn rounded-xl py-2 text-[13px] font-semibold disabled:opacity-50 ${child.ui_language === "ar" ? "db-abtn-on" : ""}`}
+          >
+            {t.dashboard.settingsLanguageAr}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
