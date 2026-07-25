@@ -53,6 +53,19 @@ Session 26's fund lukket: CI's `npx tsc --noEmit`-skridt tjekkede reelt ingentin
 
 **Ikke rørt:** branch protection på `main` er stadig ikke slået til (ejerens eget valg, uændret) — en rød CI blokerer altså stadig ikke selve pushet/mergen, den er nu bare et pålideligt SIGNAL.
 
+**EJER-BESLUTNING 2026-07-25 — lyd på familieord bygges IKKE. Sporet er LUKKET, ikke udskudt.**
+
+Spørgsmålet blev rejst som sessionens andet spor og afgjort af ejeren: forældre-tilføjede ord skal være uden genereret lyd. Ejeren bekræftede eksplicit at det betyder **"ingen kodeændring"** — browserens indbyggede TTS-fallback må blive som den er. Der er altså intet at bygge, og familieord opfører sig i dag præcis som besluttet.
+
+Analysen bag beslutningen (bevaret så den ikke skal laves om, hvis emnet nogensinde genåbnes):
+- `generate-audio` er et MANUELT batch-job (service_role-nøgle, gentagne POST'er til `remaining: 0`). Det passer til et fast katalog, ikke til ord der dukker op løbende.
+- `media_editor_write` tillader kun editor/admin at indsætte i `media` — en forælder kan aldrig oprette medie-rækken fra klienten. Enhver lyd-løsning ville kræve en ny server-side vej (Edge Function med ejerskabs-tjek + rate limiting pr. konto), ikke bare en frontend-ændring.
+- Kvoten var ikke problemet (≈20 tegn pr. ord for begge stemmer, godt inden for Googles gratis 1M tegn/md).
+- Fælde der ville have fulgt med, hvis lyd var blevet bygget: redigerer en forælder `word_ar`, bliver den gamle lydfil forkert — det ville have krævet en trigger der nulstiller lydkolonnerne ved ændring.
+- Muren var aldrig i vejen: familieord er AI-tilladt indhold, og DB'en tvinger selv `generated_by='ai'` + `is_recitation=false`. Quran-undtagelsen er urørt.
+
+**Konsekvens for fremtidige sessioner:** fjern "familieord har ingen lyd endnu" fra listen over åbne noter. Det er ikke en mangel — det er en truffet beslutning.
+
 **Næste skridt:** ejer-valg mellem de resterende spor — lyd på familieord (TTS-kobling), fejlrapport-knappens placering, eller noget fra `plan-platformsmodning.md`s fase 3.
 
 ---
@@ -78,6 +91,7 @@ Build-kæde grøn: `tsc -b` 0 · `oxlint` 0/0 · **133/133 tests** (uændret —
 **⚠️ Fund i CI (IKKE rettet — næste sessions oplagte lille opgave):** CI'ens `npx tsc --noEmit`-skridt **tjekker reelt ingenting**. `app/tsconfig.json` er solution-style (`"files": []` + `references`), så `tsc --noEmit` no-op'er stille og returnerer 0 uanset fejl. En ægte syntaksfejl i `da.ts` slap igennem `tsc --noEmit` i denne session og blev først fanget af `oxlint`. Den rigtige typecheck sker kun via `npm run build`s `tsc -b` (som CI heldigvis også kører, så intet er sluppet ud i produktion). Ret CI-skridtet til `tsc -b --noEmit` — og vær opmærksom på at ALLE tidligere sessioners "tsc --noEmit 0"-noter i denne fil er værdiløse af samme grund.
 
 **Åbent, uændret:** familieord har **ingen lyd** endnu (skrevet eksplicit i UI'ens mur-note) — kobling til Google Cloud TTS-vejen er ikke bygget. Fejlrapport-knappens placering er stadig uafklaret siden session 18.
+> *AFGJORT i session 27: lyd på familieord bygges ikke (ejer-beslutning, ingen kodeændring). Se session 27's statusblok øverst. Fejlrapport-knappen er stadig åben.*
 
 **Næste skridt:** ejer-valg. Kandidater: lyd på familieord (TTS-kobling), fejlrapport-knappen (§2.3, kræver placeringsbeslutning), CI-typecheck-fixet ovenfor, eller noget fra `plan-platformsmodning.md`s fase 3.
 
