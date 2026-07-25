@@ -66,7 +66,7 @@ Analysen bag beslutningen (bevaret så den ikke skal laves om, hvis emnet nogens
 
 **Konsekvens for fremtidige sessioner:** fjern "familieord har ingen lyd endnu" fra listen over åbne noter. Det er ikke en mangel — det er en truffet beslutning.
 
-**Næste skridt:** ejer-valg mellem de resterende spor — lyd på familieord (TTS-kobling), fejlrapport-knappens placering, eller noget fra `plan-platformsmodning.md`s fase 3.
+**Næste skridt:** illustrationsstil + billed-lag (`plan-platformsmodning.md` §3.1). Verificeret mod live-DB ved sessionens afslutning: 107 ord i `vocabulary`, **0 med billede**, 105 med emoji som stedfortræder, **2 med hverken** (`طَاوِلَة` bord og `ذَقَن` hage — der findes ingen dækkende emoji for dem). `media` har **0 rækker af type `image`**, og der findes **kun én storage-bucket (`audio`)** — billed-pipelinen er aldrig taget i brug. `media_type_check` tillader allerede `'image'`/`'illustration'`, så `media` kræver ingen skemaændring; `useMatchPairs.ts` opløser allerede `image_media_id` til URL og foretrækker billede over emoji, mens `lyt-og-find`s billed-vej er uverificeret. Fejlrapport-knappens placering er stadig åben (siden session 18).
 
 ---
 
