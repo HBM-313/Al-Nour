@@ -9,6 +9,18 @@
  *
  * MUREN: Dette spil lever udelukkende i Bogstavernes Dal (AI-tilladt sprogdata).
  * Det læser aldrig fra `content` og kan pr. konstruktion ikke røre aqidah.
+ *
+ * BEVIDST INGEN BILLEDE/EMOJI PÅ ORD-VALGKORT (verificeret session 28,
+ * illustrationsstil-milepælen — "ret" ikke dette som en glemt ting):
+ * `kind: 'word'`-spørgsmål tester lyd-TIL-SKRIFT (barnet hører ordet og skal
+ * finde den rigtige arabiske skrift blandt distraktorer) — modsat Match-par,
+ * der tester BETYDNING (dansk↔arabisk), hvor et billede rigtigt hjælper.
+ * Et billede/emoji på selve valgkortet her ville lade barnet matche lyd→billede
+ * i stedet for lyd→skrift, og underminere præcis den forbindelse spillet skal
+ * bygge (jf. platformsplan §7, "den kritiske lyd-til-skrift-forbindelse").
+ * `vocabulary.image_media_id`/`emoji` skal derfor IKKE hentes eller bruges i
+ * dette spils choice-rendering. Kun dansk BETYDNING (`choice.danish`, vist
+ * først EFTER svar som forstærkning) må trække på ordforråds-felterne.
  */
 
 import type {
