@@ -39,6 +39,31 @@ Admin (mig) · Indholds-redaktør (kan ikke udgive aqidah) · Godkender (eneste 
 
 ## Hvor jeg er nu (opdater dette felt løbende)
 
+**Status (2026-07-26, session 28 — illustrationsstil + billed-lag. I1–I3 GENNEMFØRT, I4 UDESTÅR.)**
+
+Commit `e56f6a7` pushet til `main`. Milepælen er `plan-platformsmodning.md` §3.1.
+
+**I1 — stilbeslutning (EJER-BESLUTNING, truffet):** **Retning A — "ren linje"**. Flad ikon-stil: solide flader, tyk mørk kontur, begrænset varm palet, ingen gradient/skygge. Valgt efter en sammenligningsdemo af tre retninger på de samme 6 ord, inkl. en 44px-test ved rigtig spil-brik-størrelse.
+Begrundelse (bevar den — genåbn ikke stilvalget uden grund): A er den eneste af retningerne der pålideligt holder sig **læsbar ned til spil-brik-størrelse** OG **konsistent på tværs af 107 vidt forskellige motiver**, og den er billigst at producere færdig — det er reelt dét der afgør om alle 107 billeder bliver lavet, ikke kun de første 10. Den må gerne farves med nour-paletten (guld/nat-accenter i detaljer) uden at blive retning B.
+Fravalgt: **B (nour-glød-silhuet)** — stærkest identitet, men dårlig kontrast på lyse kort, silhuetter mister indre detalje (slemt for `krop`-kategorien), og den ville kræve en dokumenteret undtagelsesregel, fordi fuld guld-glød er reserveret til de hellige (SKILL.md kerneviden 2). **C (håndtegnet)** — varmest, men sværest at holde konsistent og finere streger drukner ved 44–60px. **Blødt 3D/clay** — for tungt til 107 motiver uden 3D-pipeline, og dårligst til PWA-offline.
+
+**I2 — infrastruktur (bygget, live):** ny public storage-bucket **`images`** (migration `20260726_images_storage_bucket.sql`, i repoet OG anvendt på live-DB). Bevidst strammere end `audio`-bucket'en: mime-whitelist `png/webp/jpeg` **uden SVG** (SVG kan bære script) + **3 MB loft pr. fil**. Ingen `storage.objects`-policies — upload sker via service_role, samme mønster som audio; et selvbetjent admin-upload-UI ville være en bevidst fremtidig udvidelse.
+Drift-tjek FØR migration (verificeret mod live): `media_type_check` tillader allerede `'image'`/`'illustration'` → **ingen skemaændring på `media`**. `media_ai_service_write` er uafhængig af `type` (kun `generated_by='ai' AND is_recitation=false`) → at billeder nu tages i brug åbner **ingen ny skrivevej for `ai_service``**. Migration idempotent-testet (kørt to gange, ingen dublet).
+
+**I3 — render-vej (verificeret, dokumenteret):**
+- **Match-par: allerede korrekt, ingen ændring nødvendig.** `useMatchPairs.ts` slår `image_media_id` op i ét samlet `in()`-kald (ingen N+1), og `MatchPairsGame.tsx` foretrækker billede → emoji → ren tekst. De to ord uden nogen visuel falder trygt tilbage til tekst, intet crasher.
+- **Lyt & Find har bevidst INGEN billed-/emoji-vej — og skal beholde den tilstand.** Ord-runder (`kind: 'word'`) tester lyd-**til-skrift**: barnet hører ordet og skal finde den rigtige arabiske skrift blandt distraktorer. Et billede på valgkortet ville lade barnet matche lyd→billede i stedet og underminere præcis den forbindelse spillet er bygget til (platformsplan §7). Dette er nu skrevet ind i `lyt-og-find/engine.ts`, så det ikke senere "rettes" som en glemt ting.
+- Tegn Bogstavet + lektionsskærmen: ikke relevante (ren bogstavsporing hhv. værts-skærm).
+
+**Verificerede tal mod live-DB (brug dem, gæt ikke):** 107 ord i `vocabulary` · **0** med `image_media_id` · 105 med emoji · **2 med hverken emoji eller billede**: `طَاوِلَة` (bord, hjem, niveau 1) og `ذَقَن` (hage, krop, niveau 1) · **0** rækker i `media` med `type='image'`. Niveaufordeling: 67 på niveau 1, 36 på niveau 2, 4 på niveau 3+.
+
+**I4 — billedproduktionen UDESTÅR.** Det er den største enkeltstående indholdsopgave i projektet til dato. Anbefalet fremgang: **pilot på én kategori før hele kataloget** — `dyr` (11 ord på niveau 1) er bedste testkategori, fordi mange forskellige silhuetter hurtigt afslører om stilen holder på tværs af motiver; så kan stilen justeres mens der kun er ~10 billeder at lave om i stedet for 107. `طَاوِلَة` og `ذَقَن` bør med som quick win uanset pilotkategori, så niveau 1 ikke har visuelle huller.
+**Husk ved upload:** tidsstempel i filnavne (upsert-cache-fælden fra `generate-audio`) — ellers serveres et regenereret billede fra browser-/CDN-/PWA-cachen i det uendelige.
+
+**Ejer-udsagn ved sessionens afslutning, SKAL AFKLARES i næste session før det handles på:** ejeren skrev *"Ingen test alt hvad vi bygger er noget der skal oppe og køre live."* Det læses umiddelbart som en retningsangivelse om at prioritere ting der kører live frem for isolerede demoer/prøveopsætninger. Det er **ikke** skrevet ind som en politikændring her, fordi det kunne også læses som "drop enhedstestene" — og projektet har i dag 133 grønne tests + et CI-skridt der netop blev repareret i session 27. **Spørg ejeren direkte hvad der menes, som klikbare valgmuligheder, før noget test-setup eller CI røres.**
+
+---
+
 **Status (2026-07-25, session 27 — CI-typecheck-fixet. FULDT GENNEMFØRT.)**
 
 Session 26's fund lukket: CI's `npx tsc --noEmit`-skridt tjekkede reelt ingenting (solution-style `tsconfig.json` med `"files": []` — kommandoen no-op'er stille, exit 0, uanset fejl i koden). Rettet til `npx tsc -b --force`, som følger `references` til `tsconfig.app.json`/`tsconfig.node.json` og faktisk typechecker begge.
