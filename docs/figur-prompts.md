@@ -50,9 +50,9 @@ figure from the background. Soft contact shadow on the ground under the feet.
 Restricted warm colour palette only: terracotta, rust red, cream, warm sand,
 warm brown, muted gold, and deep plum-navy for hair. Plain flat off-white
 background, completely empty, no scenery, no furniture, no props unless stated.
-Full body visible including both feet, character centred in frame, camera at the
-character's chest height, straight-on view with a very slight three-quarter turn,
-square 1:1 composition, generous even margin around the figure.
+Full body visible from head down to ground level, character centred in frame,
+camera at the character's chest height, straight-on view with a very slight
+three-quarter turn, square 1:1 composition, generous even margin around the figure.
 ```
 
 ---
@@ -72,11 +72,14 @@ Cheerful, open, easy-going expression.
 ### Zahraa — gennemgående ven-guide (pige)
 
 ```
-An 8-year-old girl named Zahraa. Light olive skin. Dark brown hair in two low
-braids tied with cream ribbons, a few soft strands loose at the front. Large warm
-brown eyes. Wearing a rust-red tunic dress over cream leggings, simple cream shoes.
-A tiny muted gold star pin on the front of her dress. Bright, kind, curious
-expression.
+An 8-year-old girl named Zahraa. Light olive skin. Large warm brown eyes. She
+wears a warm sand-beige headscarf that completely covers her hair, ears and neck
+and drapes softly over her shoulders — absolutely no hair is visible anywhere. Her
+dress is rust-red, loose-fitting and floor-length, with long sleeves reaching all
+the way to the wrists; the cut is loose so the shape of her body is not defined,
+and the hem reaches the ground and covers her feet completely. Only her face and
+her hands are visible. A tiny muted gold star pin at the side of her headscarf.
+Bright, kind, curious expression.
 ```
 
 ### Hassan — Hverdagshaven (dreng, storebror)
@@ -103,16 +106,22 @@ playful, slightly cheeky expression.
 ### Zainab — Hverdagshaven (pige, ældst)
 
 ```
-A 10-year-old girl named Zainab, the oldest of the group. Warm brown skin. A soft
-cream headscarf draped loosely over her head and shoulders, with a little
-warm-brown hair visible at the front. Large dark brown eyes with a warm, attentive
-gaze. Wearing a terracotta long dress with a subtle muted gold trim along the hem,
-cream shoes. Calm, thoughtful, quietly confident expression.
+A 10-year-old girl named Zainab, the oldest of the group. Warm brown skin. Large
+dark brown eyes with a warm, attentive gaze. She wears a cream headscarf that
+completely covers her hair, ears and neck and drapes softly over her shoulders —
+absolutely no hair is visible anywhere. Her dress is terracotta, loose-fitting and
+floor-length, with long sleeves reaching all the way to the wrists; the cut is
+loose so the shape of her body is not defined, and the hem reaches the ground and
+covers her feet completely. Only her face and her hands are visible. A subtle muted
+gold trim along the hem and the sleeve cuffs. Calm, thoughtful, quietly confident
+expression.
 ```
 
-> **Tørklædet er et valg, ikke en regel.** Zainab bærer det og Zahraa gør ikke — bevidst, så figurerne afspejler at familier gør forskelligt. Vil du ændre det, er det den ene sætning i figurblokken der skal rettes. Alt andet står.
+> **Tildækning er en fast regel for alle pigefigurer, ikke et valg** (ejer-beslutning 2026-07-27). Alle piger bærer hijab. Hår, ører, hals, arme, ben og fødder vises aldrig. Kjolen er løstsiddende, gulvlang og har lange ærmer til håndleddet. **Kun ansigt og hænder må være synlige.** Reglen står tre steder i hver pige-prompt — i figurblokken, i undgå-listen og i tjeklisten — med vilje, fordi billedmodeller er tilbøjelige til at lade en hårlok slippe ud ved kanten af tørklædet.
 
-> **Tøjet er hverdagstøj, ikke festtøj.** Planen beskriver figurerne som *almindelige nutidige børn* i Danmark. Vil du hellere have thobe, kufi og lang kjole som på stock-billederne, er det også kun tøj-sætningen der skal skiftes — men overvej om barnet i Odense genkender sig selv bedst i det ene eller det andet.
+> **Drengefigurerne er uændrede** og har almindeligt hverdagstøj med synlige sko. Ejerens beslutning gjaldt pigerne. Skal drengene også dækkes til anklerne, er det én sætning pr. figurblok.
+
+> **Tøjet er ellers hverdagstøj, ikke festtøj.** Planen beskriver figurerne som *almindelige nutidige børn* i Danmark. Vil du hellere have thobe og kufi til drengene som på stock-billederne, er det kun tøj-sætningen der skal skiftes.
 
 ---
 
@@ -155,8 +164,8 @@ never disappointed.
 
 ```
 Celebrating with delight. Both arms raised high above the head, wide open joyful
-smile, eyes happily squinted into upward curves, body in a small hop with both feet
-just barely off the ground.
+smile, eyes happily squinted into upward curves, body lifted in a small joyful hop
+just above the ground.
 ```
 
 ---
@@ -168,11 +177,21 @@ just barely off the ground.
 ```
 halo, glowing aura around the figure, divine light, light rays from the head or
 body, religious iconography, calligraphy on the character, any depiction of a
-prophet, imam or saint, adults, elderly people, bearded men, weapons, flags,
-political symbols, photorealistic skin, uncanny realism, busy background, scenery,
-furniture, text, letters, numbers, watermark, logo, signature, extra fingers,
-missing fingers, malformed hands, distorted face, multiple characters
+prophet, imam or saint, visible hair on a female character, loose strand of hair
+escaping the headscarf, visible fringe, uncovered head on a girl, visible neck on a
+girl, bare arms, short sleeves, rolled sleeves on a girl, bare legs, bare feet,
+visible ankles on a girl, tight clothing, form-fitting dress, defined waistline,
+short dress, adults, elderly people, bearded men, weapons, flags, political
+symbols, photorealistic skin, uncanny realism, busy background, scenery, furniture,
+text, letters, numbers, watermark, logo, signature, extra fingers, missing fingers,
+malformed hands, distorted face, multiple characters
 ```
+
+### Hvorfor der står så meget om hår og ærmer
+
+Billedmodeller falder næsten altid tilbage på deres standardbillede af et barn, og det standardbillede har synligt hår. Selv med "hijab" i prompten slipper der ofte en lok ud ved tindingen eller en pandehårsstump frem under kanten. Derfor står forbuddet både i figurblokken og som fem separate poster på undgå-listen. Se særligt efter det ved tindingerne og i nakken.
+
+Samme gælder ærmer: modellen forkorter dem gerne til trekvartlange af sig selv. Ærmet skal nå håndleddet.
 
 ### Hvorfor "glowing aura" står øverst
 
@@ -198,6 +217,11 @@ Når billederne er klar, skalerer jeg dem ned, gør baggrunden transparent, konv
 
 ## Tjekliste før du godkender et sæt
 
+- [ ] **Pigefigurer: intet hår synligt** — tjek særligt tindinger, pande og nakke
+- [ ] **Pigefigurer: ærmerne når håndleddet**, ingen bare arme
+- [ ] **Pigefigurer: kjolen når gulvet**, ingen fødder eller ankler synlige
+- [ ] **Pigefigurer: løstsiddende snit**, ingen markeret talje eller kropsform
+- [ ] Kun ansigt og hænder er synlige på pigefigurerne
 - [ ] Ansigtet er genkendeligt det samme på tværs af alle fem positurer
 - [ ] Figuren fylder lige meget i alle fem billeder
 - [ ] Ingen glød, glorie eller stråler nogen steder
