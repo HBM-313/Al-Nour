@@ -52,10 +52,21 @@ Admin (mig) · Indholds-redaktør (kan ikke udgive aqidah) · Godkender (eneste 
 - **Metode uændret fra batch 1/2:** håndkodet SVG (samme palet, viewBox 0 0 240 240, stroke-width 9) → `cairosvg` → `PIL`-palet-kvantisering (48 farver) → kontaktark (fuld størrelse + 120px) vist for ejer-godkendelse FØR upload, jf. arbejdsformen.
 - **Ikke gjort:** ikke set i selve spillet endnu af ejeren (kun kontaktark + DB-verifikation) — bør tjekkes i live app næste session, ligesom batch 2 blev.
 
+**Anden halvdel af session 31 — Hverdagshaven påbegyndt, 3D-figurspor afklaret. INTET kode pushet for denne del.**
+
+- **Vælg din vej-mekanikken demonstreret og ejer-set:** valghistorie hvor haven bogstaveligt vokser med lyset (guld-kronblade pr. valg), første historie skrevet i sessionen (Hussains knækkede legetøjsbil, værdi = ærlighed, tre udfald: fortæl straks / fortæl sent / fortæl aldrig). Ingen straf ved "forkert" valg — kun blidt "måske næste gang". **Formel godkendelse af mekanikken blev aldrig givet** — ejeren pivoterede til figur-spørgsmålet midt i. Historien og mekanikken skal genbekræftes i næste session.
+- **Ejer-beslutninger truffet:** figurerne skal være 3D og "professionelt lavet" · alle fem ven-figurer ønskes (ikke kun én) · figuren skal kun optræde i **nøgle-øjeblikke** (intro, ros, trøst, forklaring), ikke bo permanent på skærmen · `characters`-tabellen tages i brug nu · Vælg din vej bygges FØR figurerne er klar.
+- **3D-sporet undersøgt og lukket som blindgyde:** tre iterationer af procedurale Three.js-figurer (primitiver → formet drejeflade + tre-punkts-lys + skygge + dæmpede overgange) blev afvist af ejeren som ikke gode nok. **Konklusion, dokumenteret så det ikke skal genopdages: kode-byggede primitivfigurer når ikke stock-3D-kvalitet.** Referencerne ejeren sendte (fire watermarkede stock-billeder fra Dreamstime/Freepik/PNGTree) er skulpturerede modeller med subsurface scattering, modelleret hår og stoffolder, ofte offline-renderet.
+- **Valgt vej i stedet — færdigrenderede 2D-billeder af 3D-figurer.** Samme teknik som Microsoft Agent faktisk brugte (`.acs`-filer indeholdt renderede billedsekvenser, ikke live 3D). Passer perfekt til "kun nøgle-øjeblikke": ingen WebGL, ingen batteridræn, ingen fallback nødvendig, ~1,5–2 MB for alle 25 billeder mod 15–25 MB for `.glb`-modeller.
+- **Ejeren genererer selv figurerne via Google Flow.** Claude leverede et fast prompt-sæt (`nour-figur-prompts.md`, ligger i outputs — **ikke i repoet endnu, bør lægges i `docs/` når figurerne er i hus**): én uforanderlig stilblok + fem figurblokke (Ali, Zahraa, Hassan, Hussain, Zainab) + fem positurblokke (rolig/hilser/taler/tænker/jubler) + undgå-liste. 25 billeder i alt.
+- **Muren i prompt-sættet:** "glowing aura / halo / light rays" står øverst på undgå-listen, fordi en børnefigur med skær kan læses som lys-repræsentationen af de hellige. Figur og lyskilde må aldrig genereres i samme billede. Dette er den vigtigste linje i hele dokumentet.
+- **Bevidste designvalg i figurerne:** Hassan og Hussain har familielighed (brødre); Zainab bærer tørklæde, Zahraa gør ikke (så figurerne afspejler at familier gør forskelligt); tøjet er hverdagstøj frem for thobe/kufi, jf. planens "almindelige nutidige børn" — alle tre er ét sætnings ændring hvis ejeren vil noget andet.
+
 **Til næste session:**
 1. Ejeren tjekker niveau 2/3-billederne i den live app (samme mønster som batch 1/2-verifikation).
 2. `supabase/seed-assets/vocab-images/` (nu 95 filer, batch 1+2+3) kan ryddes fra repoet når alt er set og godkendt i appen — stadig ikke gjort, lav prioritet.
-3. Fortsæt Hverdagshaven + spil 4 "Vælg din vej" (`plan-platformsmodning.md` §3.3) — se separat status-blok hvis påbegyndt samme session, ellers start her.
+3. **Byg `features/vaelg-din-vej/` UDEN figurer** (ejer-beslutning): migration med `content.choice_tree` jsonb + seed af Hassan/Hussain/Zainab i `characters` + engine/hook/komponent/tre aldersskind + tests. Figur-laget bygges som et separat, udskifteligt lag så billederne kan skiftes ind uden at røre spillogikken.
+4. Genbekræft valghistorie-mekanikken og den første historie med ejeren først — den blev aldrig formelt godkendt.
 
 ---
 
