@@ -62,6 +62,33 @@ Admin (mig) · Indholds-redaktør (kan ikke udgive aqidah) · Godkender (eneste 
 
 ---
 
+**Status (2026-07-27, session 30 — HELE niveau 1 har nu billede. Commit `82ea8aa` pushet, EJER-VERIFICERET mod live-DB.)**
+
+Ejeren bad om "alle kategorier" på én gang (ikke kun ét mere som anbefalet) — leveret som én stor batch, godkendt via samlet oversigtsbillede før upload (samme mønster som piloten, bare i større skala).
+
+**47 nye ikoner bygget, i samme SVG→PNG-pipeline og palet som dyr-piloten:**
+- **familie (7):** far, mor, bedstefar, bedstemor, bror, søster, søn — anonyme buster (ikke ansigter med identitet), adskilt via hår/tørklæde. Mor/bedstemor har et simpelt tørklæde — kulturelt, ikke religiøst kodet.
+- **hjem (6):** bog, dør, hus, seng, stol, værelse.
+- **krop (6):** hoved/mund/øje/øre genbruger **samme ansigts-diagram som "hage"** fra piloten, med guld-ringen flyttet til det relevante punkt — ét sammenhængende diagram-system, ikke fire løsrevne ansigter. Hånd og negl er separate objekt-ikoner.
+- **mad (6):** æble, æg, brød, mælk, ris, vand. **Vand er bevidst holdt varm-tonet** (som "lys"), ikke blå — stilkonsistens.
+- **natur (9):** blomst, halvmåne, ler, lys, måne, skyer, skygge, sol, stjerne.
+- **hilsner (4):** hej/fred, ja, nej, tak. **"Tak" er to hænder der rækker et hjerte frem** — bevidst IKKE en foldede-hænder/bederi-gestus, for at holde den tydeligt væk fra alt der kunne læses religiøst.
+- **tal (5):** en–fem som terningeprik-mønstre (dice-pips) — sprogneutrale, ingen skrevne tal/cifre.
+- **farver (4):** blå/grøn/gul/rød — **bevidst ENESTE undtagelse fra den varme palet i hele systemet**, fordi selve pointen med de fire ord er at vise den rigtige farve. Alt andet (inkl. "vand") holder sig til paletten.
+
+**Leveringsvej:** samme `seed-vocab-images`-funktion genbrugt (ikke en ny) — `WORK_ITEMS` udvidet fra 11 til 58 nøgler, deployet som version 2. Idempotensen betød at de 11 allerede uploadede fra piloten automatisk blev sprunget over (`already_done: 11`) og kun de 47 nye blev behandlet (`uploaded: 47, failed: 0`).
+
+**Verificeret mod live-DB efter kørsel:** `select count(*) from vocabulary where level=1` → 67, alle 67 har `image_media_id`. `select count(*) from media where type='image'` → **58** — matcher præcis (11 fra pilot + 47 nye, ingen dubletter), og bekræfter at de 6 dialekt-par i denne batch (far, mor, hus, hånd, hoved, vand) korrekt genbruger ét billede hver, ligesom kat gjorde i piloten.
+
+**Ikke gjort:** ikke testet i den live app endnu for denne batch specifikt (dyr-piloten blev testet, resten er kun verificeret i databasen). `supabase/seed-assets/vocab-images/` (nu 58 filer, ~500 KB) er stadig i repoet — ikke ryddet.
+
+**Til næste session:**
+1. Ejeren tjekker et bredt udsnit i den live app (fx familie, natur, farver — de mest "anderledes" kategorier stilistisk).
+2. Niveau 1 er nu 100 % dækket billedmæssigt. Niveau 2 (36 ord) og niveau 3+ (4 ord) er stadig udækket — beslut om det er næste skridt, eller om noget andet i `plan-platformsmodning.md` (fx i18n, transskriptions-toggle) skal prioriteres nu hvor billed-arbejdet er stort set færdigt.
+3. Lavprioritets-oprydning: `supabase/seed-assets/vocab-images/` kan slettes fra repoet, når ejeren har set batch 2 virke i appen.
+
+---
+
 **Status (2026-07-26, session 28 — illustrationsstil + billed-lag. I1–I3 GENNEMFØRT, I4 UDESTÅR.)**
 
 Commit `e56f6a7` pushet til `main`. Milepælen er `plan-platformsmodning.md` §3.1.
