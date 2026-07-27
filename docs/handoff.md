@@ -58,6 +58,8 @@ Admin (mig) · Indholds-redaktør (kan ikke udgive aqidah) · Godkender (eneste 
 2. Byggemetoden (håndkodet SVG) er nu bevist for 11 billeder — beslut om resten af niveau 1 (67 ord i alt, ~56 tilbage) skal laves samme vej, eller om noget skal justeres først.
 3. Lavprioritets-oprydning: `supabase/seed-assets/vocab-images/` kan slettes fra repoet når ejeren har set billederne virke (funktionen er allerede kørt færdig).
 
+**BUGFIX samme session (ejer-rapport, commit `d072c97`, pushet, EJER-VERIFICERET i live app):** Match-par kunne vise to ord med samme danske oversættelse i samme runde — 11 danske ord i `vocabulary` har bevidst 2–3 arabiske dialektvarianter (`far`=أَب/بَابَا, `mor`, `hånd`, `hoved`, `hus`, `lys`, `blomst`, `ris`, `vand`, `vindue`, `kat`×3). Barnet så to identiske danske kort uden mulighed for at se hvilket arabisk kort der hørte til hvilket — `isMatch()` dømmer på `wordId`, ikke betydning, så et betydningsmæssigt korrekt valg kunne vises som forkert. **Fix:** ny `dedupeByWordDa()` i `match-par/engine.ts`, anvendt på ord-poolen lige før `sample()` i `pickRoundWords` — højst ét ord pr. unikt `word_da` pr. runde, hvilken dialektvariant der vises roterer tilfældigt (ingen udelukkes permanent). 3 nye regressionstests tilføjet (`engine.test.ts`, 136/136 grønne). **Samme dedup-mønster bør genbesøges hvis andre spil senere begynder at bruge `word_da` til visning/matchning** (Lyt & Find bruger i dag kun `word_ar`, så det er ikke ramt).
+
 ---
 
 **Status (2026-07-26, session 28 — illustrationsstil + billed-lag. I1–I3 GENNEMFØRT, I4 UDESTÅR.)**
