@@ -39,6 +39,27 @@ Admin (mig) · Indholds-redaktør (kan ikke udgive aqidah) · Godkender (eneste 
 
 ## Hvor jeg er nu (opdater dette felt løbende)
 
+**Status (2026-07-27, session 29 — I4 dyr-pilot GENNEMFØRT. Commit `648e2e6` pushet til `main`.)**
+
+**Ejer-afklaring (FØRST i sessionen, jf. session 28's åbne spørgsmål):** "Ingen test alt hvad vi bygger er noget der skal oppe og køre live" betyder **ikke** "drop enhedstestene" — det er en tankegang om at alt skal bygges som rigtig produktionskode fra start, ikke kladder der smides væk. Demo-først-arbejdsformen (CSP blokerer live-kald i artifacts) og de 133 tests fortsætter uændret. Intet i CI eller test-opsætningen er rørt.
+
+**I4 — billedproduktion, dyr-piloten (11 ord) + de 2 niveau-1-huller. Alle 13 rækker har nu `image_media_id`.**
+
+- **Metode (vigtig afvigelse fra det forventede):** Ingen AI-billedgenerator var tilgængelig i sessionen. Billederne er i stedet **håndkodet som SVG-vektorgrafik** (fast palet, tyk mørk kontur, "ren linje"-stilen fra I1) og renderet til PNG via `cairosvg`. Ejeren godkendte metoden eksplicit efter at have set kat-pilotikonet i tre størrelser (512/120/44px). `media.generated_by='ai'` for ærlig bogføring (Claude er ophavet), selvom det ikke er en generativ billedmodel.
+- **Palet (delt, genbruges fremover):** outline `#241B3A`, terracotta `#D2723F`, rust `#B5502E`, cream `#F6E7CC`, gold-accent `#E8AC4E` (kun i detaljer — indre ører, næser, en enkelt collar/tag/forehead-mark pr. dyr), sand `#E8C99B`, warm brown `#8B5A3C`. To nye warm-adjacent farver tilføjet for genkendelighed: mudder-oliven `#A88A3C` (frø), samme brown-familie genbrugt til ulv.
+- **De 11 ikoner:** kat (genbruges på tværs af `hirra`/`qitt`/`bazzoon` — tre dialektord, ét billede, medie-genbrug jf. §9), elefant, får, fisk, frø, giraf, hund, kylling, ulv, bord, hage. "Hage" løst som generisk ansigts-diagram med guld-ring om hage-partiet — bevidst IKKE en navngiven ven-figur.
+- **Filstørrelse:** palet-optimeret PNG (`PIL.Image.quantize(FASTOCTREE)`, 48 farver) — 11 billeder = **86 KB samlet** (ned fra 326 KB råt), langt under 3 MB-loftet pr. fil.
+- **Leveringsvej (ny, dokumentér til fremtidige billed-batches):** Direkte base64-indlejring i en Edge Function blev fravalgt (for stor risiko for transskriptionsfejl i binærdata gennem chat-værktøjskaldet). I stedet: billederne ligger som rigtige PNG-filer i repoet (`supabase/seed-assets/vocab-images/*.png`), og en ny Edge Function **`seed-vocab-images`** henter dem ved kørsel fra `raw.githubusercontent.com/HBM-313/Al-Nour/main/...`, uploader til `images`-bucket (tidsstempel i filnavn), opretter media-rækker, og kobler `image_media_id` på — samme service_role-mønster og idempotens som `generate-audio`. Ejeren triggede den én gang via dashboardet: `{"uploaded":11,"already_done":0,"failed":0}`. Seed-assets-mappen kan slettes når som helst efter en vellykket kørsel (funktionen er engangsbrug, ikke løbende drift) — **ikke gjort endnu, lav prioritet oprydning**.
+- **Verificeret mod live-DB efter kørsel:** alle 13 ord har `image_media_id` → gyldig `media`-række (`type='image'`, `generated_by='ai'`, `reusable=true`). De tre "kat"-ord deler samme `media_id` (`3f81f071-…`) som forventet.
+- **Ikke gjort:** ikke testet i den rigtige app endnu (ejeren har ikke set Match-par med rigtige billeder live) — render-vejen blev allerede verificeret i I3 (billede → emoji → tekst), så det *burde* virke uden kodeændring, men er ikke set med egne øjne.
+
+**Til næste session:**
+1. Ejeren tjekker Match-par i den live app (https://al-nour.hassu4264.workers.dev) — ser dyrene rigtigt ud i spillet?
+2. Byggemetoden (håndkodet SVG) er nu bevist for 11 billeder — beslut om resten af niveau 1 (67 ord i alt, ~56 tilbage) skal laves samme vej, eller om noget skal justeres først.
+3. Lavprioritets-oprydning: `supabase/seed-assets/vocab-images/` kan slettes fra repoet når ejeren har set billederne virke (funktionen er allerede kørt færdig).
+
+---
+
 **Status (2026-07-26, session 28 — illustrationsstil + billed-lag. I1–I3 GENNEMFØRT, I4 UDESTÅR.)**
 
 Commit `e56f6a7` pushet til `main`. Milepælen er `plan-platformsmodning.md` §3.1.
