@@ -39,6 +39,26 @@ Admin (mig) · Indholds-redaktør (kan ikke udgive aqidah) · Godkender (eneste 
 
 ## Hvor jeg er nu (opdater dette felt løbende)
 
+**Status (2026-07-27, session 31 — I4 FULDT AFSLUTTET: niveau 2/3 (37 nye ikoner). Commit `80b59c5` pushet, EJER-VERIFICERET mod live-DB.)**
+
+**Alle 107 ordforråds-ord har nu billede (100 %).** `plan-platformsmodning.md` §3.1 er hermed lukket.
+
+- **Ejer valgte at køre milepæl 1 (niveau 2/3-billeder) og milepæl 2 (Hverdagshaven) i samme session** — denne blok dækker milepæl 1; Hverdagshaven fortsætter nedenfor/i næste blok.
+- **Tre designspørgsmål afklaret med ejeren FØR tegning (klikbare valg):** tal 6-10 = to terninger side om side (5+n, genbruger terningeprik-idéen fra 1-5 uden at ændre dem), nul = tom dobbelt-terningeramme, først/anden = podie-visual (1./2. plads).
+- **To designproblemer løst uden at spørge, flaget i kontaktarket for ejer-review:** "sort"-dråben bruger cremefarvet kontur i stedet for mørk (ellers drukner formen i sin egen outline); "hvid"-dråben beholder standard mørk kontur. Ejeren godkendte hele batchen uden ændringer, inkl. de to ikoner Claude selv var mest usikker på ("godt"/tommelfinger, "vær venlig"/foldede hænder).
+- **37 nye ikoner** (dyr: fugl/hest/kamel/kanin/løve · familie: farbror/morbror — adskilt fra hinanden og fra "far" via overskæg hhv. kalot · farver: hvid/lilla/lyserød/orange/sort · hilsner: farvel/godmorgen/godt/hvordan/venlig · hjem: blyant/vindue · krop: fod/hår/næse — hår/næse genbruger ansigts-diagram-systemet fra "hage" · mad: banan/dadler/honning · natur: bjerg/flod/hav/træ · tal: seks/syv/otte/ni/ti/nul/først/anden).
+- **To ord genbrugte eksisterende media direkte (IKKE via Edge Function):** وَرْدَة (blomst, niveau 2-dialektvariant) → eksisterende `e77352a9-…`; تِمَّن (ris, niveau 2-dialektvariant) → eksisterende `ed9af170-…`. Opdateret med en simpel `UPDATE vocabulary SET image_media_id = …` via MCP, før batch-arbejdet startede.
+- **`seed-vocab-images` udvidet til version 3** (deployeret via MCP) med batch 3's 37 `WORK_ITEMS`. Kørt af ejeren én gang: alle 37 uploadet, 0 fejl. Verificeret mod live-DB: `media`-tabellen har nøjagtig det ventede antal nye rækker pr. kategori (5+2+5+5+2+3+3+4+8=37).
+- **Metode uændret fra batch 1/2:** håndkodet SVG (samme palet, viewBox 0 0 240 240, stroke-width 9) → `cairosvg` → `PIL`-palet-kvantisering (48 farver) → kontaktark (fuld størrelse + 120px) vist for ejer-godkendelse FØR upload, jf. arbejdsformen.
+- **Ikke gjort:** ikke set i selve spillet endnu af ejeren (kun kontaktark + DB-verifikation) — bør tjekkes i live app næste session, ligesom batch 2 blev.
+
+**Til næste session:**
+1. Ejeren tjekker niveau 2/3-billederne i den live app (samme mønster som batch 1/2-verifikation).
+2. `supabase/seed-assets/vocab-images/` (nu 95 filer, batch 1+2+3) kan ryddes fra repoet når alt er set og godkendt i appen — stadig ikke gjort, lav prioritet.
+3. Fortsæt Hverdagshaven + spil 4 "Vælg din vej" (`plan-platformsmodning.md` §3.3) — se separat status-blok hvis påbegyndt samme session, ellers start her.
+
+---
+
 **Status (2026-07-27, session 29 — I4 dyr-pilot GENNEMFØRT. Commit `648e2e6` pushet til `main`.)**
 
 **Ejer-afklaring (FØRST i sessionen, jf. session 28's åbne spørgsmål):** "Ingen test alt hvad vi bygger er noget der skal oppe og køre live" betyder **ikke** "drop enhedstestene" — det er en tankegang om at alt skal bygges som rigtig produktionskode fra start, ikke kladder der smides væk. Demo-først-arbejdsformen (CSP blokerer live-kald i artifacts) og de 133 tests fortsætter uændret. Intet i CI eller test-opsætningen er rørt.
