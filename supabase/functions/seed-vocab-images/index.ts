@@ -5,7 +5,16 @@
  * én media-række pr. billede, og kobler dem på ordforråds-rækkerne via
  * vocabulary.image_media_id. Batch 1 (session 29): dyr-pilot + 2 huller (13
  * rækker). Batch 2 (session 30): familie, hjem, krop, mad, natur, hilsner,
- * tal, farver (54 rækker) — dermed hele niveau 1 dækket.
+ * tal, farver (54 rækker) — dermed hele niveau 1 dækket. Batch 3 (session 31):
+ * niveau 2/3 — dyr, familie, farver, hilsner, hjem, krop, mad, natur, tal
+ * (38 rækker, 37 nye ikoner — "vindue" deler ét ikon mellem to ord). To ord
+ * i denne batch (وَرْدَة/blomst, تِمَّن/ris) genbrugte allerede uploadede
+ * media-rækker direkte via SQL og optræder derfor IKKE i WORK_ITEMS.
+ *
+ * Nyt i batch 3: tal 6-10 bruger to terninger side om side (5+n), nul er en
+ * tom dobbelt-terningeramme, først/anden er en podie-visual. Farve-dråben for
+ * "sort" bruger cremefarvet kontur i stedet for mørk, så formen ikke drukner
+ * i sin egen outline.
  *
  * Flere ord med samme danske oversættelse (dialektvarianter, fx "far" =
  * أَب/بَابَا, "kat" = tre ord) genbruger bevidst ÉT billede/én media-række
@@ -136,6 +145,56 @@ const WORK_ITEMS: WorkItem[] = [
   { key: "groen", vocabularyIds: ["268a9b54-5265-454c-ab0a-f6be3f60bcd9"], tags: ["illustration", "ren-linje", "farver"] },
   { key: "gul", vocabularyIds: ["74931df7-4500-48c5-96e0-8c7cd766cf96"], tags: ["illustration", "ren-linje", "farver"] },
   { key: "roed", vocabularyIds: ["e50c8d8e-29dc-4e87-aeea-709825edb0d4"], tags: ["illustration", "ren-linje", "farver"] },
+
+  // --- Batch 3 (session 31): niveau 2/3 — dyr, familie, farver, hilsner, hjem, krop, mad, natur, tal ---
+  { key: "fugl", vocabularyIds: ["2fd2cb92-4628-43cc-9304-d8ca6b992d34"], tags: ["illustration", "ren-linje", "dyr", "niveau2-3"] },
+  { key: "hest", vocabularyIds: ["07432101-baea-453f-b04e-5b9f06cf1a8e"], tags: ["illustration", "ren-linje", "dyr", "niveau2-3"] },
+  { key: "kamel", vocabularyIds: ["0a0789a1-f614-49b0-9f62-85f7b30002b0"], tags: ["illustration", "ren-linje", "dyr", "niveau2-3"] },
+  { key: "kanin", vocabularyIds: ["dae277f5-ced8-47d3-9ee0-a74c9eed190e"], tags: ["illustration", "ren-linje", "dyr", "niveau2-3"] },
+  { key: "loeve", vocabularyIds: ["7b6c4540-a215-4f1e-b460-ac43c8d5e4ee"], tags: ["illustration", "ren-linje", "dyr", "niveau2-3"] },
+
+  { key: "farbror", vocabularyIds: ["764e1a1a-8ba2-431a-acae-bc7cc534f47e"], tags: ["illustration", "ren-linje", "familie", "niveau2-3"] },
+  { key: "morbror", vocabularyIds: ["d310db76-b37f-4623-9912-128ba1ffa775"], tags: ["illustration", "ren-linje", "familie", "niveau2-3"] },
+
+  { key: "hvid", vocabularyIds: ["78cbec4f-e36f-4667-8748-f018feceef93"], tags: ["illustration", "ren-linje", "farver", "niveau2-3"] },
+  { key: "lilla", vocabularyIds: ["8e06a4c9-4905-4d84-9118-922be4ed7d54"], tags: ["illustration", "ren-linje", "farver", "niveau2-3"] },
+  { key: "lyseroed", vocabularyIds: ["97f8b21b-48c0-4b15-92ed-f61d817f1492"], tags: ["illustration", "ren-linje", "farver", "niveau2-3"] },
+  { key: "orange", vocabularyIds: ["0ffd0b69-a8af-434c-86f7-b6ea914469a5"], tags: ["illustration", "ren-linje", "farver", "niveau2-3"] },
+  { key: "sort", vocabularyIds: ["0934710d-c84d-4bcc-aa7c-2d9a229902e3"], tags: ["illustration", "ren-linje", "farver", "niveau2-3"] },
+
+  { key: "farvel", vocabularyIds: ["cb1d4f46-7690-4056-8260-1eb758b0345c"], tags: ["illustration", "ren-linje", "hilsner", "niveau2-3"] },
+  { key: "godmorgen", vocabularyIds: ["7d244e59-5e9c-4594-bc23-a01585dcfc3c"], tags: ["illustration", "ren-linje", "hilsner", "niveau2-3"] },
+  { key: "godt", vocabularyIds: ["2d77375e-f3f1-43d8-ab2e-53fecba44d60"], tags: ["illustration", "ren-linje", "hilsner", "niveau2-3"] },
+  { key: "hvordan", vocabularyIds: ["804a3740-8765-4a1f-8f5a-9464ad16169b"], tags: ["illustration", "ren-linje", "hilsner", "niveau2-3"] },
+  { key: "venlig", vocabularyIds: ["8e4e4090-3d83-4cca-9da7-c3820e4a2075"], tags: ["illustration", "ren-linje", "hilsner", "niveau2-3"] },
+
+  { key: "blyant", vocabularyIds: ["9b076804-c7bf-4861-bd1f-b2fe783bfc1b"], tags: ["illustration", "ren-linje", "hjem", "niveau2-3"] },
+  { key: "vindue", vocabularyIds: [
+      "af174ba5-7d3c-4db7-b554-ff93ecde3da9", // shubbaak
+      "52200129-3a22-4961-b969-0133c0b959f5", // naafidha
+    ], tags: ["illustration", "ren-linje", "hjem", "niveau2-3", "vindue"] },
+
+  { key: "fod", vocabularyIds: ["1fecb6a0-4b67-4fb1-94b2-350de1f304e3"], tags: ["illustration", "ren-linje", "krop", "niveau2-3"] },
+  { key: "haar", vocabularyIds: ["d0c5da60-374d-4b0c-89ad-64b257026a66"], tags: ["illustration", "ren-linje", "krop", "niveau2-3"] },
+  { key: "naese", vocabularyIds: ["b5997563-35cc-4ba6-b699-674890e53ecf"], tags: ["illustration", "ren-linje", "krop", "niveau2-3"] },
+
+  { key: "banan", vocabularyIds: ["99547281-5769-4987-82ec-6388692b6cc7"], tags: ["illustration", "ren-linje", "mad", "niveau2-3"] },
+  { key: "dadler", vocabularyIds: ["d336f5d1-17b3-4726-ab07-66db68492ae6"], tags: ["illustration", "ren-linje", "mad", "niveau2-3"] },
+  { key: "honning", vocabularyIds: ["4b4bd2c0-5b6a-4b40-b85f-bf6d1b0bfee0"], tags: ["illustration", "ren-linje", "mad", "niveau2-3"] },
+
+  { key: "bjerg", vocabularyIds: ["491570fa-5974-4ba4-bad4-7b0803fc2a45"], tags: ["illustration", "ren-linje", "natur", "niveau2-3"] },
+  { key: "flod", vocabularyIds: ["e5822102-9bac-47e5-a46e-923e2a992b56"], tags: ["illustration", "ren-linje", "natur", "niveau2-3"] },
+  { key: "hav", vocabularyIds: ["bf680b0b-d472-4e41-8676-dbfb8884911b"], tags: ["illustration", "ren-linje", "natur", "niveau2-3"] },
+  { key: "trae", vocabularyIds: ["b9e32f8b-1ffb-4224-9e19-62ac9f352c4b"], tags: ["illustration", "ren-linje", "natur", "niveau2-3"] },
+
+  { key: "seks", vocabularyIds: ["c43c245c-b854-4657-9e7c-f97494804f6f"], tags: ["illustration", "ren-linje", "tal", "niveau2-3"] },
+  { key: "syv", vocabularyIds: ["1830d7a0-b0d3-4395-99e7-2761f88e13df"], tags: ["illustration", "ren-linje", "tal", "niveau2-3"] },
+  { key: "otte", vocabularyIds: ["ec943f58-737c-4b62-a36a-6aa2fc091596"], tags: ["illustration", "ren-linje", "tal", "niveau2-3"] },
+  { key: "ni", vocabularyIds: ["6d178174-e404-477a-b17d-755a8e3e192e"], tags: ["illustration", "ren-linje", "tal", "niveau2-3"] },
+  { key: "ti", vocabularyIds: ["0266ed78-c9de-4395-ab2d-3f1fbd33002b"], tags: ["illustration", "ren-linje", "tal", "niveau2-3"] },
+  { key: "nul", vocabularyIds: ["620a3b83-3f2a-432e-8626-5e28c74d0b3a"], tags: ["illustration", "ren-linje", "tal", "niveau2-3"] },
+  { key: "foerst", vocabularyIds: ["0f5c6aad-a151-4051-a01f-31a74e1fd550"], tags: ["illustration", "ren-linje", "tal", "niveau2-3"] },
+  { key: "anden", vocabularyIds: ["664860ab-4191-4ce4-9846-69d5de0cc32b"], tags: ["illustration", "ren-linje", "tal", "niveau2-3"] },
 ];
 
 /** Samme service-role-tjek som generate-audio (env-match, JWT-claim-fallback). */
