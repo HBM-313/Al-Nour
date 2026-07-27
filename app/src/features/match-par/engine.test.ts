@@ -305,6 +305,57 @@ describe("pickRoundWords — mid/teen (ingen tema-kategori-logik)", () => {
   });
 });
 
+describe("pickRoundWords — REGRESSION: dialektord med samme danske oversættelse (session 29, ejer-rapport)", () => {
+  it("vælger aldrig to ord med samme word_da i samme runde", () => {
+    // Virkeligt scenarie fra live-data: 'far' findes som to arabiske
+    // dialektord (أَب/بَابَا), begge word_da='far'. Uden dedup kunne begge
+    // ende i samme runde — barnet kan ikke visuelt skelne de to "Far"-kort,
+    // og et betydningsmæssigt korrekt valg blev vist som forkert.
+    const far1 = makeWord({ category: "familie", word_da: "far", word_ar: "أَب" });
+    const far2 = makeWord({ category: "familie", word_da: "far", word_ar: "بَابَا" });
+    const mor1 = makeWord({ category: "familie", word_da: "mor", word_ar: "أُمّ" });
+    const mor2 = makeWord({ category: "familie", word_da: "mor", word_ar: "مَامَا" });
+    const soester = makeWord({ category: "familie", word_da: "søster" });
+    const bror = makeWord({ category: "familie", word_da: "bror" });
+    const vocabulary = [far1, far2, mor1, mor2, soester, bror];
+
+    // Kør mange gange — tilfældig sampling må ALDRIG smutte to ens word_da igennem.
+    for (let i = 0; i < 50; i++) {
+      const result = pickRoundWords("mid", vocabulary, "familie", 6);
+      const daValues = result.words.map((w) => w.word_da);
+      expect(new Set(daValues).size).toBe(daValues.length);
+    }
+  });
+
+  it("skifter tilfældigt mellem dialektvarianterne over flere runder (ingen udelukkes permanent)", () => {
+    const far1 = makeWord({ category: "familie", word_da: "far", word_ar: "أَب" });
+    const far2 = makeWord({ category: "familie", word_da: "far", word_ar: "بَابَا" });
+    const vocabulary = [far1, far2];
+
+    const seenIds = new Set<string>();
+    for (let i = 0; i < 40; i++) {
+      const result = pickRoundWords("mid", vocabulary, "familie", 6);
+      expect(result.words).toHaveLength(1); // kun ÉN af de to "far"-varianter
+      seenIds.add(result.words[0].id);
+    }
+    // Over 40 forsøg bør begge varianter være vist mindst én gang hver.
+    expect(seenIds.size).toBe(2);
+  });
+
+  it("dedup gælder også når puljen falder tilbage til hele vokabularet (ingen tvunget kategori)", () => {
+    const far1 = makeWord({ category: "familie", word_da: "far", word_ar: "أَب" });
+    const far2 = makeWord({ category: "familie", word_da: "far", word_ar: "بَابَا" });
+    const dyr = wordsIn("dyr", 4);
+    const vocabulary = [far1, far2, ...dyr];
+
+    for (let i = 0; i < 30; i++) {
+      const result = pickRoundWords("teen", vocabulary, undefined, 6);
+      const daValues = result.words.map((w) => w.word_da);
+      expect(new Set(daValues).size).toBe(daValues.length);
+    }
+  });
+});
+
 describe("pickRoundWords — antal ord", () => {
   it("bruger skindets standard-par-antal når pairsOverride udelades", () => {
     const vocabulary = wordsIn("dyr", 10);

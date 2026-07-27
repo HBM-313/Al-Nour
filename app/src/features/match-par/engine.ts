@@ -99,6 +99,29 @@ function sample<T>(arr: readonly T[], n: number): T[] {
   return shuffle(arr).slice(0, n);
 }
 
+/**
+ * Fjern ord der deler samme danske oversættelse, FØR runden sammensættes.
+ *
+ * BUG (rapporteret af ejeren, session 29): flere arabiske dialektord deler
+ * bevidst samme danske oversættelse (fx "far" = أَب og بَابَا, "kat" = tre
+ * ord). Endte to af dem i samme runde, så barnet to identiske danske kort
+ * ("Far", "Far") det ikke kan skelne — men isMatch() kræver samme wordId,
+ * så barnet kunne vælge et fuldt logisk, betydningsmæssigt RIGTIGT par og
+ * få det vist som forkert, fordi det ramte den forkerte af de to arabiske
+ * kort. Løsning: højst ét ord pr. unikt dansk ord pr. runde. Hvilken af
+ * dialektvarianterne der vises skiftes tilfældigt fra runde til runde
+ * (ingen af dem udelukkes permanent).
+ */
+function dedupeByWordDa(words: readonly VocabularyWord[]): VocabularyWord[] {
+  const byDa = new Map<string, VocabularyWord[]>();
+  for (const w of words) {
+    const list = byDa.get(w.word_da) ?? [];
+    list.push(w);
+    byDa.set(w.word_da, list);
+  }
+  return [...byDa.values()].map((list) => list[Math.floor(Math.random() * list.length)]);
+}
+
 // ----------------------------------------------------------------------------
 // Ord-udvælgelse pr. aldersskind
 // ----------------------------------------------------------------------------
@@ -192,6 +215,11 @@ export function pickRoundWords(
       chosenCategory = name;
     }
   }
+
+  // Aldrig to ord med samme danske oversættelse i samme runde (se
+  // dedupeByWordDa) — anvendes UANSET om puljen kom fra en tvunget
+  // kategori, soft-skinnets tema-valg, eller hele vokabularet.
+  pool = dedupeByWordDa(pool);
 
   // Færre ord end ønsket (fx smal kategori) → mindre runde frem for fejl.
   const words = sample(pool, Math.min(wanted, pool.length));
